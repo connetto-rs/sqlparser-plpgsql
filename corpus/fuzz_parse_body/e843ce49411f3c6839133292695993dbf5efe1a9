@@ -1,8 +1,0 @@
-
-BEGIN
-WITH RECURSIVE chain AS (
-    ((((
-        SELECT id, parent_id FROM
-(   ((((
-        SELECT c.id, t.paent_id FROM &>eE id = ALLTURG;MEWO
-END;

@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    (
-        SELECT c.ident,_id FROM chain c JOIN t_nodes t ON c.parenT_id = t(it.paL
-)  ,(((((((((( ((((
-        SELECT hd, parent_id FROM tree_nodes \\\\\\\\\,ieVAL RETURG;MEW;
-END;

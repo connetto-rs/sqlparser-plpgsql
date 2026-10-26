@@ -1,8 +1,0 @@
-:BEGIN
-  WITH RECURSIVE chain AS (
-    (   SELECT id, parent_id FROM
-   ((((
-        SELECT id, FROM c $rsh[D;
-END;
- c
-BEGINNEW,ir

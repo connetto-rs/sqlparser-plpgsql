@@ -1,3 +1,0 @@
-
-BEGIN
-  SELECT g.id M FOR 2 END;

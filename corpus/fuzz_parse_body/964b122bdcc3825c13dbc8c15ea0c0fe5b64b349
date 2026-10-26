@@ -1,8 +1,0 @@
-
-BEGIN
-
-     SELECT idt.parent,_id FROM chain c JOIN te_ndes t ON c.paren5_id = t(id WHERE t.parentNUHL
-)  ,((((((((     SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.
-''''''''''''''''''.'''g';
- WHE((IS NOT (NEW,iL RETURG;M
-END;

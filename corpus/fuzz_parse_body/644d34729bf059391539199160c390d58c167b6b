@@ -1,7 +1,0 @@
-
-BEGIN
-    WITH RECURSIVE child_groups AS (
-        SELECT id Frhips   WHERE u AND group_id IN (SELECT il FROM childroup_mems
-    WHERE user      AND group_id IN (SELECT   IF (E    (N_membership
-    WHERE user      A @n  (    @   G Sd
-END;

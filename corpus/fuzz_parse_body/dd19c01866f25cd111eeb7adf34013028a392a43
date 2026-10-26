@@ -1,8 +1,0 @@
- 
-BEGIN
-   SELECT 
-*parEOt_id,
-*pamSzd,t_id,
-*p
-_t
-END;

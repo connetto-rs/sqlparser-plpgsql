@@ -1,8 +1,0 @@
- 
-BEGIN 
-    INSERT INTO pON ALL
-        SELECT cid = NEW.id
-        UNION ALL
-        SELECT c.id, tB.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
-)  ,((((((((((((      SELECT ihhhhhhhhhhhhhhhhhh/NEtth->>hhhhhh/NEtth->>hhh->>hhhhhh/NEtthh>>hhhhhh/NEtth->>hhhhhh/NEtthhhhhhhhhhhhhhhhhhhhhhhhh/NEtth->>hhhhhh/NEtth->>hhh->>hhhhhh/NE>>hhhhh->>hhhhhh/N/NEtth->>hhhhhh/NEtthhhhhhhhhhhhhhhhhhhhhhhhh/NEtth->>hhhhhh/NEtth->>hhh->>hhhhhh/NE>>hhhhhh/NEtth->>hhhhhh/NEtthhhhhhhhhhhhhhhhhhhhhhhhh/NEtth->>hhhhhh/NEtth->>hhh->>hhhhhh/NEtthh>>hhhhhh/NEtth->>hhhhhh/NEtthhhhhhhhhhhhhhhhhhhhhhhhh/NEtth->>hhhhhh/NEtth->>hhh->>hhhhhh/NE>>hhhhhh/NEtth->>hhhhhh/NEtthhhhhhhhhhhhohhhhhhhhhhhh/NEtth->>hhhhhh/NEtth->>hhh->>hhhhhh/NEttt
-END``

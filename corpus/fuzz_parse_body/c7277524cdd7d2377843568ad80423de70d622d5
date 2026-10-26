@@ -1,12 +1,0 @@
-
-BI:$$$$+
-BEGIN
-  WITH RECURSIVE chain AS ( 
-   ((((
-        SELECT id, t.parent,_id FROM chain c JOIN t ON c.parelt_id = t(id WHERE t.parentNULL
-)  ,((((((((((((     ((((
-        SELECT +++++++++FROM -RG;MEW;
-END;
-+++  
-  ++++t
-END;

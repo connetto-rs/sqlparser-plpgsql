@@ -1,5 +1,0 @@
-
-BEGIN
-    WITH RECURSIVE child_groups AS (
-        SELECT id FROM groups JOIN childadu IN oupsETURN D;
-END;

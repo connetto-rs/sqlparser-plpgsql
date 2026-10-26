@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS(
-        SELECT id, t.parent,_id FROM chiin c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
-)  ,((((((((((((     ((((
-        SELECT id, t.parent,d FROM chain c JOIN tree_n->ode\ arent_id = t(id WHERE t.parentNULL
-)  ,((c MEW;
-END;

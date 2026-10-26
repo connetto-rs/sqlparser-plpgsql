@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-SELECT id, parent_idarent,_id FROM chin  ,(((
-        SELECT id,des WHERE id = NEW.id
-  (  ) LECT id, ;
-END;

@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURShIiaVn AS (
-    ((((
-        SELECT id,_no     UNION ALL
-        SELECT c.id, t.parent,_id FROM chain c,((((((((((((      SELECT E.B=partree_nodes WHERE id = NEW_id = (((((((((      SELECT E.B=par RETURG;MEW;
-END;

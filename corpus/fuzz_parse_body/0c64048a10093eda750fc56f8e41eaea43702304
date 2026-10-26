@@ -1,6 +1,0 @@
-NNI
-	SERT
-BEGIN
-	INSERT V(SELECT id FROM
-(   (((( VALUE  (( 
-END;

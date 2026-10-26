@@ -1,5 +1,0 @@
- 
-BEGIN 
-    INSERT ID       r(paent_id, chid_id)
-    VALUES (NEW.parent_ipr_id) 
-    ON CONFLICTparent_id, ch NEEND;

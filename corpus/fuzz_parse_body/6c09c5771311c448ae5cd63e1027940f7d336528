@@ -1,6 +1,0 @@
- 
-BEGIN
- SELECT 
- d,
-  *pamela
-END;

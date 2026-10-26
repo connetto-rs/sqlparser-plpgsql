@@ -1,4 +1,0 @@
-
-BEGIN
-  SELECT d~=_D;
-END;

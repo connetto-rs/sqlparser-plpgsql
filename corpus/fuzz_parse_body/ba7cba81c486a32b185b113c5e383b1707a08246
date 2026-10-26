@@ -1,9 +1,0 @@
-
-
-RE
-X;
-BEGIN
-    id :=I(new_i6~d, NEW.id, 'created=5');
-    RETURN NEW;
-END;5
- RAS

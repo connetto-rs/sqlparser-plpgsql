@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    (((      SELECT id, parent^id FROM
-    ((((
-   SELECT idrent_id FROM t(rin AS renCCCCCCCO
-END;

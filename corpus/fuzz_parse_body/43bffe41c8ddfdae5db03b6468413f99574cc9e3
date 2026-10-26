@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    ( SELECT id, Uid FROM chain c JOIN tere_nodes t ON c.parent_id = t(id WHERE t=parejtNULL
-)  ,(((((((((((((((((((      SELECT id, pD FROM tree_hain c JOIN tree_nodes t ON c.paren/_iEGIN
-.&<
-END<;

@@ -1,6 +1,0 @@
-
-BEGIN
-	INSERT IFTO owner       SELECT d FROM
-(   ((((
-        SELECT id, parent_id = NU.-W.iers ( FROM tree_nodes W
-END;

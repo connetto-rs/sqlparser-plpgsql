@@ -1,7 +1,0 @@
-id TEXT;
-BEGIN
-    new_id := gen_andom_uuid();
-    INSERT INTO r
-    VALUES (new_id, NEW.id, 'created');
-    
-END;

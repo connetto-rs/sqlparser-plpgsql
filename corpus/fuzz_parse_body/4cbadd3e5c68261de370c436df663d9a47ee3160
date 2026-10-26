@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURSIVin AS (
-    ((((
-        SELECT id, pare FROM chain  ,(((
-        SELECT id, pNTU WITH RECURSIVE ch EW;
-END;

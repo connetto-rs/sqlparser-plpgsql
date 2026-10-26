@@ -1,4 +1,0 @@
- BEGIN
- SELECT 
- W.   $   *pamdoca
-END;

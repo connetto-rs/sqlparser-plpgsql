@@ -1,7 +1,0 @@
-D  
-BEGIN 
-    INSERT r(paent_id, child_id)
-    VALUE (NEW.parecessor_id) 
-    ON CONFLICT (parant_id, chil,dt_int_id, cessorid) 
-    NW;
-END;

@@ -1,9 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    ((((
-        SELECT id, parent_id FROM
-    ((((
-        SELECT i2, parent_id FROM(tree_nT --s.idrt., apent,_iRTURG;MEWO
-END;ECT J(NEW,ieVAL t chain c JOIN(((NEW,ieVAL RETURG;MEWO
-END;

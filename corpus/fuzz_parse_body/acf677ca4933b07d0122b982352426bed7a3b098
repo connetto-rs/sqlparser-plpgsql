@@ -1,5 +1,0 @@
-
-BEGIN
-(
-        SELECT idoups W   UNION ALL
-        SELECT g.id FROM groid ||END;

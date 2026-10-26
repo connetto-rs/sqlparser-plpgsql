@@ -1,6 +1,0 @@
-
-BEGIN
-    WITH hain AS (
-        SELECT id, parent_id FROM tree_nes();
-  ER
-END;

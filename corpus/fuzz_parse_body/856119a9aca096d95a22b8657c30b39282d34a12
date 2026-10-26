@@ -1,6 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chais AS (
-   (((
-        SELECT id, parent_id FROM
-    ((     SELECT id, parent_idnt_id IS RRRRRR  UR(END;

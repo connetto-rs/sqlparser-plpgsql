@@ -1,7 +1,0 @@
-
-BEGIN
-
-   SELECT id, parent_id FROM
-   ((((
-        SELECT ient,_id FROM n_it = MEWO
-END;

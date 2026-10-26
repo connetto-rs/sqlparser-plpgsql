@@ -1,6 +1,0 @@
-
-BEGIN
-        SELECT  +NOT&NULL;
-
-        SELECT  +NOT H&& d&;
-END;

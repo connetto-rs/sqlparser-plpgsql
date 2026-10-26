@@ -1,5 +1,0 @@
-
-BEGIN
- SELECT id,soe WHERE id = NE      UNION ALL
-   SELECT cb WITH TU ENNEW;
-END;

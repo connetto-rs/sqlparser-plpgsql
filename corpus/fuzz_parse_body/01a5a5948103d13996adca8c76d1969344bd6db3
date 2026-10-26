@@ -1,3 +1,0 @@
-
-BEGIN   SELECT  id FROM gcips g(roup_IE, w_idTURN_id, id) END R;
-ET

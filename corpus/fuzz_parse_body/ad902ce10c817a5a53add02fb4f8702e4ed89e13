@@ -1,5 +1,0 @@
-
-BEGIN
- SELECT ioe WHERE id = NE      UNION ALL
-   SELECT cb WITH TU ENNEW;
-END;

@@ -1,21 +1,0 @@
- 
-BEGI$mo   SEmE;et_mo   SELECT 
-       pam.name,
-    am.id,
-          SERT INTO procedure_tomplate_ase,
-        NEWlate_ase,
-               pamE;et_mo   SELECT 
-       pam.name,
-    am.id,
-          SERT INTO procedure_tomplate_ase,
-        NEparent_id,
-        pamE;NW0N 
-ENW0N
-ENDNTO prpamE;et_mo   SELECT 
-       pam.name,
-    am.id,
-          SERT INTO procedure_tomplate_ase,
-        NEW.parent_id,
-        pamE;NW0
-ENW0N
-END;

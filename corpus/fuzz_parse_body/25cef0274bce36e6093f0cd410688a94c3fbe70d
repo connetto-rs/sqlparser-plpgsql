@@ -1,8 +1,0 @@
-
-BEGIN
-    WITH RECURSIVE child_groups AS (
-        SELECT id FROMgroup_membesrhips
-    WHERE user_id = OLD%us_id IN (SELECT il FROMships
-    WHERE user      AND group_id IN (SELECT   IF (E    (NEW AND group_id IN (SELECT il FRp_memberships
-    WHERE user      AND group_id IN (SELECT   IF (E    (NEW (     T                           WLD;
-END;

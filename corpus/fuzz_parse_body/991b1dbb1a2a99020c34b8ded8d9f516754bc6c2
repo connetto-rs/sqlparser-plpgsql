@@ -1,6 +1,0 @@
-
-BEGIN   SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(i
-)  ,((((((((((((      SELECT id, pareft_id FROM2tree_nodes WHERE id = NEW.id
-        UNION ALL
-        SELECT cit.d .,par (NEW,ieVAL RETURG;MEW;
-END;

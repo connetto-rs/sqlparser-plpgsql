@@ -1,4 +1,0 @@
-
-BEGIN
-        SELECT id, Uid FROM chain c JOIN t ON c.parent_id = t(id WHERE t.pa)  ,(((( c JOIN trtNULL
-)  END;

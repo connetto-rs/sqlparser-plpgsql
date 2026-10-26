@@ -1,5 +1,0 @@
-
-BEGIN
-SELECT nd, parent_i    UNION ALL
-        SELECT c.id, tparent_id FROM mEGG&-Mt_ NEW;
-END;

@@ -1,8 +1,0 @@
-
-BEGIN
-    WITH RECURSIVE n AS (
-        SELECT id, rent+id IS NOT NULL
- hain WHERE parett_id IS NOT NULL;
-
-RG;NEW;
-END;

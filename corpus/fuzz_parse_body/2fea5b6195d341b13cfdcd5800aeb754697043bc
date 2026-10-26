@@ -1,7 +1,0 @@
-B<<4
-BEGIN
-    WITH RECURSIVE chain AS (
-        SELECT id, parent_id FROM tpee_d
- UNION ALL
-        SELECT  id,pra ent_id FROM tpee_n  UNION ALLmhain << WH<
-END;

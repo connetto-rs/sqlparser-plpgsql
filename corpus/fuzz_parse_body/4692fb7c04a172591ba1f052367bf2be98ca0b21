@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (  ((((
-        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON ct_idt(id WHERE t.parentNULL
-)  ,((((((((((((     ((((
-        SELECT iparenog_rtup_idSERT INTO (g))))))))d;
-END;

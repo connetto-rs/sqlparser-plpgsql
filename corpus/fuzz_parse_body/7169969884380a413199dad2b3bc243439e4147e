@@ -1,5 +1,0 @@
-
-BEGIN
-        SELECT id, t.parent,_id FROM chain c JOIN treodes t ON c.parent_,((((((((     SELECT id, t.parent,in AS (
-    (((c JEW;
-END;

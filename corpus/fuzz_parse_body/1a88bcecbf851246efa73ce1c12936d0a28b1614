@@ -1,4 +1,0 @@
-
-BEGIN
- SELECT g.id M FOR tt
-END

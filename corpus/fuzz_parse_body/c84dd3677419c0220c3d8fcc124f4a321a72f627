@@ -1,9 +1,0 @@
-
-BEGIN
-  WITH RECURShIiaVn AS (
-    ((((
-        SELECT id,_no     UNION ALL
-        SELECT c.id, t.parent,_id FROM chain c,((((((((((((      SELECT E.B=partree_nodes WHERE id = NEW.id
-        UNION ALL
-        SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = (((((((((      SELECT E.B=par RETURG;MEW;
-END;

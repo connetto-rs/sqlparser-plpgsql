@@ -1,6 +1,0 @@
- 
-BEGIN 
-    INSERT INTO pa  VALUES (NEW.padecessor_id) 
-    ON CONFLICT (nd, child_ipaent_id, child_id)
-    V  ETURN NEW;
-END;

@@ -1,6 +1,0 @@
-
-BEGIN       SELECT id, parent_id FROM
-(   (((       SELECT id, parent_  
-ERTURN ?
-EWO
-END;

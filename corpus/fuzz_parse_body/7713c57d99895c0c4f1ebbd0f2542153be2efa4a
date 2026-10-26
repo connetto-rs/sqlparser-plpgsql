@@ -1,7 +1,0 @@
-
-BEGIN
-    /*/ ou */
-    RETURN ?--URN ?--AC0CC?|tttt?|tttt|t1?|ttt :=C0CCC   ::CN
-   ::ECACCCCCN
-   ::ECC;
-END;

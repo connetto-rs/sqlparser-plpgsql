@@ -1,7 +1,0 @@
-
-BEGIN
-    WITH Rparent_groups AS (
-        SELECT pNEW.grt_group_id FROM grps g JOIN p, user_id)
-    SELECT id, NEW.user_id FROM parentd, uW.group_id
-        UNI  RETURN NEW;
-END;

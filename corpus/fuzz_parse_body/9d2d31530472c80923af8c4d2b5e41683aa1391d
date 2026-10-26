@@ -1,9 +1,0 @@
-
-BEGIN
- 
-    ((((
-        SELECT id, paid FROM
-(   ((((
- WITH RECUR((
-   WITHCUMEWO
-END;

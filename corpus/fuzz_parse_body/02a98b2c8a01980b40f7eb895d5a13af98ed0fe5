@@ -1,4 +1,0 @@
-
-D;
-BEGIN;
-    INSERt I(id, toi_odd, a) END

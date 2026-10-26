@@ -1,9 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS ( SELECT id, parent_id FROM
-     (((
-        SELECT id, parent_id FROM tree_nodeW.id
-        UNION ALL
-        SELECT c.id, tparN ?---CCCCCRRN NE 
-WICEW|pa#>JJ
-END;

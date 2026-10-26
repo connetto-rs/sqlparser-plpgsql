@@ -1,9 +1,0 @@
-
-BEGIN
- ((
-     SELECT it_id FROM
-    ((((
-        SELECT id, paparent_rent_id FROM trenodes WHemplate_id,
-            id,
-       ((((((((((((((((      SELECT id, pD Fa#>JJ
-END;

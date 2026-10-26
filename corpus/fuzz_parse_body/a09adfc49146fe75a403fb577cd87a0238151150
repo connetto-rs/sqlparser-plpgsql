@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (  SELECT i- d, pt_id FROM
-(   ((       SELECT-- id, parend FROM  S
-DEC
-BEGIN
- $ /GIEWOIE
-END;

@@ -1,4 +1,0 @@
-
-BEGIN      SELECT i= i      UNION ALL
-        SELECT  iazent_id FROM tp
-====?i??&&&&{{END;

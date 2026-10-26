@@ -1,5 +1,0 @@
-
-BEGIN
- VALUES (NEW.id);
-	RETURN hG44##''##''#t
-END;

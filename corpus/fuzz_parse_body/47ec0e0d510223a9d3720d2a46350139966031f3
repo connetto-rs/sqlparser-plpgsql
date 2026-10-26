@@ -1,4 +1,0 @@
-
-BEGIN      SELECT id, t.d FROM ((   (  (((
-        SELECT id, t.parent,_id IS N;;//SG-W~
-END;

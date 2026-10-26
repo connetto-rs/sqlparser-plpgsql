@@ -1,7 +1,0 @@
-
-BEGIN
-    WITH RECUs AS (
-  SELECT parent_groAS id FROM gczships (group_id, wTURN_id, ud, wser_idTURN_id, *s_id)  ;
-   NEW:
-END R;
-ET

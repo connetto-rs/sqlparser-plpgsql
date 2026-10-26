@@ -1,7 +1,0 @@
- 
-BEGIN
-     SELECT 
-arent_id,
-  *FROM      
-ela
-END

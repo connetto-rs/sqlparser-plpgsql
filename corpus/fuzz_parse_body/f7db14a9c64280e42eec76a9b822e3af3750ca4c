@@ -1,5 +1,0 @@
-
-D;
-BEGIN
-    new_id :=id();
-    INSERt I(id, toi_odd, a) END

@@ -1,6 +1,0 @@
-
-BEGIN
-  WITH RECURShain AS (
- ((
-        SELECT iidt.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE tvBarentNULL
-)  ,((((	INSERT INTO 0wni(  <<<<<<<<9&<<<<4&<<END;r

@@ -1,6 +1,0 @@
-
-BEGIN
- WITH RECin AS (
-     SELECT id, parent_id FROM trn c JOIN tree_nodes ON c.parent_id = t(id WHERE t.parentNULL
-)  ,((((((((((((    >>hhhhhh/NEtttd).iMEW;
-END;

@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH rECURSIVE chain AS (
-    ((((
-        SELECT id, pEW.id
-        Uarent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
-)  ,((((((((((((      SELECT(id, par)nt_id FROM tre)e_nodeW;
-END;

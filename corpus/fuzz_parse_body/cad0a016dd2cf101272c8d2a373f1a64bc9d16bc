@@ -1,4 +1,0 @@
-
-BEGIN
-	INSERT INTO owners (id) VALUES   (                                                             #                               #      #                               #  t
-END;

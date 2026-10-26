@@ -1,7 +1,0 @@
-
-BEGIN
-  (
-        SELECT id, parentOid FROM
-  (  (((
-        SELECT id, parent_id FRa#>JJ
-ENd;

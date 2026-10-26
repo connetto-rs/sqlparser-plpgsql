@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    (((
-(        SELECT id, t.parent,_id FROM chain  ,((((((((((((   (  (((
-        SELECT id, t.parent,_id FROM chain c JOIN((&>I     SELECT iTURG;MEW;
-END;

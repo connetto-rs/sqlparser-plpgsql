@@ -1,14 +1,0 @@
-=========
-BEGIN
-  WITH RECURSIVE chn AS (
-    ((((
-        SELECT id, par.id, t.parent,_id FROM clain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
-)  ,((((((((((((      SELECT--ter
- TOp
-@
-BEG-IN
-    INSERT INTnode_id, anc
-   """"@@@
-""@@@@@er~-N
--"@"@@R@;
-E/TI*   END;

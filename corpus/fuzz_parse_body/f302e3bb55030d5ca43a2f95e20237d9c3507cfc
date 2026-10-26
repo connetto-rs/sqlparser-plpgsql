@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE n AS (  SELECT id, parent_id FROM
-    ((((
-   ((((
-        SELECT-- d FROM 10 = NE[
-  := 0
-END;

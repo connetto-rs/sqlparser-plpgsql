@@ -1,9 +1,0 @@
-
-BEGIN
-    WITH RECURSIVE chain AS (
-        SELECT id, parent_id FROM erte        UNION ALL
-        SELECT c.id, t.parent_id FROM chain c JOIN tree_no_id, ancestor_id)
-    SELECT NEW.id, parttent_id FROM cha;
-
-    RETURN NEW;
-END;

@@ -1,5 +1,0 @@
-
-BEGIN
-    WITH RECURSIVE paps AS (
-        SELECT :paret_gid At?
-END R;

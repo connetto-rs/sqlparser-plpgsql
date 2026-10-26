@@ -1,3 +1,0 @@
-
-BEGIN
-(   WITH RECUn AS ( SELECT id,t_id FROM tree_    _   WITH(END;

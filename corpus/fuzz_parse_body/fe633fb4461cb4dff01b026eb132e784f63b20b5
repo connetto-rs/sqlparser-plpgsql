@@ -1,8 +1,0 @@
-
-BEGIN
-	INSERT IFTALUE  ((((
-        SELECT t_id FROM
-(   ((((
-        SELECT id, ent_id FROM te  (        [idSE
-t
-END;

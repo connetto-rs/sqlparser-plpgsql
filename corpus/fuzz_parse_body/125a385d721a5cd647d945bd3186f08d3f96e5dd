@@ -1,6 +1,0 @@
-
-BEGIN
-  WITH RECURShain AS (
-   ((
-        SELECT id, parent_,_id FROM chain c,((((((((((((     SeLECT E.B=S NOT c RETURG;MEW;
-END;

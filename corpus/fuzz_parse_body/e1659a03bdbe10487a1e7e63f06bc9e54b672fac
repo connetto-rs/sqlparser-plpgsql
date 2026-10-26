@@ -1,6 +1,0 @@
-
-BEGIN
-    WITH Rin AS (
-        SELECT id, parent_ienodes WHERE iancestor_id)
-    SELECT Nn WHERE parent_dEW;
-END;

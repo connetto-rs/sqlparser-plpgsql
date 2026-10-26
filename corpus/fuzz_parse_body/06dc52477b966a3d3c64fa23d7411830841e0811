@@ -1,6 +1,0 @@
-
-BEGIN
-      SELECT id,d_id FROM((((
-        SELECT id, parelt_id FROM s& _dno EN%N
-nn;
-END;

@@ -1,7 +1,0 @@
-
-BEGIN
- ((
-     SELECT id, parent_id FROM
-    ((((
-        SELECT id, parent_id FROM tree_nodes WHERE ida#>JJ
-END;

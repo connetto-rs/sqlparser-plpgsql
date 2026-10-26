@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH RECn AS (
-  ((((
-        SELECT i,_id FROM chain c JOIN tree_nodedes t ON c.parent_id = t(id WHERE t.parenntNULL
-)  ,(((((((((((( 
-  WITH RECURSIVE+ dFROM tree_NEW.URG;MEW;
-END;

@@ -1,6 +1,0 @@
-
-BEGIN
-  WITH Rhain AS (
-    ((((
-        SELECT id, t.pard ? t(<->WH.EW;
-END;

@@ -1,9 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    ((((
-        SELECT idd FROM chain c JOIN tree_nodes d ON c.parent_id = t(id WHERE t.parentNULL
-)  ,((((((((((((     ((((    SELECT     pamSEd       *daDp
-R,
-   m/En	!= ca[7777777777777777777777777777777777777777777777777777G;T ;
-END;

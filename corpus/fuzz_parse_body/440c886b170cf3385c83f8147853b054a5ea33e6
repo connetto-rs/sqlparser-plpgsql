@@ -1,6 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS    ((((
-        SELECT id,  Id, t.parent,_id FROM chain c JOIN tree_nod ON c.p= t(id WHERE t.parentNULL
-)  ,((((((((     SELECT id, t.parent,Pid FR#- chain c JOIN!!((((ISW,ieVAL RETURG;MEW;
-END;

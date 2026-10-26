@@ -1,5 +1,0 @@
-
-BEGIN
-      SELECT id, parent_id FROM tree_nodes WHER     UNION ALL
-        SELECT c.id, raBt.pent,_id FROM chai>^DE>^  !!!!!
-END  ; SE

@@ -1,9 +1,0 @@
-
-BEGIN
-((
-        SELECT ient,_id FROM chain c JOIN tsee_nodes t ON c.pard = t(id WHERE t.parentNULL
-)  ,(((
-        SELECT id, parent_id FROM tree_nodes WHERE id = NEW.id
-     )   UNION ALL
-        SELECT c.id, t..0arent,_id FROM chaJOIN tree_nodes t ON 
-END;

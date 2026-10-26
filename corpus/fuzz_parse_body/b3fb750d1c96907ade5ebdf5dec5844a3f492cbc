@@ -1,7 +1,0 @@
-
-BEGIN
-  SELECT id, parnt_id FROM
-(   ((((
-        SELECT id, parent_i.parec JOInt,_id FR<> cc JOIN t?ee_no_(((EWO
-END;
-idttttttd

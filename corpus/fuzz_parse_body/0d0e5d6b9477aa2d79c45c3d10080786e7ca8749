@@ -1,6 +1,0 @@
-
-BEGIN
-	INSERT I ((((
-        SELECT id, d FROM  ((((
-        SELECT parent_i FROM tvvvv.&<END;
- *&

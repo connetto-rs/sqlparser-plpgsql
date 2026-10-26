@@ -1,5 +1,0 @@
-
-BEGIN
-    WITH RECURSIVE ciou AS (
-        SELECT user_id =OLD.user_#id
-      AND@up_id IN[END;

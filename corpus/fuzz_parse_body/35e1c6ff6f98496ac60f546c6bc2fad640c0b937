@@ -1,4 +1,0 @@
- 
-BEGIN SELECT p.d
- .  EW;
-END;

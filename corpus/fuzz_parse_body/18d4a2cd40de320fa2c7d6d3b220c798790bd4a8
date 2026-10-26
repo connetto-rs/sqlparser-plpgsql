@@ -1,4 +1,0 @@
-
-BEGIN
-    IF NEW.event_ty                (NEW ( ##RW;
-END;

@@ -1,4 +1,0 @@
- 
-BEGIN SELECT pam.d
- .  EW;
-END;

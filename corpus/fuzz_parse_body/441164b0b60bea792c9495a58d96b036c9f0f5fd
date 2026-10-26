@@ -1,7 +1,0 @@
-
-BEGIN
- VALUES (NEW.id);
-	RETURN$$$$+++ols (
-      name,EW.parNEW.parend        )
- 
-END;

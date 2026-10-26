@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    ((((
-        SELECT id, parenent,_id FROM chain c JOIN tsee_nodes t ON c.pard = t(id WHERE t.parentNULL
-)  ,((   INSERT INTO audit_log (actio     SELECe_nodes t ON 
-END;

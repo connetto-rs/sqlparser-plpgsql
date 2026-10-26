@@ -1,3 +1,0 @@
- 
-BEGIN
-    INSERT Ie_bks   SELECT        map.RWCD; END; ^i

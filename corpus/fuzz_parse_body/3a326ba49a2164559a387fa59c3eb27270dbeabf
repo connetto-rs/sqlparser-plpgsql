@@ -1,9 +1,0 @@
-
-BEGIN
-      SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
-)  ,((((((((((((      SELECT id, parent_id FROM tree_hain c JOIN tree_nodes t ON c.GIparent_id = t(id WHERE t.parentNULL
-)  ,in AS (
-    NEW>id
-        UNION ALL
-        Se_nodes WHERE id t.parent,_id FROM c_iin(group_idtttttt|ttt     ;W;
-END;

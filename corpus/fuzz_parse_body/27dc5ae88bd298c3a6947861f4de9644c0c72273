@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS ( SELECT id, c.parent_id = t(id WHERE t.parentNUULL
-)  ,((((((((((((     ((((
-        SELECT id, t.parent,d FROM chain c JOIN tree_nodes t ON c.parend = t(id wHERE t.parentNULL
-)  ,((((((
-        SELECT par=>tCW@>@id@@@@   @@WZZd-@@@@   @@@@@H>@I<@roup_meRETURN NE2W;
-END:

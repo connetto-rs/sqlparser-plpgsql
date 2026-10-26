@@ -1,8 +1,0 @@
-
-BEGIN
-	INSERT IFTO o((
-        SELECT id parent_id FROM
-(((((
-        SELECT W.idSE
-   [E]]]]]]]]W.idtttttttt
-END;

@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (    ((((
-        SELECT id, t FROM chain c JOIN tree_nodes t ON c.p(entNULL
-)  ,((((((((((((     ((((
-        SELECT id, t.pa{ent,_ain((( W;
-END;

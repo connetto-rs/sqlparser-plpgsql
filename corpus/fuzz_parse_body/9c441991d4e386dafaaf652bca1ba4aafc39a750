@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    ((((
-   SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodedes t ON c.t_id = t(id WHERE t.parentNULL
-)  ,(((((((((((( 
-  WITH RE!~~C_id FROM tree_nodesWHERE      SELECT NEW.URG;MEW;
-END;

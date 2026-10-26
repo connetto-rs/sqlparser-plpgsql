@@ -1,4 +1,0 @@
-
-BEGIN
-SELECT pari<@H@;
-END--;

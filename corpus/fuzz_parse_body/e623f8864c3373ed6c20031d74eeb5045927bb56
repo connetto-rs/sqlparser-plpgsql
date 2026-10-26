@@ -1,4 +1,0 @@
-
-BEGIN
-SELECT id FROMM group W
-END;

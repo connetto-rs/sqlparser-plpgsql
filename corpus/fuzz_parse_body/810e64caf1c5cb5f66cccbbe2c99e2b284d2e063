@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    (((      SELECT id, pent^id FROM
-    ((((
-       ((((
-        SELECT idre FROM t(rCCCCCCCO
-END;

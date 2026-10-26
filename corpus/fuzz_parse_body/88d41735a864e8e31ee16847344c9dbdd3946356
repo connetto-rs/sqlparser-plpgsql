@@ -1,9 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    ((((
-        SELECT id, ent,_id FROM chain c JOIN tree_nldes t ON c.parent_id = t(id WHERE t.parentNULL
-)  ,((((((((((((     ((((
-     	 VALUES   ; (     [EW.idSE
-::::::::::::::YYYYYYYYYYYYYYYYYYYMEW;
-END;

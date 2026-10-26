@@ -1,7 +1,0 @@
-$
-BEGIN
- WITH RECURSIVE chain AS (
-  SELECT it_id FROM
-    ((((
-        SELECT arent,_id FROM$} chMWO
-END;

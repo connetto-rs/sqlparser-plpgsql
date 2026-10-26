@@ -1,5 +1,0 @@
-
-BEGIN
-    ((((
-        SELECT id, t.parER INTO up_ment,_xid FROM chan c JOIN ree_nodes t ON c.||;
-END;

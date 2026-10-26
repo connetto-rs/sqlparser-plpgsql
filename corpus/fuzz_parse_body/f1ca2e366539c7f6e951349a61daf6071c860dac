@@ -1,5 +1,0 @@
- 
-BEGIN SELECT iid FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.pareULL
-)  ,((((((((((((      SELECT id, parent_id  .   
-   $ RETURN NEW;
-END;

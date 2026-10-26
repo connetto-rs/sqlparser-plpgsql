@@ -1,9 +1,0 @@
-
-BEGIN
- 
-        SELECT id FROMgroup_membesrhips
-    WHERE ur_id = OLD.user_id   AND group_id IN ((SELECT    ALL
-    d = OLOLuser_id
-      AND group_id IN ((SELECT    ALL
-        SELECT c.ip_id IN (SELECT  >>//*>>>(    END;
-
