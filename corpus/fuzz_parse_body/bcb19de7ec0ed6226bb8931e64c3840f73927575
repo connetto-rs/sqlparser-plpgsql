@@ -1,0 +1,5 @@
+
+BEGIN
+SELECT nd, pare%t_i    UNION ALL
+ SELECT c.id, tparent_id FROM mEGG&-;
+END;

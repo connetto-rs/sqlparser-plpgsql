@@ -1,0 +1,4 @@
+
+BEGIN
+   SELECT p~CentULS id FROM gerships  SELECT ;
+END;

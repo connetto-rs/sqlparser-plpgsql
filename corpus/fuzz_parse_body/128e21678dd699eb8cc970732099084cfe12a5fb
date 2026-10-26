@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECUn AS (
+    ((((
+        SELECT id, paren!_id 
+FROM tree_     UNION        SELECT c.B.parent,_id FROM chain c JOIN tree<->_nodes t;MEW;
+END;

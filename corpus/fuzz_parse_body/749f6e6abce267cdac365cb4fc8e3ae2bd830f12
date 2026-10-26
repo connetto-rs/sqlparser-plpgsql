@@ -1,0 +1,9 @@
+
+BEGIN
+ VALUES (NEW.id);
+	RETURN$$$$+++++++++++ (
+            name,EW.parNEW.parent_id,
+       pae,EW.paarent_id,     pam.    b
+      )
+  ++++t
+END;

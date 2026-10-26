@@ -1,0 +1,6 @@
+ 
+BEGIN
+    INSERT INTOte_mo
+          SELECT 
+  m.nam<m at C  
+END;

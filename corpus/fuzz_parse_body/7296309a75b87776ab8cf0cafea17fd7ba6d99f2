@@ -1,0 +1,28 @@
+
+BEGIN IF NEW.event_type = 'error' THEN
+           INSERT INTO audit_logSELECT  +NOT H&&SELECT    +NOT&NULL;
+
+        SELECT  +NOT H&&SELECT    +NOT&NULL;
+
+        SELECT  +NOT 
+        SELECT  +NOT H&&SELECT    +NOT&  SELECT  +NOT H&&SELECT    +NOT&NULL;
+
+        SELECT  +NOT H&&SELECT    +NOT&NULL;
+
+        SELECT  +NOT+NOT&NULL;
+
+        SELECT  +NOT 
+        SELECT  +NOT H&&SELECT    + +NOT H&&SELECT    +NOT&NULL;
+
+        SELECT  +NOT H&&SELECT    +NOT&NULL;
+
+        SELECT  +NOT+NOT&NULL;
+
+        SELECT  +NOT 
+        SELECT  +NOT H&&SELLECT  +NNOT&  SELECT  +NOT H&&SELECT    +NOT&NULL;
+
+        SELECT  +NOT H&&SELECT    +HEN
+           INSERT INTO audilog (acity) VALUES ('info_');
+   IF NEW.even?_ty 'error' THEN
+      TURN NEW;
+END;

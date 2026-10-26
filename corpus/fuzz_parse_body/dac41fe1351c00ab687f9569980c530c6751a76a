@@ -1,0 +1,10 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    (((
+(        SELECT id, t.paret,_id FROM chain c JOIN tree_nodes ,((((((((((((   (  (((
+        SELECT--d, t.parent,_id FROM ;
+E
+ FROM chain c JOIN tree_nodes ,((((((((((((   (  (((
+        SELECT--d, t.parent,_id FROM ;
+END

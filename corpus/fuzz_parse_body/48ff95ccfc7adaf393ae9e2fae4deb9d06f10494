@@ -1,0 +1,7 @@
+
+BEGIN
+
+        SELECT c.rent,_id FROM chain c JOIN trET_nodes s ON c.parent_id = t(NULL
+)  ,((((((in c JOIN trET_nodeROs ON c.parent_id = t(NULL
+)   JOIN qqqqW;
+END;

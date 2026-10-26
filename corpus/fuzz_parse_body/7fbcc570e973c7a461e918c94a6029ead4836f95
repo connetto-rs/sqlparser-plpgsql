@@ -1,0 +1,5 @@
+
+BEGIN
+ VALUES (NEW.id);
+	RETURN hhhhhhhhhQhhhh*hhhhQhhhh*hhhhhh~~mhh/hNh~~mhhh/NEhhh^hhhhhh/NEh@Ehhhhh->hhhhhh/NEtthhhh!~~hh>h!~~hh>hh*hhhhhhhhhhhhh>hhh->hhhhhh/NEtthhhhhh>hh*hhhhhh~~mhh/hNh~~mhh>hhhhhh/NEtthhhh!~~hh>hh*hhhhhhh/NEhhh^hhhh->hhhhhh/NEtthhhh!~~hh>hh*hhhhhhhhhhhhh>hhh->>hhh~~mhhh/NEhhh^hhhhQhhhh*hhhh-h>hhh->Hhhhhh/NEttt
+END;

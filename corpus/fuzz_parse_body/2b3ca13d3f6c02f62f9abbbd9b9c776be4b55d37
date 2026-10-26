@@ -1,0 +1,5 @@
+
+BEGIN
+  SELECT c.ient_id FROM(((
+    SELECT c.id, id, FROM cn c J;
+END;

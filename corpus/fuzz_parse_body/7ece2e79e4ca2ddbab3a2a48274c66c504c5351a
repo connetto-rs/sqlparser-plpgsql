@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, parent_i@Td FROM tree_no JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+) ,((((((((((((      SELECT id, pareROM tree_nodes WHERE id != NEW.i RETURG;MEW;
+END;

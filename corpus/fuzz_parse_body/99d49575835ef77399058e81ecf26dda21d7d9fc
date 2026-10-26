@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+            SELECT c.id, tB.parent,_id FROM cha    UNION ALL
+        SELECT c.id, tBent,_id FROM chain c JOIN tree_node&>t ON c.parent_id = t(ieVAL RETU]G;MEW;
+END;

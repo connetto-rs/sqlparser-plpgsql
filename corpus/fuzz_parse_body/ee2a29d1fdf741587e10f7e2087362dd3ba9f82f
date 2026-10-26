@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECUn AS (
+    ((((
+        SELECT ic.id, tB.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id ,(((((((((((""""-  ;MEW;
+END;

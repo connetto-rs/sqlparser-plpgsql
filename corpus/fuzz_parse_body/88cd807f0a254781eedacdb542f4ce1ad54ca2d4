@@ -1,0 +1,10 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, Uid FROM chain c ,((((((((((((((SELECT --id, pD FROM tree_hain c JOIN tree_nodes t ON c.parent_iEGIN
+&<|<<HERE t.pare
+)  ,(((
+END<;
+(((((      SELECT id, pD FROM tree_haBEGIN<^b- ENDe_ tren
+END<;

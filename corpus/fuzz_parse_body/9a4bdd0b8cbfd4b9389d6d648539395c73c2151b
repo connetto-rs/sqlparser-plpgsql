@@ -1,0 +1,9 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, t.parent,_id FROM chain c JOIN tree_not(ientNULL
+)  ,(((((((((((      (((((((
+        SELECT 
+ WHERE id R--MEW;
+END;

@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, t.parent,_id FROM chain c JOINtree_nt ON c  ,((((((((((((     (((<=RECURSIVE     ELETC W;
+END;N7D;

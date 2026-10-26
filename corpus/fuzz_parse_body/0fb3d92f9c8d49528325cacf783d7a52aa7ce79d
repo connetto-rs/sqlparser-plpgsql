@@ -1,0 +1,8 @@
+
+BEGiN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, t,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNuLL
+)  ,((((((((((((     ((((
+        SELECT id, t.parent,d FROM chain c JOIN tr_nodes t ON c.>Brent t(eVAL RETURG;MEW;
+END;

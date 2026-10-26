@@ -1,0 +1,5 @@
+
+BEGIN
+    WITH in AS (
+        SELECT id, parent WHE  UNION ALL
+    SELECT ct.parent_id FROM chain # arent_iee_nodEND;

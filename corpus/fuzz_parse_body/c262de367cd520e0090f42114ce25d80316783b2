@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH io AS (
+    ((((
+        SELECT iparent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((      SELECT id%ROM tree^node(((((RE_ 
+END;

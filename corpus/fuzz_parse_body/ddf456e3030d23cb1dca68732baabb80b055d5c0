@@ -1,0 +1,5 @@
+
+BEGIN
+    WITH RECURSIVE chain AS (
+        SELECT id, parenW.i[     00000018446744073709551616arent_idMN RETURN
+END;

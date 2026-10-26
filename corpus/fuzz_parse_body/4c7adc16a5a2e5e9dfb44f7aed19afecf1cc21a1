@@ -1,0 +1,9 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+        SELECT c.id, tB.parent,_id FROM chain c JOIN (((((      SELECT id--parkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+ !      UNION ALL
+      SELECT c. tB.parent,_iz FROM chain c JOIN tree_nodes t ON c.parent_id = t(e.tNULL
+)  ,((((((((((((      SELECT NULL
+)ULLL RETURG;MEW;
+END;

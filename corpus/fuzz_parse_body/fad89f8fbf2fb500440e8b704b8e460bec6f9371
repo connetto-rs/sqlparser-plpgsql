@@ -1,0 +1,4 @@
+
+BEGIN
+  SELECT c.id, t.parent,_d FROM chain c JOIN treeWnodes t ON c.parent_id = t(id WHERE t.parentNU
+)  ,((((((((((((      SELECT id, pa.tparent,_JOIN treeant_id)))) c JOIN tree_no)))ND$))R;END;

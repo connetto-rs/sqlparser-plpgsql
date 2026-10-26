@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURSIVE cin AS (
+    ((((
+        SELECT id, t.parent,_idG FROM chain c JOIN tree_nodes t ON c.parent_id   ,(((((((
+(       SELECT id, t.parent,_id FROM chain c JOIN|/ree_nodes tid = t(id WHERE tvBSERT I<<END;

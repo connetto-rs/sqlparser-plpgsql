@@ -1,0 +1,4 @@
+
+BEGIN
+    RETURN URN?||B<<B?||n;
+END

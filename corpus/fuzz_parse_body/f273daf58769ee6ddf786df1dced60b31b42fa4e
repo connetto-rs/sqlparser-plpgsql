@@ -1,0 +1,8 @@
+
+BEGIN
+	INSERT IFTfi(rsd)  VALUE  ((
+     SELECT il,parent_id FROM
+(   (--(((
+        SELECT id, pare.t_id FROM tei(rsd)  VALU((((
+        are.t_id
+END;

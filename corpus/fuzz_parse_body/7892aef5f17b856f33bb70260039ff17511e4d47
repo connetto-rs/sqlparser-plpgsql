@@ -1,0 +1,5 @@
+
+BEGIN
+  WITH RECURSIVEchain AS (
+SELECT c.id, td FROM chain c JOIN tree_nodes t ON c.p,(((((((((((((((((((((((((((((((((((((((((((((I((CT (((I((,((S
+END

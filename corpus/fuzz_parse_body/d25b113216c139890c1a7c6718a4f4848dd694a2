@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id,q pid FROM chain c JOIN tree_nodes$t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((    ((      SELECT id, parent_>>N/////////
+END;

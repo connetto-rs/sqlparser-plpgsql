@@ -1,0 +1,8 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+       SELECT id, parent_id FROM tred_nod c JOIN treenode_s t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,(((
+      SELECT c.$d,ee_n:=odes EW;
+END;

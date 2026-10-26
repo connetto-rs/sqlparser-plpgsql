@@ -1,0 +1,13 @@
+
+BI
+AEG VNLUES (NEW.id);
+TEU	RR:$$$$+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((
+        SELECT id, t.par!ent,_id +
+BEGIN
+ VALUES (NEW.iLD.grouRE parent_g-Etth->>hhh->>hhhhhh/NEttt
+END``

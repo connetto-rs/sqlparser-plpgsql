@@ -1,0 +1,12 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, tent,_id FROM chai((((
+        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE arentNULL
+)  ,((((((((((((     ((((
+        SELECT id, t.pat(id WHERE t.parentNULL
+	  ,(*(
+        SELECT id,N
+  WITH RECURSIVE chW,ieVAL RETURG;ME%W;
+1END;

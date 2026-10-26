@@ -1,0 +1,4 @@
+
+BEGIN
+         SELECT id IN ((SELECT   ALL       (   END;
+

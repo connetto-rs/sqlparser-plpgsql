@@ -1,0 +1,6 @@
+
+BEGIN
+      SELECT id,d_id FROM((((
+      SELECT parelt_id FROM s& _dno EN%N
+n
+END;

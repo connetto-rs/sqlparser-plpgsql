@@ -1,0 +1,16 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((    WITH RECURSIVE chain AS (
+        SELECT id, partNULL
+)  ,(((((((W;
+END;
+ALL
+  FR]M chain c JOances (
+    ((((
+      OM cha;
+
+S (
+        SELECT ;

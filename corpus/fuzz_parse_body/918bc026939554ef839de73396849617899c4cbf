@@ -1,0 +1,8 @@
+
+BEGIN
+IF NEW.even = 'error' THEN
+   VALUES ('error_event', 'high');
+    ELSIF NEW.evnet_typek = 'warning' THEN  INSERT IN VALUES ('unknown_even', 'unknown');
+    END IF;
+ pppppp NEW;
+END;

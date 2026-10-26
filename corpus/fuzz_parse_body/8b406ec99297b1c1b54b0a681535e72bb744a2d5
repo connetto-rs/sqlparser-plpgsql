@@ -1,0 +1,9 @@
+
+BEGIN
+ VALUES (NEW.id);
+	RETURN$$$$+++++++++++tedols (
+            name,EW.parNENEW.pare_id,
+        pam.    b
+  )
+  ++++u
+END;

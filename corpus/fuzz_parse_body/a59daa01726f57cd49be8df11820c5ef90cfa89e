@@ -1,0 +1,5 @@
+
+BEGIN  SELECT c.id, t.parent,_id FROM ch,((((((((((((      SELECT E.B=pa trde_nodes WHERE id = NEW.id
+        UNION ALL
+        SELECT c.id, t.parent,_id FROM cha+n c JOIN tre
+END;

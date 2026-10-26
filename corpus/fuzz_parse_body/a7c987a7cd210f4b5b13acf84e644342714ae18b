@@ -1,0 +1,10 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+     SELECT id, tent,_id FROM chain c JOIN(((((     ((((
+        SELECT id, t.pat(id WHERE t.parentNULL
+	  ,(*(
+        SELECT id,N
+  WITH RECURSIVE chW,ieVAL RETRG;ME%W;
+2END;

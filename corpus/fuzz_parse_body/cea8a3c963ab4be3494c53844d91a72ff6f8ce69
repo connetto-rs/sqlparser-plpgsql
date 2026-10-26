@@ -1,0 +1,8 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT ient_id FR, t.parent,_id FROM chain c JOIN t  ,(((
+        SELECT id, parent_kd FROM tree[nodesN ALL
+ URG;MEW;
+END;

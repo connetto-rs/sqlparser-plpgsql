@@ -1,0 +1,5 @@
+ 
+BEGIN
+    INsERT Iroce(
+    SELECT    pam.naEW.ild_idm
+ .  END;

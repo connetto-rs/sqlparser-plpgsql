@@ -1,0 +1,29 @@
+INTO own
+BEGIN
+    /* outer /* i rnne*/ outer */
+    RETURN NEW;
+EN
+BEGIN
+	INSERT INTO own
+BEGIN
+D    /* outfr /* inner */ outer */
+ ~~~~~~~   RETURtttttttttNSERT INTO own
+BEGIN
+    /* outer /* inner */ outer */
+    N tttttttttttttNTO own
+BEGIN
+    /* outer /* inner */ outer */
+    RETURN NEW;
+END;tttttttttttttttttttttt;	ttttttttttttttttttttt /* outer /* inner */ outer */
+    W;
+EN
+BEGIN
+	INSERT INTO  /* outer /* inner */ outer */
+/* outer /* i rnne*/ uoter */
+    RETURN NEW;
+EN
+BEGIN
+	INSERT INTO own
+BEGIN
+D    /* outfr /* inner */ outer */
+ ~~~~~~~   RETURttt

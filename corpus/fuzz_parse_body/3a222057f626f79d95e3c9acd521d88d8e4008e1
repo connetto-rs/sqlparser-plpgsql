@@ -1,0 +1,3 @@
+
+BEGIN    SELECT +NOT(N+NOT(NUL
+END;

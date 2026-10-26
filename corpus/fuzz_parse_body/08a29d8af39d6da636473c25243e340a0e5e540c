@@ -1,0 +1,3 @@
+ 
+BEGIN
+  SELECT -map ;END

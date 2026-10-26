@@ -1,0 +1,4 @@
+
+BEGIN
+        SELECT c FROM chain c JOIN tree_nodes t ON c.pared = t(id)  ,((((((((((((     SELECT id FROM tree_nid, parent_id FROM tree_nododt.MEW;
+END;

@@ -1,0 +1,6 @@
+ 
+BEGIN 
+    INSERT r
+  VALUES (NEW.ecd) 
+    ON CONFLICt (pa_id,N N;
+END;

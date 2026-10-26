@@ -1,0 +1,19 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+  SELECT id, par,    pam.name,
+        NEW.  *pad,
+    $am.asse       *pamSEd,
+    $am,
+*pad,
+    $am.asse       *pamg SEd,
+    $a%m,as.asse       *prent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,(((
+        SELECT         e,
+        LEW.  *pad,
+    $am.asse       *pamSEd,
+    $am,
+       pam.name,
+     tarent_i d,    pam.name,
+        NEW. id, p^
+END;

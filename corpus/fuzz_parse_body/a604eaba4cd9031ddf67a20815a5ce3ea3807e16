@@ -1,0 +1,13 @@
+
+BEGIN
+    WITH RECUs AS (
+        SELECT parent_group_i.groAS (
+   ir_id
+      AND srhips
+    WHERE uLD.user_id
+      AND up_i.groAS (
+   ir_id
+      AND srhips
+    WHERE user_id = OLD.user_id
+      AND grouid IN ((SELECT    ALL      END;
+

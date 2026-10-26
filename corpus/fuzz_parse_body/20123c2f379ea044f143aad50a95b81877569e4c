@@ -1,0 +1,6 @@
+
+BEGIN
+ (
+        SELECT parent_id FROM(groups g JOIN parent_gupsg.id
+  )
+    INSERT INEW;@END;

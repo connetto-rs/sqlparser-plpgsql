@@ -1,0 +1,7 @@
+J&
+BEGIN
+        SELECT id, pare.t_i0 FROMSERT INTO node_anc;
+        SELECT id, ar_iFROMSERTMSERT INTO node_anc;  SELECT id, pare.R INTO node_anc;  SELECT id, pare.RT INTO n/anc;
+END;
+END;
+]a;

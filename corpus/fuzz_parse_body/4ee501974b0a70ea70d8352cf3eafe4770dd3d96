@@ -1,0 +1,11 @@
+
+BEGIN
+ ((((((((     ((((
+        SELECT 
+        pam.name,
+        N2W.pame,
+     d,
+   t.parent,d FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((
+        SELECT id, t.parent,_i   UNION A  *pT id, t.parent,d JOIN tree_noies t ON c.paW;
+END;

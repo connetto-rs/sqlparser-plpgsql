@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+SELECT _id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.pntNULL
+)  ,(( 
+        SELECT id,d@es WHERE id = NEW.id-- (  ) LECT id, ;
+END;

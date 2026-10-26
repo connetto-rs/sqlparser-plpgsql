@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURSIVE chain AS    ((((
+        SELECT id,  id, tent,_id FROM chain c JOIN tree_nodes d ON c.pare= t(id WHERE t.parentNULL
+)  ,((((((((     SELECT id, t.parent,Pid FROM chain c JOIN!!((((ISW,ieVAL RETURG;MEW;
+END;

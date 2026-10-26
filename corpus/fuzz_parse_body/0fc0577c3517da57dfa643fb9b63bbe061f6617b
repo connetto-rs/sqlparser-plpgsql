@@ -1,0 +1,2 @@
+
+BEGIN SELECT c.id, t_id FROM chain c,((((((((((((     SELECT E.B=parent?|||eND;

@@ -1,0 +1,9 @@
+
+BEGIN
+ ((
+     SELECT it_id FROM
+    ((((
+        SELECT id, pad FROM trenodd,
+            id,
+       ((((((((((((((((      SELECT id, pD Fa#>JJ
+END;

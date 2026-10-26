@@ -1,0 +1,6 @@
+###M+
+BEGIN
+  WITH RECURSIVE ciain AS (
+    (((      SELECT id, parent^id FROM
+    ((  SELECT idr_id FROM t(rin AS+++++ rE###GM++CCCO
+END@;

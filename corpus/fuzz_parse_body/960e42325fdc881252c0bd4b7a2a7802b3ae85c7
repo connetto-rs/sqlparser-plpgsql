@@ -1,0 +1,47 @@
+
+BEGIN
+    WITH RECURSIVEre_tngroups AS (
+      ( SELECT   p_i.group_id
+    (_i. parparent_gqoup_i.groAS (
+  nt_group_i.group_id
+    (_i.group_id
+    (   t_group_i.groAS (
+  nt_gro  (   t_group_i.groAS (
+  nt_groui_i.group_id
+    (_i.group_id
+    (   U.groAS (
+up_i.group_id
+    (_ip_i.group_id
+    (_i.group_id
+    (   U.groAS (
+up_i.group_id
+    (_i.grϊp_id
+    (ENU.up_i.group_id
+    (_i.group_id
+    (   U.gid
+    (_i.group_id
+    (   U.groAS (  nt_group_i.group_id
+ ++++++++++-
++++NEW.e,$EW.pa:rNEW.parent_id,
+        pamA.   b
+        )
+  ++++   arNEW.paren(
+       namW.p.raWNEparent_id,
+        +e,EW.parNEW.paren(
+            nam+e,EW.parNEW.e,$EW.p.raWNEparent_id,
+        pamA.    b
+        )
+  ++++           nam+e,EW.parNEW.e,$EW.pa:rNEW.parent_id,
+        pamA.   b
+        )
+  ++++     pae,EW.parNEW.parent_id,
+        pam.    b
+        )
+  +NEW.id);
+	RETURN$$$$+++++++++++++++++++++-
++++ $+++++2+++++++3+++++dxre_++dxre_te-/msme_tedols (
+            nam+e,EW.parNEW.paren(
+       nam+e,EW.parNEW.paren(
+            nam+e,EW.parNEW.e,$ (_i.group(   U.groAS (
+up_i.group_d
+END;

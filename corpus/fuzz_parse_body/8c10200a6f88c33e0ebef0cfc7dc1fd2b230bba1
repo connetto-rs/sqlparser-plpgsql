@@ -1,0 +1,5 @@
+
+BEGIN
+  WITH REin AS (  SELECT id, nt_id FROM((((
+        SELECT-- id, paN+tpa;MEWO
+END;

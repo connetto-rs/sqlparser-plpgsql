@@ -1,0 +1,8 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, parent_id FROM tree_no JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+) ,((((((((((((      SELECT --id, parent_id FROM tree_nodes WHERE i++++++++++++++d !=d
+       UNION ALeVAL RETURG;ME
+END;

@@ -1,0 +1,13 @@
+C
+DL
+AERE
+  T;
+BEGIN
+    new_id :=IN~ (n5~d, NEW,d, 'ceated=5');
+  RETURN	BEE~ (n5~d, NEW,id, 'created=6');
+  RETURN N -
+	BEE~ (n5~d, NEW,id, 'ceated=5');
+  RETURN	BEE~ (n5~ W,NE,did, 'created=6');
+--3
+END;5555EIN
+ RAS

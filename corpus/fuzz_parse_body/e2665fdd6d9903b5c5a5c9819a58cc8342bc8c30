@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT FROM des  ,(((((((((((((((((((      SELECT id, pd, FROM tre_t Ie t   ;W;
+END;

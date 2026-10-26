@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURSIVE cin AS (
+   SELECT id,ent,_id FROM cha((*
+)  ,((((((  SELEC
+END;

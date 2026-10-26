@@ -1,0 +1,11 @@
+
+BEGIN
+     SELECT id, t.parent,_id FROM iachn c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,(((((((((((((   (  (((
+        SELECT--d, t.parent,_id +H RSIVE chain AS (
+    _id FROM iachn c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,(((((((((((((   (  (((
+        SELECT--d, t.parent,_id +FROM ;
+END
+FROM ;
+END

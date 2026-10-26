@@ -1,0 +1,14 @@
+ 
+BEGIN
+    INSERT INTO pro
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT idrent,_id FROM chain c JOIN tree_not ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((
+        SELECT id, t.parents (
+            nam     )
+    SELECT 
+   m.na
+END;ntNULL
+)  ,((ND;

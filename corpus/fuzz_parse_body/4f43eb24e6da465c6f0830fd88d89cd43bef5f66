@@ -1,0 +1,25 @@
+ 
+BEGIN
+    INsERT IXNTO procedure_template_asset_models (
+          b
+        )
+    SELECT 
+          
+   _id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((( INsERT IXmplate_asset_models (
+          b
+        )
+  INsERT IXNTO procedure_template_asset_models (
+          b
+        )
+    SELECT 
+          
+   _id FROM chain  t ON c.parent_id = t(((((((( INsERT IXmplate_asset_models (
+          b
+        )
+  INsERid = t(id WHERE t.parentNULL
+)  ,((((((((((( INsERT IXmplate_asset_models (
+          b
+        )
+    SEL
+   ;END;

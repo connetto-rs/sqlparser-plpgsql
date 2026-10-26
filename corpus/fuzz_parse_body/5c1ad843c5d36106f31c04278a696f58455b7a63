@@ -1,0 +1,7 @@
+ els (
+ &BEGIN
+          SELECT id,parent_ld FROM
+(   ((SELECT id,d
+     t:=;
+:=   )OT  entVAL RETURG;MEWO
+END;

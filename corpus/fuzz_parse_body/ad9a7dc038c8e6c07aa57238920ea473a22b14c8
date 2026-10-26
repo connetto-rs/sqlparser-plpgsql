@@ -1,0 +1,5 @@
+ 
+BEGIN
+  SELECT 
+   *pamSEd, *d,_tempa
+END;

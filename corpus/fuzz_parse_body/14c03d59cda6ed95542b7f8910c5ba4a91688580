@@ -1,0 +1,6 @@
+BEGIN
+    (
+     SELECT i((SELECT    ALL
+        SEgroup_id IN ((SELECT    ALL
+          END;
+

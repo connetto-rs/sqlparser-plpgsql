@@ -1,0 +1,6 @@
+
+BEGIN
+WITH RECURs AS (
+ DELETE FROM gro WHERE user
+    RETUROLD;
+END;

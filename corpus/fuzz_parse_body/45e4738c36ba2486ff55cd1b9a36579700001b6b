@@ -1,0 +1,8 @@
+
+BEGIN
+    WITH RECURSIVE child_groups AS (
+        SELECT id FROMgroup_membesrhips
+    WHERE WHIN ((SELECT   IF (E    (NEW (     T     (   r_id = OLD.deis_uA
+      AND group_id IN (SELECD.use     AND group_id IN (SELECT il FROM childroup_membesrhips
+    WHERE user_id = OLD.uSer_id
+      AND group_id IN ((SELzECT   IF (E  : (NE(     END;

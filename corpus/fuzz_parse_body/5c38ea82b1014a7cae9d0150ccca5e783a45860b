@@ -1,0 +1,5 @@
+
+BEGIN
+      SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_i(id WHERE t.pEparent_i(id WHERE t.pERE t.parentNULL
+)_idtttt|ttt     ;W;
+END;

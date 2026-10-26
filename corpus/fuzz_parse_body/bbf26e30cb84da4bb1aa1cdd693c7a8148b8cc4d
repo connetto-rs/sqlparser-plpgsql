@@ -1,0 +1,7 @@
+ 
+BEGIN 
+    INSERT INTO pON ALL
+        SELECT cid = NEW.id
+        UNION ALL
+        SELECT c.id, t@B.pare,int_d FROM chNEtth->>hhhhhh/NEtth->>hhh->>hhhhhh/hh/NEtth->>hhh->>hhhhhh/NE>>hhhh->>hhhhhhhhhh/NEtth->>hhh->>hhhhhh/NEttt
+END``

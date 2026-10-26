@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((SELECT c.id, t.parent,_id FROM cha  ,(((
+      SELECT id, d FROM tree_node ',<. 
+ f ca', n     UNION(((IS NOT (G;MEW;
+END;

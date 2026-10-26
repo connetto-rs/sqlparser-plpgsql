@@ -1,0 +1,10 @@
+
+BEGIN
+  WITH hain AS     ((((
+        SELECT id,rent_id FROM
+    ((((
+        SELECT id, pahent_id
+Wm%;
+END;
+ c
+BEr

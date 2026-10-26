@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, ROM trparent_id FROM
+    ((((
+        SELECT id, par_id FROM tree_node|     S c END;

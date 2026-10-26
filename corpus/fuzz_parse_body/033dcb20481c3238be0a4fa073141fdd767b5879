@@ -1,0 +1,6 @@
+
+BEGIN
+   SELECT id, pt_id FROM
+    ((
+     SELECT-- id, JOparentmEO
+END;

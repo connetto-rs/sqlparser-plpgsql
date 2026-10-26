@@ -1,0 +1,4 @@
+
+BEGIN
+	RETURN |W
+END

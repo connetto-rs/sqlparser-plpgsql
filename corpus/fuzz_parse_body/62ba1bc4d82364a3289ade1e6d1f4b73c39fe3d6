@@ -1,0 +1,12 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, par_id FROM tree_nodes WHERE id = NEW.id
+        UNION ALL
+      SELECT c.id, t.paLECT id, parent_id FROM
+  
+  F@??????@?@?@@
+END;
+svvvvvvv|vvvvvv|vv@@@@vvvvvvv|vv@@@@vvvvv;
+END;

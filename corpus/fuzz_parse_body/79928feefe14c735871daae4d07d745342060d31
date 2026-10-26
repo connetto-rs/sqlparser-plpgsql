@@ -1,0 +1,14 @@
+
+BI
+AEG VNLUES (NEW.id);
+TEU	RR:$$$$+
+BEGIN
+  WITH RECURSIVE chain AS ( 
+   ((((
+        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((
+        SELECT id, t.par!ent,_id +++++++++++++Fqqq<<q<4Wqh<>h<h<qqq< hh<h<qqqqqqqqqq<4<W<h<>h<h<qqq< hh<h<qqqqqqqqqq<4<W<h<>h<h<qqqqqqqq< hh<h<qqqqqqqq<4<W<h<>W<h<>hhhhROM --chain c JOIN (((,TURG;MEW;
+END;
++++  pam.    b
+      +
+tEND;

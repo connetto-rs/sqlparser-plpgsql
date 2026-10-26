@@ -1,0 +1,6 @@
+
+BEGIN
+    WITH RECURSIVEn AS (
+ SELECT id = NEW.iahidn ~*c   )
+INSERT INT SELECT id ~*  INSERT;
+END;

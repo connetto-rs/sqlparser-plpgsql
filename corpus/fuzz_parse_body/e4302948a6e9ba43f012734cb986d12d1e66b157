@@ -1,0 +1,15 @@
+
+BEGIN
+    WITH RECURSIVE child_groups AS (
+        SELECT id FROMgroup_membesrhips
+    WHERE user_D.user_id
+      AND group_id IN ((SELECT    ALL
+    FROMgroup_membesrhips
+    WHERE user_id = OLOLD.user_id
+      AND group_id IN ((SELECT    ALL
+        SELECT IN ((SELECT    ALL
+    FROMgroup_memb    WHERE user_id = OLOLD.user_id
+      AND group_id IN ((SELECT    ALL
+        SELECT IN ((SELECT    ALL
+    FROMgroup_memb c.ip_id IN ( >>//*>>>(    END;
+

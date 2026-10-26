@@ -1,0 +1,7 @@
+
+BEGIN
+	INSERT IFTO ownei(rsd) (((
+       SELECT id,t_id FROM
+(   ((((
+        SELECT id, parent_id FROM tree_nodes WHERE id = N [    EWEYoB* ||/Ftt
+END;

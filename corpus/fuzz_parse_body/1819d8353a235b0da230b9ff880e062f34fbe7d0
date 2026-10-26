@@ -1,0 +1,12 @@
+
+BEGIN
+  WITH RECURSIVchain AS (
+    ((((
+        SELECT id,ent_id FROM
+(   ( WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, parbnt_id FROM
+(   (    ECTEGIN
+  WITH(RECURSI(((
+  VE chain ;MEWO
+END;

@@ -1,0 +1,7 @@
+
+BEGIN
+  ((((
+        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((
+        SELECT								t,_id FROUL(ETURG;MEW;
+END;

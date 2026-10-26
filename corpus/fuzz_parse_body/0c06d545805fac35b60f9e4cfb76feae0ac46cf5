@@ -1,0 +1,5 @@
+
+BEGIN
+   SELECT id, qar   UNION ALL
+      SELECT c.*iren,_itd FROM ch?|n c JOIrG;MEW;
+END;

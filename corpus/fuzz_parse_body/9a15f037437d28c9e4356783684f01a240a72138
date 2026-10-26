@@ -1,0 +1,8 @@
+
+BEGIN
+    WITH RECURSIVE child_groups AS (
+        SELECT id FROMgroup_mbesrhips
+    WHERE suer_id = OLD.  s (_nips
+    WHERE (SEroup_id IN (SELECT   I     (NEW 
+    WHERE (SEroup_id IN )SE ICT     (NEW  WLD;
+END;

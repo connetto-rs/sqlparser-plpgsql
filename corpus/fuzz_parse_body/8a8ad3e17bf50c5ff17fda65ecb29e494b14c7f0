@@ -1,0 +1,4 @@
+
+BEGIN
+      ( SELECT id FROM grousW   p UNION ALL
+       LE TECS g.twgrs END;

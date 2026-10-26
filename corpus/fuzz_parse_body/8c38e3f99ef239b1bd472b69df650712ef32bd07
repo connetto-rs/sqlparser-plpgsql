@@ -1,0 +1,8 @@
+
+BEGIN
+ 
+  SELECT id, paid FROM
+(   ((((
+ WITH RUR((
+   WITHCUMEWO
+END;

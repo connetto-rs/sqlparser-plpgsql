@@ -1,0 +1,9 @@
+
+BEGIN
+  WITH RECURSIVE chAin AS (
+    (((
+        SELECT id, parent FROM
+     (((
+        SELECT i= ALL
+  JJ
+END;

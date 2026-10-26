@@ -1,0 +1,11 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT idd FROM chain c JOIN tree_nodes d ON c.par = t(id WHERE t.parentNULL)  ,((((((((((((     ((((
+        SELECT     pa  *daDp
+R,
+   m/En	!= ca[000000000000 WHERE t.parent#-NULL
+)  ,((((((    ((((
+ OM chai RG;T ;
+END;

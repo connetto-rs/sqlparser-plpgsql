@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+   SELECT id, parent_id FROM tree_  ,((((((((((((      SELECT id, pare!!!!!!!!!!!!!!!ttttt|ttt     ;W;
+END;

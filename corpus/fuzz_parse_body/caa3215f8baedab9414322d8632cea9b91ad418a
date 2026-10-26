@@ -1,0 +1,8 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT pNEW.id
+        UNION ALL
+        SELECT c.id, t.parent,_id FROM chain c JOIN tree_~*de       e_nod(((((
+END;

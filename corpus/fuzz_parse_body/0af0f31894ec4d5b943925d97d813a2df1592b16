@@ -1,0 +1,8 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, parent_id d,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((      (((((((      SELECT id, pareot_id FROM tree_neeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeodes WHERE id = NEW.id
+        UNION ALL
+        SELECT c.id, t.*pare FROM chain c OJ NtIree_nodes~))))))-)i)))))))$))R;END;

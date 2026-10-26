@@ -1,0 +1,9 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (  SELECT id, parent_id FROM
+    ((((
+        SELECT-- R
+
+	B555&5555 WHERner |>>
+   @@@  :0RG;MEWO
+END;

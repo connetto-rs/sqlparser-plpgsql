@@ -1,0 +1,7 @@
+
+BEGIN
+
+   SELECT id, parenid FROM
+   ((((
+      SELECT ient,_id FROM n_it = MEWO
+END;

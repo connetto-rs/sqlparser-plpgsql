@@ -1,0 +1,6 @@
+
+BEGIN IF NEW.evenpe = 'error' THEN IF Ne = 'error' THEN
+           INSERT INTO audilog (acity) VALUES ('info_');
+   IF NEW.even?_ty 'error' THEN
+      TURN NEW;
+%END;

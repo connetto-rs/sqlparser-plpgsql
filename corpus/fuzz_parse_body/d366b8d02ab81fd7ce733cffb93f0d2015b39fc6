@@ -1,0 +1,11 @@
+ 
+BEGIN 
+    INSERT INTO pr(paent_id, child_id)
+  VALUES (NEW.parentd) 
+ON CONFLICT (parent_id, child_id) DO NOTHING;
+
+    INSERT INTOre_templates (parenild_id)
+    VALUES (Naren.p) 
+    ON CONFLICT (pS, child_id) DO NOTHING;
+    
+!   RETURN NEW;*END;

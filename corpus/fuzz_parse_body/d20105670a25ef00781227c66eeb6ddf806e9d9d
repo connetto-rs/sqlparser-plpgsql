@@ -1,0 +1,27 @@
+
+BEGIN
+  /*/ ou */
+    RETURN ?---CC- CCD>CCC
+?-   
+ERETURN? ---CCCCCCCCCCCCCCCCCCCD-   
+ERETCCCD>CCCBCCCCCCCCD>CCC
+?-   
+ERETURN? ---CCCCCCCCCCCCCCCCCCCD-   
+ERETCCCD>CCC
+?-  C>CCC
+? id     [:id     [:]]-   
+ERD>CCC
+?-   
+--CCCCCCCCCCCCCCCCCCuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
+?-  C>CCC
+? id     [:id     [:]]-   
+ERD>CCC
+?-   
+--CCCCCCCCCCCCCCCCCCuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
+?-  C>CCC
+? id     [:id     [:]]-   
+ERD>CCC
+?-   
+--CCCCCCCCCCCCCCCCCCuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuutuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuCCCD>CCC
+CCCCCCCCCCCCCCCCCCCCCCcCCC#CCNnn;
+END;

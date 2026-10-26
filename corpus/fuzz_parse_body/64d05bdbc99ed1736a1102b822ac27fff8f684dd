@@ -1,0 +1,5 @@
+XT;
+BEGIN
+    _id := gen_randu( NEW.id. 'ated');
+    
+END;

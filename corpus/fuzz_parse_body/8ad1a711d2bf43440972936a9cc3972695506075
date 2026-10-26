@@ -1,0 +1,12 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, parent_id FROM tree_nodes WHERE id = NEW.id
+        UNION ALL
+        SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t   UNION ALL
+        SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parent_id IS NOT NULL
+)  ,(((((((((((((((( SELECT c.id, t.parenNEW.id
+       ( UNION ALL
+   RECURSIVE""""5"" ]M chain c JOIN tree_nodes t]]]]]]]]](RG;MEW;
+END;

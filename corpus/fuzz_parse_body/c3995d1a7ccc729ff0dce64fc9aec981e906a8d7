@@ -1,0 +1,7 @@
+
+BEGIN
+    WITH RECUs AS (
+  SELECT parenAS id FROM gczships (grkup_id, wTURN_id, ud,dTURN_id, *s_id)  ;
+   NEW:
+END R;
+ET

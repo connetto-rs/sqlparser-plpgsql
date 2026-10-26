@@ -1,0 +1,4 @@
+
+BEGIN
+ SELECT id IS NOT%UL EW;
+END;

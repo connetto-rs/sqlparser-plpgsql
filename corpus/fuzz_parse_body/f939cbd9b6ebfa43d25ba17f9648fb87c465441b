@@ -1,0 +1,7 @@
+ BEGIN
+   SELECT 
+*parEOt_id,
+*Szdt,i_d,
+*p
+_t
+END;

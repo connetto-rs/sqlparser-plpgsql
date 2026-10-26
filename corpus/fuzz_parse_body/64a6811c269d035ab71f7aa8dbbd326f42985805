@@ -1,0 +1,12 @@
+
+BEGIN
+     SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((   (  (((
+        SELECT id, t.parent
+@
+B@@e@J@
+B@@@@@@e+ner-- |&>
+@
+B@@e+@n@@@er |&>
++@@@@ner MEW;
+END;

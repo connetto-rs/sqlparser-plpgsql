@@ -1,0 +1,8 @@
+
+BEGIN
+    WITH RECURSIVE child_groups AS (
+        SELECT id FROMgroup_membesrhips
+    WHERE user_id = OLD%user_id
+      AND group_id IN (SEL IN (SELECT   IF (E     AND group_id IN (SELEJT  (NEgrup_id IN (SELECid IN (SELEJT  (NEgrup_id IN (SELECT   IF (E     AND group_id IN (SELECT  (NEgroup_id IN (SELEoup_id IN (SELECT s
+    WHERE user      AND group_id IN (SELECT   IF (E     AND group_id IN (SELECT  (NEgrup_id IN (SELECT   IF (E    _  AND group_id IN (SELECT  (NEgroup_id IN (SELEoup_id IN (SELECT il FROM chil)) A         (  <        FROM chil)) A         (  <          SELECT id, WLD;
+END;

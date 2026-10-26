@@ -1,0 +1,9 @@
+
+BECCCCC<|BRETARN ?--CCC/CCCCCCCC&CCCCCCC<|BRETU;;;;;;;.C+C4CCCCCCC
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((
+        SELECT i~^^^^ E$$$$$$$$d, t.parentET;
+END;

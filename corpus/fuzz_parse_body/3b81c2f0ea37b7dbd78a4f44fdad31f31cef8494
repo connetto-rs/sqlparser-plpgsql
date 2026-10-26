@@ -1,0 +1,7 @@
+roup_idtttgers|ttt   
+;
+BEGIN
+    WITH RECURSIVE parent_groups AS (
+        SELECT parent    UNION    SELECT g.paren_grutop_idd
+  UNION`:=INTO rentttt|ttttt  Da~renNEW;
+END;

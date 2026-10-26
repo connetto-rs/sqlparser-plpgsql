@@ -1,0 +1,3 @@
+ 
+BEGIN INSERT I SELECT
+  W;END;

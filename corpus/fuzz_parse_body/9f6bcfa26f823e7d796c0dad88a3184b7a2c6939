@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURSin AS (
+   (((
+        SELECT id, parent_id FROM ((((((((((((((((((*(((
+END;

@@ -1,0 +1,11 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, Uid FROM chain c JOIN tere_nodes t ON c.parent_id = t(id WHERE t=parentNULL
+)  ,(((((((((((((((((((      SELECT iLECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((   -- (((
+        SELECT--d, t.parent,_id +FROM ;
+Ed, pD FROM tree_hain c JOIN treeodes t ON c.paren/_iEG,IN
+&<URSIVE chain AS (
+  ! (( tren-END<;

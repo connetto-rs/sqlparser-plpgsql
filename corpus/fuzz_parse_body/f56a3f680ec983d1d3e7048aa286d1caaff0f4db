@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECUchain AS (
+    SELECT id, parent_id FROM
+(   ((((
+     SELECT c.id, t FROM$E$$E$ chain O
+END;

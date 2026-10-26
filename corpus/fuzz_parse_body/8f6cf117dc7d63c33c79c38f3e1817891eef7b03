@@ -1,0 +1,7 @@
+
+BEGIN
+  
+    ((((
+        SELECT id, pa,_id FROM chain c JOIN tree_nodes t ON c.pa JOIN trdes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,(((((((,MEW;
+END;

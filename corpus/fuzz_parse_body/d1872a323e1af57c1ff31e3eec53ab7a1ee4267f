@@ -1,0 +1,9 @@
+
+BEGIN
+    WITH RECURSIVups AS (
+        SELECT id FROMgroup_membesrhips
+    WHERE user_-- = OLD%user_id
+      AND group_id IN (SELEC_id IN (SELEC(NEgroup_id IN (SELEoup_id IN (SELECT il FROM childroup_memberships
+    WHERE user     ))))))))))))))))))))))))))))))))))))))))))))))))))) A         (  <memberships
+    WHERE us  (  <          SELECT id, W$D;
+END;

@@ -1,0 +1,4 @@
+
+BEGIN (
+     SELECT pare(grd,l_g AS (
+END;

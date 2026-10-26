@@ -1,0 +1,4 @@
+
+BEGIN      SELECT id, t.pat4_id FROM ((    SELECT id, t.
+$.*~
+END;

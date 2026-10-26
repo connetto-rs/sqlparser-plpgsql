@@ -1,0 +1,12 @@
+
+BEGIN
+  WiTH RECURSIVE chain AS (
+    (((
+(        SELECT id, t.parent,_id FROM chain c JOIN tRee_nodes t ON c.parent_id = t(id WHERE t.parnetNULL
+)  ,((((((((((((   (  (((
+        SELECT id, t.pare
+
+@tnB@@e@J@
+B@@@@@@e+ner-
+      SELECT''.id, t.pLE+@@@@ner MEW;
+END;

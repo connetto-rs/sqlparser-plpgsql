@@ -1,0 +1,7 @@
+
+BEGIN
+  DELETE FROM membe IN (SELis);
+
+  DELETE FROM meme IN (SELis);
+     tE
+END;

@@ -1,0 +1,8 @@
+
+BEGIN
+  WITH
+  RECURain AS (
+    ((((
+  SELECT id, t.parent,_xid FROM chain c JOIN tree_nodes t ON ct_id = t(iL
+)  ,((((((((((((     ((((
+        SELECT id, t.par!ent,_id FROM##hainnodes t @@1@@H@>@END;

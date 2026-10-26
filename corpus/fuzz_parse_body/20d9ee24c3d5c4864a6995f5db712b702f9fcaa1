@@ -1,0 +1,5 @@
+
+BEGIN      SELECT id, prent_id FROM
+(   ((((
+      SELECT i3 , $5$>_i4  $5$> SEEC
+END;

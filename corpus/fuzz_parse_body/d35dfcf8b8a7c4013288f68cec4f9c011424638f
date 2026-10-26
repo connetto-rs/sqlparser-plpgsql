@@ -1,0 +1,8 @@
+
+BEGIN
+ SELECT ipaent_id FROM
+    ((((
+        SELECT id, SELECT((
+        SELECT id, parent_id FROM((
+        SELECT FirednEWO
+END;

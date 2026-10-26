@@ -1,0 +1,6 @@
+ 
+BEGIN
+    INSERT INT  SELECT  FROM prem
+END;
+1O proaa
+END;

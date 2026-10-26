@@ -1,0 +1,7 @@
+
+
+BEGIN
+SELECT id, pd FROM
+    ((((
+        SELECT" id, pE"!
+END

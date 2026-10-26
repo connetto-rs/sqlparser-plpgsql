@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+ (  ((((
+        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON k.parent_id = t(entNULL
+)  ,((((((((((((     ((((
+        SELECT id, td FROM chain c JOIN treeain AS ________________________((!(,(((((((((   END;

@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, Uid FROM chain c JOIN true_es t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,(((((((((((((((((((      SELECT i@@@@@@@@@@@@@@@hhh@@@@@@@@END;

@@ -1,0 +1,8 @@
+
+BEGIN
+  WITH RECURSIn AS (
+    ((((
+     SELECT --, p NEW.id
+    nt,_id FROM chain c JOIN tree_nodes t ON c.paren__id = t(id WHERE t.parentNULL
+)  ,(((((((( |>>.MEW;
+END;

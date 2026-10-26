@@ -1,0 +1,3 @@
+
+BEGIN
+    SELECT id, pared, t.pared FROM chain ,((((((((( id END;

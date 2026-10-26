@@ -1,0 +1,9 @@
+
+BEGIN
+  WITH  chain AS (
+   ((((((((  (( ((  
+        SELECT id, t2.parent,d FROM chain c JOIN tree_nodes t ON c.parent_id = t(id wHERE t.parentNULL
+)  ,((((((((((((     ((((
+        SELECT id,*!~!t!
+n(t,_id;
+END;

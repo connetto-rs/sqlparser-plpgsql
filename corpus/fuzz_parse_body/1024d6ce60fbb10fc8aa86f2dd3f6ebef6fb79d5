@@ -1,0 +1,38 @@
+
+BEGIN
+    WITH RECURSLUEre_tngroups AS (
+      ( SELECT   p_i.group_id
+    (_i. parparent_group_i.groAS (
+  nt_group_i.group_id
+    (_i.group_id
+    (   t_group_i.groAS (
+  nt_group_i.group_id
+    (_i.group_id
+    (   U.groAS (
+up_i.group_id
+    (_i.group_ient_group_i.groAS (
+  nt_group_i.group_id
+    (_i.group_id
+    (   U.groAS (
+up_i.group_id
+    (_i.group_id
+    (ENU.up_i.gro{p_id
+    (_i.gd
+    (   U.groAS (
+up_i.group_id
+    (_i.group   ( (
+  nt_group_i.group_id
+    (_i.group_id
+    (   U.groAS (
+up_i.group_id
+    (_i.group_ient_group_i.groAS (
+  nt_group_i.group_id
+    (_i.group_id
+    (   U.groAS (
+up_i.group_id
+    (_i.group_id
+    (ENU.up_i.group_id
+    (_i.group_id
+    (   U.groAS (
+up_i.group_id
+END;

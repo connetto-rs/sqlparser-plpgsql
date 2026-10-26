@@ -1,0 +1,8 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (--
+         SELECT id, Uid FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,(((((((((((((((((((      SELECT FROM chain c JOIN tree_nodes t ON c.pad = t(id WHERE t.parentNULL
+)  ,(((((((((((((((((((      ~ELECT id, pdICE ;
+;^hhh
+@@@@@@@@@@END;

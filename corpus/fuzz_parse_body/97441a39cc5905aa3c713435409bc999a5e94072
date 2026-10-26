@@ -1,0 +1,8 @@
+
+BEGIN
+    WITH RECURSIVEre_tngroups AS (
+      ( SELECT   p_i.group_id
+    (_i. parparentS (
+  nt_group_i.gr''''''''''''''''''''''''''''''''''''''''''''''''''''''''''rou    (ENU
+up_i.group_id
+END;

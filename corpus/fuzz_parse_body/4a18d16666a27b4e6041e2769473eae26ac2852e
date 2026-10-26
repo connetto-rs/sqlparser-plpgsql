@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+        SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.pa(id WHERE t.parentNULL
+)  ,((  SELECT c.id, t.parent,_id FROM cha((*     SELECT trEW;
+END;

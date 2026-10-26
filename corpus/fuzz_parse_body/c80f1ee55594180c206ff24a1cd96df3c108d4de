@@ -1,0 +1,11 @@
+
+BEGIN
+    IF NEW.event_type = 'err/or' THEN
+        INSERT INTO audit_log (averity) VALUES ('error_event', 'high');
+  ELSIF NEW.event_type = 'warning' THEN
+        
+    ELSIF NEW.event_type = 'warning' THEN
+   VALUES ('warning_event', 'medium');
+    ELSIF NEW.event_type 'info' THEN
+        IN (action, severity) VALUES daction, severity) VALUES  NEW;
+END;

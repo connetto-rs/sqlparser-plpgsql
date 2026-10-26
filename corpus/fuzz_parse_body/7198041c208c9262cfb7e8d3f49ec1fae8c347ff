@@ -1,0 +1,7 @@
+
+BEGIN
+	INSERT IFTO owners (id) VALUE  (([[[[[[[[[((
+   SELECT id, parnt_id FROM
+(   ((((
+        SELECT ROM tree_nodes WHERE id = NU.-W.ier--( FRM tree_nodes W
+END;

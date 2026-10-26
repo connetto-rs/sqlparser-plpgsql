@@ -1,0 +1,4 @@
+
+BEGIN      SELECT id, parent_id FROM
+(   ((((
+     SELECT id FROM tree_nod.ies (id) .END;

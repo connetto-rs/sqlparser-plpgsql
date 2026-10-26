@@ -1,0 +1,59 @@
+
+BEGIN
+  /*/ ou */
+    RETURN ?---CC- ICCCCD>CCC
+?-   
+ERETURN? ---CCCCCCCCCCCCCCCCCCCD-   
+ERETCCCD>CCCBCCCCCCCCD>CCC
+?-   
+ERETURN? ---CCCCCCCCCCCCCCCCCCCD-   
+ERETCCCD>CCC
+?-  C>CCC
+? id     [:id     [:]]-   
+ERD>CCC
+?-  uuuuuuuuuuuuuuuuu
+?-  C>CCC
+? id     [:id     [:]]-   
+ERD>CCC
+?-   
+--CCCCCCCCCCCCCCCCCCuuuuuuuuuuuuuuuuuuuuuuuu ---CCCCCCCCCCCCuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuURN ?---CC- ICCCCD>CCC
+?-   
+ERETURN? ---CCCCCCCCCCCCCCCCCCCD-   
+ERETCCCD>CCCBCCCCCCCCD>CCC
+?-   
+ERETURN? ---CCCCCCCCCCCCCCCCCCCD-   
+ERETCCCD>CCC
+?-  C>CCC
+? id     [:id     [:]]-   
+ERD>CCC
+?-  uuuuuuuuuuuuuuuuu
+?-  C>CCC
+? id     [:id     [:]]-   
+ERN? ---CCCCCCCCCCCCCCCCCCCD-   
+ERETCCCD>CCC
+?-  C>CCC
+? id     [:id     [:]]-   
+ERD>CCC
+?-   
+--CCCCCCCCCCCCCCCCCCuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
+?-  C>CCC
+? id     [:id     [:]]-   
+ERD>CCC
+?-   
+--CCCCCCCCCCCCCCCCCCuuuuuuuuuuuuuuuuuuuuuuuuuuu>CCC
+CCCCCCCCCCCCCCCCCCCCCCcCCC#CCNuuuuuuuuuuuuuuuuCCCD
+?-   
+ERETURN? ---CCCCCCCCCCCCCCCCCCCD-   
+ERETCCCD>CCC
+?-  C>CCC
+? id     [:id     [:]]-   
+ERD>CCC
+?-   
+1--CCCCCCCCCCCCCCCCCuuuuuuuuuuuuuuuu
+?-  C>CCC
+? id     [:id     [:]]-   
+ERD>CCC
+?-   
+--CCCCCCCCCCCCCCCCCCuuuuuuuuuuuuuuuuuuuuuuuuuuu>CCC
+CCCCCCCCCCCCCCCCCCCCCCcCCC#CCNnn;
+END;

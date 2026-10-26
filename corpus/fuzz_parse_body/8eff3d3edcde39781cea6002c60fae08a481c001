@@ -1,0 +1,3 @@
+
+BEGIN
+ SELECT  x'x', W ;END;

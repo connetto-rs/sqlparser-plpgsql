@@ -1,0 +1,10 @@
+
+BEGIN
+  WITH RECURSIVE hain AS (
+    ((((
+        SELECT id, par.idparent,_id FROM clain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((      SELECT Ehhh^@@@@@@@@@@@@@@@@@@h/NEhhhh&<SSS
+    )
+    INSW;
+END;
+@@@@@@@@@@@h/NEhhhh4h>hid, parent_id FR

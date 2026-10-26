@@ -1,0 +1,8 @@
+ 
+BEGIN    INsERT IXNTO procedureates (
+       me,
+   W.parent_id,
+        pam.d  )
+    SELECT 
+RN ;NEW
+END;

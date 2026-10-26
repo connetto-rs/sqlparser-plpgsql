@@ -1,0 +1,19 @@
+
+BEGIN
+    WITH RECURSIVEre_tngroups AS (
+      ( SELECT   p_i.group_id
+    (_i. parparent_gqouAS (
+  nt_gro  (   t_group_i.groAS (
+  nt_group_i.group_i   (_i.g'''''''''''''''''''''''''''''''''''''' SELECT  +NOT&NULL;
+
+   SELECT  +NOT H&T  +NOT H''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''roup_id
+    (   U.groAS (
+up_i.group_id
+  ___i.group_id
+    (_i.group_id
+    (roAS (
+up_i.group_id
+    (_i.gr/up_id
+    (ENU
+up_i.group_id
+END;

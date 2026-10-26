@@ -1,0 +1,7 @@
+
+BEGIN
+     SELECT id, pNEW.id
+        UNION ALL
+        SELECT c.iid FROM chain c JOIN tree!~*des t ON c.(((
+    TURG;MEW-C||R-;
+END;

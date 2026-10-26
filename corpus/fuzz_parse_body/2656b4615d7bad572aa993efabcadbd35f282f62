@@ -1,0 +1,5 @@
+
+BEGIN
+    IF nt_t = 'error' THEN
+  v;
+END

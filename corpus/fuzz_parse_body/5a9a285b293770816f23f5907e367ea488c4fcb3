@@ -1,0 +1,3 @@
+
+BEGIN   SELECT  id FROM gcips a(group_IM, w_idTURN,id, iRN,id,d) END R;
+ET

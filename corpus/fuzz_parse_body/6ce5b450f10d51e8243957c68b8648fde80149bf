@@ -1,0 +1,4 @@
+
+BEGIN
+    IF NEW(  ##RW;
+END;

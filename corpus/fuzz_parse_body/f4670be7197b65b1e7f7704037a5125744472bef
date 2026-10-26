@@ -1,0 +1,10 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id,id FROM
+(   ( WITH RECURSIVE chain AS (
+    (((
+        SELECT d ,iparent_id FROM
+(#  (((, tMEWO
+END;

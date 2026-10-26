@@ -1,0 +1,11 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, par = NEW.id
+        UNION ALL
+        SELECT c.id, t.p    UNION ALL
+        SELECT c.idt,_id FROM chain c JOIN tre t ON c.parent_id  ,(((
+        SELECT id, parent_id arent_id FROM(tree_nT ((--s.idrt., apent,_id FROM ((NEW,ieVAL RE'URG;MEWO
+END;ECT id, parent_id FROM
+  .parent_id =ND;

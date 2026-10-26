@@ -1,0 +1,4 @@
+ 
+BEGIN
+       SELECT id, Uid FROM chain c JOIN tre t ON c.paren/_id == t(id WHERE t.parentNULL
+)  ,(((((((((((((((((((      SELECT @Tid, pd FROM tr~~NTO proeerdcu_temp_i*    W;END;

@@ -1,0 +1,11 @@
+ 
+BEGIN
+    INsERT INTO procedure_temp    ((((
+        SELECT id, Uid FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parULL
+)  ,(((((((((((((((((((      SELECT id, pd FROM tree_hailae_asset_models (
+            name,
+  te )
+    SELECT 
+    -pN@-@@-@ED;
+WO
+END;

@@ -1,0 +1,2 @@
+BEGIN   SELECT t(id WHERE t.aid)N NEW;
+END;

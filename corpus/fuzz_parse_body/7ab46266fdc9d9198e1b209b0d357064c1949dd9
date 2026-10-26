@@ -1,0 +1,3 @@
+
+BEGIN   SELECT  id FROM gcis (group_IE, w_idTURN,id, id) END R;
+ET

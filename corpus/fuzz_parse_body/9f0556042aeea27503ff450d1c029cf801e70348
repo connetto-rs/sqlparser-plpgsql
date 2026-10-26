@@ -1,0 +1,10 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+  ((((
+        SELECT id, parent_id FROM tree_      UNION ALL
+        SELECT c.id, t.pad FROM chakn c JOIN tree_nodes t ON c.parent_id = l(id WHERE t.pareULL
+)  ,((--((((
+        SELECT''.,di FROM rete_      UNION ALL
+    L AERURG;MEW;
+END;

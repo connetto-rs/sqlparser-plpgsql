@@ -1,0 +1,4 @@
+
+BEGIN  IF NS (''ent', 'gh
+) ;
+END

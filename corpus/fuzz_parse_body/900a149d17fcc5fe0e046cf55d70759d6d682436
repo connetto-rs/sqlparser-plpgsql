@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH REC AS (
+   (((
+        SELECT id, parent_id FROM
+    ((     SELECT id, parmnt_idnt_id IS  UR(END;

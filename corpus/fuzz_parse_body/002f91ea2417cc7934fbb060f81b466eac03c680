@@ -1,0 +1,12 @@
+
+BEGIN
+  WITH RECURSIVE chAni aS (
+
+    (((
+(        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((   (  (((
+      SELECT id, t.parent,_id FROM chain c JOIN tree_dones t ON c.parent_id = t(id WHERE t.pa
+)  ,((((((((((((   (  (((
+      /  SELECT id, t.pare--,_s
+    WHERE user      AND group_id IN (SE c JOIN tree_nodes,(((IS NOT VAL RETURG;MEW;
+END;

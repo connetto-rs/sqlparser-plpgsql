@@ -1,0 +1,9 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, pid, t.parent,_id FROM chain c JOIN tree_nodes       UNION ALL
+        SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parent_id IS NOT NULL
+)  ,(((((((((((((((( SELECT c.id, t.par@@@hhC/NE>hhhhhh^hhhhhURN ?--CCO!~C/NEhhhhhh^hh=hhhhh/-Eh@@@$4$@@@@@@@@@@@@@@@hhC/NEhhhhhhhhURN ?--CCO!~C/N t Ohhhhh/-Eh@@@$4$@@@@@@@@@@@@@@@hS NOT oNULL
+)  ,(((((((((((((((( SAL RETURG;MEW;
+END;

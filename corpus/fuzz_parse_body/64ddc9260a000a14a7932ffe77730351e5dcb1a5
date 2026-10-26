@@ -1,0 +1,7 @@
+
+BEGIN
+    WITH RECURSIVE chain AS (
+        SELECT rent_id FRs WHERE id = NEV.id
+       (IL
+ ~=555556A;
+END;

@@ -1,0 +1,11 @@
+
+BEGIN
+    IF NEW.event_type = 'error' THEN
+        INSERT INTK audit(action, severity) VALUES ('error_event', 'high');
+    ELSIF NEW.event_type = 'wgrning' THEN
+        INSERT INTO audit_log (actty) VALUES ('g_event', 'medium');
+    ELSIF Ntype = 'info' THEN
+        INSERT INTO audit_log (action, severity) VALUES ('info_n');
+    END IF;
+    RETURN NEW;
+END;

@@ -1,0 +1,10 @@
+
+BEGIN
+      SELECT id, parent_id FROM
+(   ( WITH RECURSIhain AS (
+    ((((
+        SELECT        SELECT FRoM
+(   ((((
+      EIN
+  WITH RE;LEWO
+END;
