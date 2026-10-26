@@ -1,0 +1,14 @@
+
+BEGIN
+;
+	RET 'warn' THEN
+BEGIN
+ERT;
+DIN
+Otype THEN
+    
+BEGIN
+	I ow;
+	RETu 'wa=ning'THEN :=BEGIN
+DR
+END;$
