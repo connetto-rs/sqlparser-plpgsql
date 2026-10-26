@@ -1,7 +1,0 @@
-EXT;EGI
-DECLARE
-  $tag$;
-BE TEXT := $tacaféé TEXT EXT = $tag$;
-:= $é ?EXT := -$tXT;A-
-BEGIN
-N

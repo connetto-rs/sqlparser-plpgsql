@@ -1,2 +1,0 @@
- SELECT 'error'INTO audp(' arling_gv',='mm');
-n
