@@ -87,47 +87,4 @@ pub enum Error {
         #[source]
         source: sqlparser::parser::ParserError,
     },
-
-    /// A PL/pgSQL body read for its embedded SQL could not be tokenized.
-    #[error("PL/pgSQL body could not be tokenized: {source}")]
-    UntokenizableBody {
-        /// The tokenizer error.
-        #[source]
-        source: sqlparser::tokenizer::TokenizerError,
-    },
-
-    /// A PL/pgSQL body does not have the shape PL/pgSQL requires.
-    #[error("PL/pgSQL body expected {expected}, found {found}")]
-    Syntax {
-        /// What the grammar requires at this point.
-        expected: &'static str,
-        /// The token found instead.
-        found: String,
-    },
-
-    /// An SQL statement or expression a PL/pgSQL body embeds could not be
-    /// parsed.
-    #[error("embedded SQL `{sql}` could not be parsed: {source}")]
-    EmbeddedSql {
-        /// The SQL as the parser saw it, one space between tokens.
-        sql: String,
-        /// The parser error.
-        #[source]
-        source: sqlparser::parser::ParserError,
-    },
-
-    /// `OPEN` names a cursor that no enclosing block binds to a query.
-    #[error("cursor '{name}' is not bound to a query by any enclosing block")]
-    UnboundCursor {
-        /// The cursor name, folded as PostgreSQL folds it.
-        name: String,
-    },
-
-    /// A PL/pgSQL body nests blocks and control structures deeper than the
-    /// reader follows.
-    #[error("PL/pgSQL body nests blocks and control structures deeper than {limit}")]
-    NestingTooDeep {
-        /// The deepest nesting followed.
-        limit: usize,
-    },
 }
