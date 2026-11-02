@@ -1,0 +1,8 @@
+
+        DECLARE c HURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;    
+    BEGIN
+          <<outer>>
+          LOOP EXIT outer-- WHEN (SELECT
+     """""""""""""""""""""""""""""""
+BEGIN
+    WFROM docsDEC"""" t""""r~e"

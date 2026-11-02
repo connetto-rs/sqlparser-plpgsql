@@ -1,0 +1,5 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docSOR (key INT) FOR SELECT id FROM docs WHERE(id = key;
+        BEGIN
+             LOOP Eya_agg(id) FROM docs) LOOPLL; END LOOP;
+   T    END

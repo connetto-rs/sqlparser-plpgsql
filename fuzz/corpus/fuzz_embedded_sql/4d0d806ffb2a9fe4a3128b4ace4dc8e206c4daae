@@ -1,0 +1,9 @@
+
+        #variable_conflict use_column
+        BEGIN
+          CREATE OR REtoACE FUNCTION g() RETURNS INT LANGUAGE sql
+            BE
+        BEGIN
+          CREATE OR REPLACE FUNCTION g() RETURNS IN        CALL p((SELECT 1 FROM docs));
+          COMMIT;
+        END

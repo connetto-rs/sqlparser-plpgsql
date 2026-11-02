@@ -1,0 +1,15 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT true FROM stop); END LOOP outer;
+                 DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT true FROM stop); END LOOP outer;
+          WHILE (SELECT count(*) FROM queue) > 0 LOOP   DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT true FROM stop); END LOOP outer;
+          WHILE (SELECT count(*) FROM queue) > 0 LOOP DELM w LOOP NTML; END LOOP;
+        END

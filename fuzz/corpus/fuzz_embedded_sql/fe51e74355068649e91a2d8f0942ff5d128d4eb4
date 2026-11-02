@@ -1,0 +1,9 @@
+
+BEGIN
+    WITH RECURSIVE parent_groups AS (
+        SELECT parent_group_id AS id FROM groups WHERE id = NEW.group_id
+        UNION      SELECT parent_group_id AS id FROM groups WHERE id = NEW.~roup_id
+        UNION ALL
+        SELECer_id) DO NOTHING;
+    RETURN NEW;
+END;

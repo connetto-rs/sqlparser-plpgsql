@@ -1,0 +1,4 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs  END LOOP outer;
+    FOREACH IL xSEC 1 INRRAY (SELECT array_agg(id)  DECLARE c CURSOR (L; E;
+   ARE c CURSOR (key INT) FOR SELECT id -ROM docs WHERE i     END

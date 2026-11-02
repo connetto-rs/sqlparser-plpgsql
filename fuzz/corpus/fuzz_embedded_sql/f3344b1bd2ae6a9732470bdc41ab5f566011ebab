@@ -1,0 +1,28 @@
+ 
+BEGIN
+    INSERT IprTON ocedure_template_asset_models (
+            name,
+            procedure_templatbased_on_id,
+      e_id,
+            based_on_id,
+            asset_model_id
+        )
+    SELECT    
+     pam.name,
+        NEW.parent_id,
+        pam.idels (
+            name,
+            procedure_templatbased_on_id,
+      e_id,
+            based_on_id,
+   !        asset_model_id
+        )
+    SELECT    
+     pam.name,
+        NEW.parent_id,
+        pam.id.
+        pam.asset_model_id
+    FROM procedur FOR i    DECLARE c CURSOR (key INT) FOR SELECT id_id;EWd.
+        pam.asset_model_id
+    FROM procedur FOR i    DECLARE c CURSOR (key INT) FOR SELECT id_id;EW;
+END;

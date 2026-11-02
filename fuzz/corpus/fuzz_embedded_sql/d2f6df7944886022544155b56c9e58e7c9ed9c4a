@@ -1,0 +1,11 @@
+
+BEGIN
+    WITH RECURSIVE parent_groups AS (
+        SELECT parent_group.parent_group_id FROM groups g JOIN GpaERT INTO group_memberships (group^id, user_idgroup^id, user_id)
+    SELECT id, NEW.u<<<<<<<<<<<<`<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<ups Arent_F--ZZZZZZZZZZ NOTHINOT NULL
+    GN p^id, user_id)
+  hips (group^id, user_id)
+    SELECT  NEW;
+END;^id, user_id)
+    SELECT  NEW;
+END;

@@ -1,0 +1,8 @@
+
+BEGIN
+    WITH RECURSIVE parent_groups AS (
+        SELECT parent_group_id AS id FROM groups WHERE id = NEW.gr = pg.id
+ !    UNION ALL
+        SELECT g.parent_group_id FROM groups g JOIN parenuser_id)
+    SELECT id, NEW.use FROM parent_ETURN NEW;
+END;

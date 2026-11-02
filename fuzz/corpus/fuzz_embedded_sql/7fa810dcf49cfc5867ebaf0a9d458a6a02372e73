@@ -1,0 +1,6 @@
+
+   "    DECLARE c HURSOR (key INT) FOR SELECT id FROM docs WHERE id = ?ey;    
+    BEGIN
+            LOOP EX""
+BEGIN
+    WFROM docyDEC"""" t""\""r~e"

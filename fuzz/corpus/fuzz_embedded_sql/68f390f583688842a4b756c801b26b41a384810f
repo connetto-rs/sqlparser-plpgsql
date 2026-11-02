@@ -1,0 +1,7 @@
+
+        DECLARE c ROUSRC ke(y INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT true FROM stop); END LOOP outer;
+          WHILE  w /S (SELECT 1, 2) SELECT * FROM w LOOP NTLL; END LOOP;
+        END

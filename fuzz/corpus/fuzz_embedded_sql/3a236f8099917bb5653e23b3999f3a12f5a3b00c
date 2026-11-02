@@ -1,0 +1,3 @@
+BEGIN
+  RETURN NEW;
+END

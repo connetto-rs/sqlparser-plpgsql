@@ -1,0 +1,5 @@
+
+        DECLARE r RECORD;  DECLARE c CURSOR (key INT) FOR SELECT INT;BEGIN
+          PERFORM 1 FROM pp_docs;
+     SE c FROM pp_docs;
+        END

@@ -1,0 +1,30 @@
+ 
+BEGIN
+    INSERT IprTON ogedure_template_    SELECT    
+     pam.name,
+        NEW.paremplate_asset_models (
+            name,
+            procedure=_templURSOR (key       )
+    SELECT    
+    Iate_id,
+  $         based_on_id,
+            asset_model0       )
+    SELECT    
+     pam.name,
+        NMW.parentid,
+        pamEW.child_id;
+ SELECT    
+         asset_model_id
+     IprTON ogedure_template_    SELECT    
+     pam.name,
+        NEW.paremplate_asset_models (
+            name,
+            procedure=_templURSOR (key Iate_id,
+  $         based_on_id,
+          )
+    SELECT    
+     pam.name,
+        NEW.parentid,
+        pamEW.child_id;
+      NEW.child_id;EW;
+END;

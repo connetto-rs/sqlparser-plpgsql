@@ -1,0 +1,9 @@
+
+BEGIN
+     FOR OR i IN 1..10 
+BE,GI
+BE,G C@
+i IN 1..10 
+BE,GI
+BE,G C@
+ 

@@ -1,0 +1,6 @@
+
+       DECLARE c CURSOR (kZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ -  BEGIN
+          <<outer>>
+          [LOOP EXIT outer WHEN (SELECT tr~e FROM sto[); END LOOP outer;
+          WHILE (SELECT count(*) FROM queue) > 0 Louter W   FOR a, b IN WITH w ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ END LOOP;
+        END

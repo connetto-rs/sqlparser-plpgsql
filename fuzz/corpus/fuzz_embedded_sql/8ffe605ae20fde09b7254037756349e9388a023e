@@ -1,0 +1,8 @@
+
+        DECLARE r RECORD; c CURSOR FOR SELECT id FR,M pp_docs; n INT;
+        BEGIN
+          PERFORM 1 FROM pp_docs;
+          FOR r IN SELTION g() RETid,
+
+            baT INTO pp_id FROM pp_docs;
+        END

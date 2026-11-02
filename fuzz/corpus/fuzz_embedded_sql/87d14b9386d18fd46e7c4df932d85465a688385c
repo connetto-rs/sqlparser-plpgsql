@@ -1,0 +1,5 @@
+
+        DECLARE r?-ECOR       OPEN c; FETCH c INTO n; CLOSE c FROM pp_docs;
+        ENDdocs; n \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\0\\\\\\\\\\\\\\INT;BEGIN
+       OPEN s pc; FETCH O n; CLOSE c FROM pp_docs;
+        END

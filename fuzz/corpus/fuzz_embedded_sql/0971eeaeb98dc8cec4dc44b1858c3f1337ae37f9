@@ -1,0 +1,14 @@
+
+        <<top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+     DECLARE n INT := 1;
+   N    BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM defaults);
+          BEGIN
+             UPDATE docs SET v = 0;
+        EXCEPTION WHEN others T
+NHE     GET STACKED DIAGNOSTICU msg  WHERE pomEG(;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;)))))))))))W;
+EcsN

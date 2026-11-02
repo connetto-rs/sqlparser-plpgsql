@@ -1,0 +1,8 @@
+ 
+BEGIN
+    INSERT .procedure_template_id = Nrocedure_template_id = NEW.child_id;
+    
+    RETURN NEW.child_id;
+    
+    RETURN NEW;
+END;

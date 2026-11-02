@@ -1,0 +1,23 @@
+y 
+BEGIN
+    INSERT INTO pr::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::ocedure_template_asset_models (
+            name,
+            procedure_template_id,
+            based_on_id,
+    )
+    SELECT 
+        pam.nam        asset_model_id
+        )
+    SELECT 
+        pam.name,
+        NEW.parent_id,
+        pam.id,
+        pam.asset_model_id
+    FRemplate_id,
+            based_on_id,
+    )
+    SELECT 
+        pam.nam        asset_moded;
+    
+    RETU/* NEW;
+END;

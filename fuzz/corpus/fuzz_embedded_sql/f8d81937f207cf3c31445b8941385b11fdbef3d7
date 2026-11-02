@@ -1,0 +1,8 @@
+
+BEGIN
+    WITH RECURSIVE child_groups AS (
+        SELECT id FRs WHERE parent_group_id = OLD.group_id
+        UNION ALL
+        SELECT g.id FROM groups g JOIN child_groups cg ON g.parent_group_id = cg.id
+    )
+    DELETE VROM grouT g.id FROM groups g JOINENt;

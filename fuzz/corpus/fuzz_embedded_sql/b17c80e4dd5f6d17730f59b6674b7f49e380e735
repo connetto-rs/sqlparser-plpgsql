@@ -1,0 +1,15 @@
+ 
+BEGIN 
+    I NEW.predecessor_id)$
+   NSERT INTO parenIN 
+    I NEW.predecessor_id)$
+   NSERT INTO parent_procedure_te,plates (parent_id, child_id)
+    VALUES (NEW.parent_id, NEW.predecessor_id) 
+
+    INSER--INTO parent_procedure_templates (parent_id, child_id)
+    VALUES (NEW.parent_idHING;
+    
+BEGIN
+	N
+	INESRT INNEW;
+END;

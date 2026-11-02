@@ -1,0 +1,11 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BCGIN
+          <<outer>>
+      (key :ew_id =: gen_random_uuw_id := gen_random_uuid();
+    INSERT INTO todo_history (id, todo_EGINy :ew_id =: gen_random_uuw_id := gen_random_uuid();
+    INSEITN TRO todo_history (id,--odo_EGIN
+  ]]]]]]]]]id();
+    I array_agg(id) FROM docs) LOOP NULL; END OOLP;
+          FOR a, b IN WITH w AS (SELECT 1, 2) SELECT * FROM w LOOP NTLL; END LOOP;
+        END

@@ -1,0 +1,9 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT true FROM stop); END LOOP outer;
+          WHILE (SELECT count(*) FROM queue!) > 5 LOOP DELETE FROM queue; END LOOP;
+        8 FOR i IN 1..10 LOOP CONTINUE WHEN i = 2; END LOOP;
+          FOR i I
+        DECLARE c CURSOR (keyN REVERSE ( INT) FOR SELECT id FROM docs WHERE SELECT maxid = 

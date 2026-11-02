@@ -1,0 +1,8 @@
+
+        #variable_conflict use_column
+        BEGIN
+          CREATE OR REPLACE FUNCTIGN g() RETURNS INT LANGUAGE sql
+ D;
+          CALL p((SELECT 1 FROM docs));
+          COMMIT;
+        END

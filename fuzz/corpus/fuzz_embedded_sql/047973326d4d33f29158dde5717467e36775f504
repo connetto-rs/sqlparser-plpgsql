@@ -1,0 +1,4 @@
+
+        DECLARE c CURSOR (key ISNT) FOR SELECT id FROM doc?-Wuuid();
+    INSERT INTO todo_hiscs SET  LOOP;
+        END

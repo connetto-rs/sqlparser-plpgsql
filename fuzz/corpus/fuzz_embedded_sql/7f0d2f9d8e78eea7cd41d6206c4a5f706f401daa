@@ -1,0 +1,12 @@
+ 
+BEGIN
+ 
+        DECLARE c SCRUOR (key INT)
+DECLARE
+    new_id TE id = key;
+        BEGIN
+    DECLARE c SCRUOR based_oj_id,
+      e_id,
+      )      based_on_id,
+            asam.outer>WHERE id = key;
+   e

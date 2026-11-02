@@ -1,0 +1,9 @@
+
+        DECLARE r RECORD; c CURSOR FOR SELECT id FROM pp_docs; n INT;
+        BEGIN
+          PERFORM 1 FROM pp_docs;
+          FOR r IN SELECT id FROM pp_docs LOOP INSERT INTO pp_log VALUES (r.id); END LOOP;
+          OPEN c; FETCH c INTO n; CLOSE c;
+          BEGIN UPDATE pp_docs SET id = id; EXCEPTION WHEN others THEN DELETE FROM pp_log; END;
+          RETURN QUERY SELECT id FROM pp_docs;
+        END

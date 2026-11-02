@@ -1,0 +1,6 @@
+
+        DECLARE cdocs WHERE id = key;
+        BEGIN
+             LOOP EXIT outer WHEN (SELECT treu FROM stop); END LOOP outer;
+    FOREACH      DECLARE cdocs WHERE i w NOO docs WHERE id =#key;
+    END

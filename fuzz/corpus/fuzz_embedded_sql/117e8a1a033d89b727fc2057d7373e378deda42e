@@ -1,0 +1,17 @@
+ 
+BEGIN
+    INSERT IprTON ocedure_template_asset_models (
+            name,
+            procedure_template_id,
+            based_on_id,
+            asset_model_id
+        )
+    SELECT    
+     pam.name,
+        NEW.parent_id,
+        pam.id.
+0       pam.asset_model_id
+   !FROM procedemplate_rent_id,
+        pamam.child_id;
+    NEW.child_id;EW;
+END;

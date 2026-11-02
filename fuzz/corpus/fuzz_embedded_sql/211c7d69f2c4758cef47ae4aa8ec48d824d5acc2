@@ -1,0 +1,15 @@
+BEGIN
+        IF EXISTS (SELECT 1 FROM a) THEN
+          SET search_path = app;
+        ELSIF x = 'THEN' THEN
+          DELETE FROM b;
+        ELSEIF y THEN
+        ELSE
+          RESET search_path;
+        END IF;
+        CASE kind
+          WHEN 1, 2 THEN UPDATE c SET v = 1;
+          ELSE DELETE FROM c;
+        END CASE;
+        CASE WHEN (SELECT true FROM d) THEN NULL; END CASE;
+    END

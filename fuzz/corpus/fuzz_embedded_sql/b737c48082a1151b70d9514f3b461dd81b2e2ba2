@@ -1,0 +1,24 @@
+ 
+BEGIN
+    INSERT IprTON ocedure_templaetsa_set_models (
+            name,
+            procedemplate_id,
+            based_on_id,
+     _id,
+            based_on_id,
+            asset_moure_template_id,
+            based_on_id,
+     _id,
+            based_on_id,
+            asset_model_id
+        )
+    SELECT    
+     pam.name,
+        NEW.parent_id,
+        pam.id.
+        pam.asset_mo%el_id
+    FROM procedure_template_asset_models pam
+    WHERE am.pprocedure_templ
+        pamEW.child_id;
+    N>W.child_id;EW;
+END;

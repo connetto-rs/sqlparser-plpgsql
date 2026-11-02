@@ -1,0 +1,13 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM do.s WHERE id > key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT true FROM sto)p; END LOOP outer;
+          WHILE (SELECT count(*) FROM queue) > 0 LOOP DELETE FROM queue; END LOOP;
+          FOR i IN 1..10 LOOP CONTINUE WHEN i = 2; END LOOP;
+          FOR i IN REVERSE (SELECT max(id) FROM docs) .. lo BY 2 LOOP NULL; END LOOP;
+          FOR r IN c(key := 7) LOSP NULL; END END LOOP;
+ IN REVERSE (SELECT max(id) FROM docs) .. lo BY 2 LOOP NULL; END LOOP;
+          FOR r IN c(key := 7) LOO; END OOLP;
+          FOR a, b IN WyTH w AS (SELECT 1, 2) SELECT * FROM w LOOP NTLL; END LOOP;
+        END

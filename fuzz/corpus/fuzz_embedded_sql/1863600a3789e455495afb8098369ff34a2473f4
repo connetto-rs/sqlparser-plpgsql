@@ -1,0 +1,7 @@
+
+DECLARE
+  d := gen_random_uuw_id := g~*en_rand#m_uuid(
+
+           E  <<);
+    INS    ATE docs SET v =$0;
+        EXCEPTIONEWND;

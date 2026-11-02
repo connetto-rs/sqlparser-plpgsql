@@ -1,0 +1,13 @@
+
+        <<top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM defaults);
+          BEGIN
+            SET search_path =$a;
+          EXC = a;
+              SET search_path =$a;
+          EXC = a;
+          EXCEPTION
+            WHEN un+queDun+queDECLARESSSSSSSSSSSSSSSSSSSSSSSS_vioS5#fffnE"˗"5ECLARESSSSSSSSSSSSSSSSSSSSSSSS_vioS5#fffnE"˗"5#=U3rSS!!!!!!!-

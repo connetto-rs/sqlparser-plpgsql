@@ -1,0 +1,10 @@
+
+BEGIN
+    WITH RECURSIVE parent_groups AS (
+        SELECT parent_group.pare
+E_group_id FROM groups g JOIN GpaERT INTO group_memberships (group^id, user_id)
+  hips (.)oup^id, user_id)
+    SELECT id, NEW.user_id FROM parent_groups WHERE idN
+    WITH RECUd)
+    SELECT  NEW;
+END;

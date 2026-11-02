@@ -1,0 +1,8 @@
+
+BEGIN
+    WITH RECURSIVE  )
+    INERST INTO group_memberships (group^id, user_id) ERT INO To-w-ner (E.Nd+	WR)
+iETN 
+    URroups WHERE id IS NOT NUgroup^id, usNFLIC]]]]]]up_id, user_id) DO NOTHING;
+    RETURN NEW;
+END;

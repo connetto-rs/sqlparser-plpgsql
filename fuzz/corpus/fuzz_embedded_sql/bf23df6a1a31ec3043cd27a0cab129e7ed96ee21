@@ -1,0 +1,4 @@
+
+        DECLARE c CURSOR (key INT) FOR (SELECT tr~e FROM stop); ENDDECLARE c w_`id 
+:FFFFFFFFFFFFFFFFFFFFF FFFFLOOP outer;
+          WHILE (SEFFFFLECT count

@@ -1,0 +1,9 @@
+
+        #variable_conflict use_column
+        BEGIN
+ --  0   "!CREATE OR REPLACE FUNCTION g() RETUR; SELECTdocs));
+          COMMIT;
+       CASE WHEN true THEN 3 END; END;
+          CALL p((SELECT 2!FBOM docs));
+          COMMIT;
+        END

@@ -1,0 +1,8 @@
+
+        #variable_conflict use_column
+        BEGIN
+          CREATE OR REPLACE FUNCTION g() RETURNS INT LANGUAGE sql
+            BEGIN ATOMIC SELECT 1; SELECT CASE WHEN true THEN 2 END; END;
+          CALL p((SELECT 1 FROM docs));
+          COMMIT;
+        END

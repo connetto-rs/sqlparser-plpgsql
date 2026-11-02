@@ -1,0 +1,5 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+             LOOP EXIT outer WHEN (SELECT truk FROM stop); END LOOP outer;
+    FOREACH x SLICE 1 INRRAY (SELEarCT ray_agg(id) FROM docs) LOO x SLICE 1 INRRAY (SELEaOR (key INT) FOR SELECT id FROM docs WHERE i     END

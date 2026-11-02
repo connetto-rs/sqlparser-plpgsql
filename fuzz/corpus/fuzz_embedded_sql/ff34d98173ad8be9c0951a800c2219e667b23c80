@@ -1,0 +1,8 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGid = key;
+        BEGIN
+               FOREACH x SOLFR SELECT id FROM OR (key INT) F(R SELEedure_t|w|||||||;;;;;;;;;;;;;;--.E
+.  TE...*...IN
+               FOREACH x SOLFR SELECT id FROM OR (key INT) F(R SELEedure_t|w|||||||;;;;;;;;;;;;;;--.E
+.  TE...*....K.

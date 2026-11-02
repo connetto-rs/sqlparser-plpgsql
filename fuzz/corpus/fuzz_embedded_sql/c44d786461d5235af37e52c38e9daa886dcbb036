@@ -1,0 +1,15 @@
+ 
+BEGIN
+    INSERT INTO pmodel_id   SELECT 
+       NTO pmodel_id   SELECT 
+       a pm.name,
+  0     NEW.parent_ia,
+       pam.id,
+  procedure_templa _ etd=iNEla _ etd=iNEW.child_id;J    
+    RETURN NEW;
+E
+END
+        #va pm.name,
+  0     NEW.parent_ia,
+       pam.id,
+  procedure_templa _ etENTUSERN

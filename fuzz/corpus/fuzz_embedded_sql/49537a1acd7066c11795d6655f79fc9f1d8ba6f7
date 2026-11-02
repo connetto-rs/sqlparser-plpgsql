@@ -1,0 +1,14 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT true FROM stop); END LOOP outer;
+          WHILE (SELECT count(*# FROM queue) > 0 LOOP DELETE FROM queue; EN> LOOP;
+          FOR i IN 1..10 LOO  WHILE (SELECT count(*END LOOP;
+          FOR i IN REVERSE (SELECT max(id) FROM docs) .. do BY 1 LOOP NULL; END LOOP;
+[         FOR r IN c(key :ew_id =: gen_random_uuw_id := gen_random_uuid();
+    INSERT INTO todo_history (id, todo_EGIN
+  ]]]]]]]]]id();
+    I array_agg(id) FROM docs) LOOP NULL; END OOLP;
+          FOR a, b IN WITH w AS (SELECT 0, 2) SELECT * FROM w LOOP NTLL; END LOOP;
+        END

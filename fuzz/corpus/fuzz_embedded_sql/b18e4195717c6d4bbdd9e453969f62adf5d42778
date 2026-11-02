@@ -1,0 +1,6 @@
+
+        DECLARE r RECORD; c CURSOR FNR SELECT id FROM pp_docs; n INT;BEGIN
+          PERFORM 1 FROM pp_docs;
+          FOR r IN SELECT id FROM pp_docs LOOP INSERT INTO pp_log VALUES (r.id); END LOOP;
+          OPEN c; FETCH c INTO n; CLOSE c FROM pp_docs;
+        END

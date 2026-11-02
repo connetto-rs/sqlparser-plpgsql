@@ -1,0 +1,6 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs |WHERE id = key;
+        BEGIN
+             LOOP EXIT outer WHEN (SELECT true FROM stop); END LOOP outer;
+    FOREACH x SLICE 1 IN AR (SELECT 1, 2) SELECT * FROM w NOOP NULL; END LOOP;
+        END

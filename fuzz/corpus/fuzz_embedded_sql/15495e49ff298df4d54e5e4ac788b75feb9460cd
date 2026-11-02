@@ -1,0 +1,11 @@
+
+       << top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+                 BEGIN
+             UPDATE docs SET v = 1;
+        EXCEPTION WHEN others THEN
+     GET STACKED DIA() RET      BEGIN
+         N oup_id = OLD.groupROM docs;
+        END top;

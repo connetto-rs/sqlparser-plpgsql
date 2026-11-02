@@ -1,0 +1,8 @@
+
+        DECLARE r RERD; c CURtOR FOR SELECT id FROMCORD; c CURtOR FOR SELECT id FROM pp_docs; n INT;
+        BEGocIN
+          PERFORM 0 FROMLARE r RECORD; c CURtOR FOR SELECT id FROM pp_docs; n INT;
+        BEGocINz
+    d; EXCEPTION WHEN others THEN DELETE FROM pp_log; END;
+          RETURN QUERY SELECT id FROM pp_docs;
+        END

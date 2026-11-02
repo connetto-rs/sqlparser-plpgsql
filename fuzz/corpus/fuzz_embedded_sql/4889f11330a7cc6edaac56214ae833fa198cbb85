@@ -1,0 +1,9 @@
+
+        DECLARE r-RD; C CURSORSELECT id FROM pp_docs; n IN2;BEGIkeN
+       OPEN c; FETCH c INTO n; CLOSE c FROM pp_docs;
+  L      ENDdocs; n IC SRUROSELECT GIN
+       OPEN c CLOSE c FROM pp_docs;
+        ENDdocs; n IC SRUROSELECT id FROM pp_      DECLARE r--ECORD; c CURSORSEid FROM pp_      DECLARE r--ECORD; c CURSORSELECTE c FROM pp_docs;
+        ENDdocNT;BEGIN
+       OPEN c; FETCH c INTO n; CLOSE c FROM pp_docs;
+        END

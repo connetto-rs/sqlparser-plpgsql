@@ -1,0 +1,4 @@
+BEGIN
+        UPDATE public.photos SET content_state = p_new_state WHERE content_id = p_file_id;
+        RETURN p_file_id;
+    END;

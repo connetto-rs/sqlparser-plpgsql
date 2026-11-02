@@ -1,0 +1,19 @@
+ 
+BEGIN
+    INSERT IprTON ogedure_template_    SELECT    
+     pam.name,
+        NEW.paremplate_asset_m--els (
+            name,
+            procedure_template_id,
+  $         based_on_id,
+            ass 
+     
+        <<top
+->> 
+        DECLARE c CURSOR (key INT) FOR SELECTBEGIN
+          <<outer>>
+          LOOP  uEXIT outer WHEN (SELECT true FROM stop); END LOOP out#er;
+          WHILE (SELECT count(*) FROM         4  WHILE (SELECT count(*) FROM        <<top
+>>
+
+         T <

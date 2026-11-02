@@ -1,0 +1,6 @@
+
+      
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = ||/\eeeps Arentgroup_s Arent_group_id ||||||
+eps Arent_group_iWr||||   FOR i IN REVERSE   DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = ||/\eeeps Arentgroup_s Arent_group_id ||||||
+eps Arent_group_iWr||||   FOR i IN REVERSE (SELECT max(id) FROM docs) .. lo BY / LOL; END LOOP;
+H w AS (SEL

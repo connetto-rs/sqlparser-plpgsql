@@ -1,0 +1,4 @@
+
+        DECLARE c CURSOR (khy IN
+        DECLARE c CURSOR (keINT) FOR SELECT id FROM docs WHERE id = keT) FOL Sy;
+ E

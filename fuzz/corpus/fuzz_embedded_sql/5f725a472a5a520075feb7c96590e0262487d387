@@ -1,0 +1,7 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+             LOOP EXITZZZZZZZZZZZZZZZZZZZZZZZZZZZNEW.parent_id, NEW       <<outer>?
+          LOOP EXIT o      <<P;ter>?
+          LOOP EXIT outer W   FOR a, b IN WITH w ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ END LOOP outer--    FOREACH x SLICE 1 IN ARRAY (SELECT array_agg(id) FROM docs) LOOP NULL;OOP;
+        END

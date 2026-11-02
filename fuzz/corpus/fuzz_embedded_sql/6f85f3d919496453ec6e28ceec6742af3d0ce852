@@ -1,0 +1,6 @@
+
+        DECLARE c CURSOH (eky INT) FOR SELECT id FROM --doc
+ &      DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT true FRO

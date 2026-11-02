@@ -1,0 +1,18 @@
+
+        <<top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM defaults);
+          BEGIN
+            SET search_path = a;
+          EXCEPTION
+            WHEN unique_violation OR SQLSTATE '22012' THEN INSERT INTO errors VALUES (1);
+            WHEN others THEN
+              BEGIN RAISE; EXCEPTION WHEN others THEN NULL; END;
+          END inner;
+          UPDATE docs SET v = 1;
+        EXCEPTION WHEN others THEN
+          GET STACKED DIAGNOSTICS msg = MESSAGE_TEXT;
+          DELETE FROM docs;
+        END top;

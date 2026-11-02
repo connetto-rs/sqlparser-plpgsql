@@ -1,0 +1,5 @@
+
+           BEGIN RAISE; EXCEPTION WHEN others THEH NULL; END;
+          END inner;
+          UPDA<<top>       WHEN others THEN
+  END top;9

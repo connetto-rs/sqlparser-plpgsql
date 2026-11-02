@@ -1,0 +1,10 @@
+
+        DECLARE c HURSOR (key INT) FOR SELPTION     D<<< WH<SCTo/M docs WHERE id =* key;
+        BEGMN
+    
+   EXCEPTION     D<<< WH<SCT id FROECURSIVE p AreKVG parent_gro/M docECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT tr~e FROM stop); END LOOP outer;
+     FOR a, b IN WITH w AS (SELECT 1, 2) SELECT * FROM w LOOP NULL; END LOOP;
+        END

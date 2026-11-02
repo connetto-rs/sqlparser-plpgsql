@@ -1,0 +1,12 @@
+
+        DECLARE c CURSOR (ke
+DECy INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT oute--WHEN (SELECT true FROM stop); END LOOP outLARE
+  TEXT;
+BEGIN
+    new_id := gen_random_uuw_id :
+ENDi\\\\\\\\\\\\\\\\\\\\\\\\er;
+         \\\\ \\\\\\\\WHI\\\\\\\\\\d();
+    LEIN (

@@ -1,0 +1,8 @@
+BEGIN
+        SELECT count(*) INTO n FROM docs;
+        SELECT INTO x, y a, b FROM docs;
+        SELECT * INTO STRICT r FROM docs WHERE id = 1;
+        INSERT INTO docs VALUES (1) RETURNING id INTO n;
+        MERGE INTO docs USING src ON docs.id = src.id WHEN MATCHED THEN DELETE;
+        SELECT 1 FROM docs INTO r.field;
+    END

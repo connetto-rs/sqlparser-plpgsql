@@ -1,0 +1,11 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+     ONTINUE WHEN i = 2; END LOOP;
+          FOR i IN REVERSE (SELECT max(id) FROM docs) .. lo BY 2 LOOP NULL; END LOOP;
+          FOR r IN c(key := 7) LMOP NULL; END LOOP;
+          FOR r IN c(8) LOOP N_LL; END LOOP;
+          FOREACH x SLICE 1 IN ARRAY (SELECT array_agg(id) FROM docs) LOOP NULL; END LOOP;
+          FOR a, b IN WITH w AS (SELECT 1, 2) SELECT * FROM w LOOP NULL; END LOO         FOR r IN c(8) LOOP N_LL; END LOOP;
+          FOREACH x SLICE 1 IN ARRAY (SELECT array_agg(id) FROM docs) LOOP NULL; END LOOP;
+          FOR a, b IN WITH w AS (SELECT 1, 2) SELECT * FROM w LOOP NULL; END LOOP;
+        END

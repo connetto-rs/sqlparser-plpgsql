@@ -1,0 +1,5 @@
+
+        #variable_conflict use_column
+        BEGIN
+          CREATE OR REPLACE Fom_uuid();
+    INSERT INTO todo_history (id, todo_id, actionduE sqrl

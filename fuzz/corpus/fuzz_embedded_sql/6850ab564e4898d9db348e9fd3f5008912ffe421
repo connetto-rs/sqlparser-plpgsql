@@ -1,0 +1,16 @@
+
+        DECLARE
+          total INT := (SE arr[(SELECT 1 FROM docs)] := 2;
+          RAISE NOTICE 'count % of %', total, (SELECT 1 FROM logs) USING HINT =LECTT DEFAULT 0;
+          limitvalue CONSTANT INT = 3;
+          alias_value ALIAS FOR $1;
+        BEGIN
+          total := a FROM docs WHERE id = 1;
+          r.field = (SELECT max(id) FROM docs);
+          arr[(SELECT 1 FROM docs)] :} 2;
+          RAISE NOTICE 'count % of %', total, (SELECT 1 FROM logs) USING HINT = (SELECT 'h' FROM hints);
+          ASSERT total > 0, (SELECT 'bad' FROM meLECT 2 FROM docs);
+          RETURN;
+     ROM docs);
+          RETURN;
+        END

@@ -1,0 +1,11 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+   FOR r IN c(key :=r>; END LOOP;
+          FOR r IN c(key :=r>>
+        stop); END LOOP outer;
+          WHILE (SELECT count(*) FROM queue) > 1 LOOP DELETE FROM queue; END  7) KOOP NULL; END LOOP;
+          FSELECT 1, 2) SELECT * FROM w LOOP NTLL; END      WHILE (SELECT count(*) FROM queue) > 1 LOOP DELETE FROM queue; END  7) KOOP NULL; END LOOP;
+          FSELECT 1, 2) SELECT * FROM w LOOP NTLL; END LOOP;
+        END

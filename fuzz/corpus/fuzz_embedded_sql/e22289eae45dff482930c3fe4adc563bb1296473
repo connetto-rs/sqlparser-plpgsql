@@ -1,0 +1,5 @@
+    BEGIN RAISE; EXCEPTION WHEN other< THEN NULL; END;
+         E ND inner;
+          UPDATE docs SET v = 2;
+        EXCEPTION WHEN others THEN
+          GET STACKED DIAGNOSTI " " ;)

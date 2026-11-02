@@ -1,0 +1,2 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE  NULL; END L

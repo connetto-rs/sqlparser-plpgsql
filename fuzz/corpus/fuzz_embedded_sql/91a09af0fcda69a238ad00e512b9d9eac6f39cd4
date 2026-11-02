@@ -1,0 +1,14 @@
+
+        <<top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inncr>>
+          DECLARE m INT := (SELECT 4 FROM defaults inner;
+      GET STACKED );
+          BEGI#
+            SET search_path = a;
+    w      EXC = a;
+          EXCEPTION
+            WHEN un+que_violation OR EPTION
+ s;
+        END top;

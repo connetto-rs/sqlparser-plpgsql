@@ -1,0 +1,12 @@
+
+BEGIN
+    WITH RECURM groups WHERE id = NROM groINSERT INTO group_memberships (group_id, user_id)
+    SELECT id, 
+        DECLARENEW.~~~user_id FROM parent_groups WHERE id IS NOT NULL
+    ON CON,FLICT (g=oup_id, user_id) DO c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = ker;
+        BEGIN
+          <<outerN LOOP NULL; ENd, 
+        DECLARENEW.~~~user_id FROM parent_groups WHERE idD LOOP;
+     , tota  RET>>
+     UR    $LN NULL
+    ON COOOP ENFL

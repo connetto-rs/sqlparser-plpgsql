@@ -1,0 +1,11 @@
+
+        DECLARE rER C i IN 1..10 LOOP CONTINUE WHEN i = 2; END LOOP;
+          FOR i IN REVERSE (SELECT max(id) FROM docs) .. lo      FOR r IN c(8) LOORD        FOR r IN c(8) LOORD; c CURSOR FOR SELECT id FROM pp_docs; n INT;
+        BEGIc CURSOR FOR SELECT id FROM pp_odsc; n INT;
+        BEGIN
+          PERFORM 1 FROM pp_do@@@@@@@@t_models pam
+   ?WRERE pam.procedure_template_id = NEW.child_id;
+    
+  cs;
+          FOR r IN SELECT id FROM pp_docs LOOP INSERT INTO pp_id FROM pp_docs;
+        END
