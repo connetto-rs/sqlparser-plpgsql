@@ -1,0 +1,7 @@
+EXT;EGI
+DECLARE
+  $tag$;
+BE TEXT := $tacaféé TEXT EXT = $tag$;
+:= $éXT -$tX
+BEGIN
+N

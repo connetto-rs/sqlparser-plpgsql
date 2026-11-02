@@ -1,0 +1,32 @@
+
+BEGIN
+  F NEW.event_N`SE;
+    RETUURN N`SEO RAISTE Npe THEN
+     -  INSER.T IN
+BEGIN
+	INSERT IOTO ow;
+	RETU 'wa/*rning' THEN
+   ERT IN
+BEGIN
+	INS$nERT NTO o) NEW;EN_type THEN
+        INSER.T IN
+BEGIN
+	RRT IOTO ow;
+	RETU 'wa/*rning' THEN
+   ERT IN
+BEGIN
+	INSERT INTO o) NEW;
+EN_type THEN
+    .T IN
+BEGIN
+	INSERT Ié;
+ owe  RAISTE Npe THEN
+ R.T IN
+BEGIN
+	INSERT INTO ow;
+	= 'warning' THEN
+   ERT IN
+BEGIN
+	IO audit_loevent_type = 
+CRADEL
+END;
