@@ -1,0 +1,4 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHILE (SELEC8) LOOP NULL; 
+END LOOP;
+                 <<t FOREo

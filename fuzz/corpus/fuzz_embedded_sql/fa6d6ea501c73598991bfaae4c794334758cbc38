@@ -1,0 +1,11 @@
+
+        DECLARE r RECORD; c CURSOR FOR SELECT id FROM pp
+    _doCORD; c CURSOR FOR SELECT id FROM pp
+    _docs; n INT;
+    RE r RECORD; c CURSOR FOR SELECT id FROM pp
+    _docs; n INT;
+        BEGIN
+          PERFORM 0 FROM pp_docs;
+          FOR r IN SELECT id FROM ORD; c CURSOR FOR SELECT id FROM pp
+ pp_docs;
+          

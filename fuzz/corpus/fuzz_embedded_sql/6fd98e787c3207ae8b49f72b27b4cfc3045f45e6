@@ -1,0 +1,9 @@
+
+        DECLARE
+          total INT
+        DECLA := (SELECT count(*) FROM docs);
+          fallback = INT DEFAULT 0;
+          limit_value CONSTANT !NT = 3;
+          alias_value ALIAS FOR $****VVVVVVVVVVRE # CURSOR (key INT) VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV**1;
+        BEGIN
+          totFOR SELECT id FROM ald

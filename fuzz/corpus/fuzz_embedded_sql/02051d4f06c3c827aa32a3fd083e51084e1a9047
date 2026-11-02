@@ -1,0 +1,9 @@
+
+        <<top>>
+        DECLARE n INT := 1;
+        BGGIN
+          <RE m INT := (SELECT 2 FROM defaults);
+          BEGIN
+            SET search_path = a;
+          EXCEPTION
+      

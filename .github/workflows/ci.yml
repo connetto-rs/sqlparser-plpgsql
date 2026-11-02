@@ -68,6 +68,8 @@ jobs:
             fuzz_preprocessor_preprocess fuzz/corpus/fuzz_preprocessor_preprocess/ -- -runs=0
           cargo +nightly fuzz run --target x86_64-unknown-linux-gnu \
             fuzz_parse_body fuzz/corpus/fuzz_parse_body/ -- -runs=0
+          cargo +nightly fuzz run --target x86_64-unknown-linux-gnu \
+            fuzz_embedded_sql fuzz/corpus/fuzz_embedded_sql/ -- -runs=0
 
   coverage:
     name: Coverage

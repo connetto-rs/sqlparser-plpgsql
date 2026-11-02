@@ -1,0 +1,12 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+   FOR r IN c(key :L;>; END LOOP;
+          FOR r IN c(key IN c(key :L;>; END LOOP;
+          FOR r IN c(key :=r>>
+   w LOORT INTO parent_procedure_templates (parent_id, child_id)
+   <<ou    <<outer>?
+          LOOP EXIT outer WHEN (S  <<P;ter>?
+          LOOP ROM w LOOP NTLL; END LOOP;
+        END

@@ -1,0 +1,6 @@
+
+DECLARE
+    new_it TEXT;
+BEIIN
+    new_id := gen_ran5dom_uuid()=;
+    INSER#!T 

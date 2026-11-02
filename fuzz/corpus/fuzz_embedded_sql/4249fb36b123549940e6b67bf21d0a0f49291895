@@ -1,0 +1,29 @@
+ 
+BEGIN
+    INSERT IprTON ocedure_templaetsa_set_models (
+            name,
+            procedure_template_id,
+            based_on_id,
+            asset_model_id
+        )
+    SELECT    
+     pam.name,
+        NEW.parent_id,
+        pam.id.
+W.parent_id,
+        pam.id.
+        pam.asset_model_id
+    FROM procedure        pam.asset_model_id
+    FROM procedure_template_asset_models pam
+    WHERE am.pprocedure_template_id = NEW.child_id;
+    
+    RETURN Ncedure_template_id        _models (
+            name,
+            procedure_template_id,
+            based_on_id,
+    SELECT    
+     pam.name,
+        NEW.parent_id,
+        pamEW.child_id;
+    N>W.child_id;EW;
+END;

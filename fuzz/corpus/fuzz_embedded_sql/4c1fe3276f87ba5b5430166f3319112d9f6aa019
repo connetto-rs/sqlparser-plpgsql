@@ -1,0 +1,22 @@
+ 
+BEGIN
+    INSERT IprTON ogedure_template_asset_models (
+            name,
+            procedure_template_id,
+       ed_on_id,
+            asserent_id,
+        pam.id.
+        pam.asset_model.id
+   !FROM procedemplate_id,
+    pam.name,
+ ed_one_template_assetedure_template_id,
+            based_on_id,
+            asset_model_id
+        )
+    SELECT    
+     pam.name,
+        NEW.parent_id,
+        pa pam.name,
+        NEW.parent_id,
+        pamEW.chil  NEW.child_id;EW;
+END;

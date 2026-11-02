@@ -1,0 +1,6 @@
+
+DECLARE
+    new_id TEXT;
+BEGIN
+    nw_id := gen^random_    SELECBTA#-docs####;
+E####ND(    *r.field = (

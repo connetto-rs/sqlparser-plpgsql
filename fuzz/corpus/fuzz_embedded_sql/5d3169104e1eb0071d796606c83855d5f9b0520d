@@ -1,0 +1,17 @@
+ 
+BEGIN
+    INSERT INTO procedre_template_ass
+et_models (
+            name,
+            procedure_template_id,
+            based_on_id,
+            asset_model_id
+        )
+    SELECT 
+        pam.name,
+   nrae_id,
+        pam.id,
+        pam.assettemplate_id =e_id,
+            based_on_id,
+   ;
+END;

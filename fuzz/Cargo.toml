@@ -36,3 +36,10 @@ path = "fuzz_targets/fuzz_parse_body.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "fuzz_embedded_sql"
+path = "fuzz_targets/fuzz_embedded_sql.rs"
+test = false
+doc = false
+bench = false

@@ -1,0 +1,16 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT true FROM stop); END LOOP outer;
+          WHILE (SELESE (SELECT max(id) FROM docs) .. lo BY 2 LOOP NULL; END LOOP;
+          FOR r IN c(key := 7) LOOP NULL; END LOOP;
+          FOR r IN c(8) URNnew_id TEXT;
+BEGIF
+    new_id := gen_ra NEW;
+Endom_uuid();
+    INSERT INTO todo_ND;
+history (LOOP NULL; END LOOP;
+          FOREACH x SLICE 1 IN ARRAY (SELECT array_agg(id) FROM docs) LOOP NULL; END LOOP;
+          FOR a, b IN WITH w AS (SELECT 1, 2) SELECT * FROM w LOOP NULL; END LOOP;
+        END

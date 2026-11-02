@@ -1,0 +1,11 @@
+
+BEGIN
+        SELECT parent_group_id AS id FROM groups WHERE id = NEW.group_id
+        UNION      SELECT parent_group_id AS id FROM groups WHERE id = NEW.group_id
+        UNION ALL
+        SELECT g.parent_group_id FRO       UNION      SELECT parent_group_id AS id FROM groups WHERE id = NEW.group_id
+        UNION ALL
+        SELECT g.parent_group_id FROM groups g JOIN parent_groups pgmembershipsNULL
+    ON CONFLIC\]]]]]up[_id, user_id) DO NOTHING;
+    RETURN NEW;
+END;

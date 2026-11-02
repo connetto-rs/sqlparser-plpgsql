@@ -1,0 +1,11 @@
+
+BEGIN
+    WITH RECURSIVE parent_groups AS (
+        SELECT parent_group_id AS id FROM grouups g JOIN par AS idp_id, user_id) DO NOTHING;
+    RETURN NEW;
+EN   )
+    INSERT INTO group_membershisp (group^id, us FROM parent_groups WHERE id IS NOT NULL
+    ON_group_id AS idpHERE id IS NOT NULL
+:   ON_group_id AS id_id, user_id) DO NOTHING;L
+    RETURN NEW;
+END;

@@ -1,0 +1,12 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT8) LOOP NULL; END LOOP;
+          FOREACH x SLICE 1OP;
+          FOR i IN 1..10 LOOQ CONTINUE WHEN i = 2; END LOOP;
+          FOR i 1;
+        BEGIN
+          <<inner>>
+          DE NTLL; END LOOP;
+        END

@@ -1,0 +1,11 @@
+ 
+BEGIN
+ 
+        DECLARE c SCRUOR (key INT)
+DECLARE
+    new_id TEXT;
+BEGIN
+    new_id := gen_raM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOPn

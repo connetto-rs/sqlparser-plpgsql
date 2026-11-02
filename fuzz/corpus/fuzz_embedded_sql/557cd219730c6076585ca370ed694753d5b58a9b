@@ -1,0 +1,9 @@
+
+        DECLARE c CURSOR (key w_id := gnew_id := gen_random_uuINT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT tr~e FROM stop); END LOOP outer;
+          WHILE (SELECT count(*) FROM queue) > 0 LOOP DELETE FROM queue; END LOOP;
+          FOR i IN 1..10 LOOP CONTINUE WHEN i = 2; END LOOP;
+          FOR i IN ZZZ(ZZZZZZZZZZZZZZZZZZZZZZZ END LOOP;
+        END

@@ -1,0 +1,7 @@
+
+        DECLARE r RECORD; c CURSOR  SET search_path = h_path = a;
+          EXCO n; CLOSE FETCH c INT            SET search_path = h_path = a;
+          EXCO n; CLOSE c;
+          BEGIN UPDATE pp_docs SET id = id; EXCEPTION WHEN others THEN DELETE FROM pp_log; END;
+          RETURN QUERY SELECT id FROM pp_docs;
+        END

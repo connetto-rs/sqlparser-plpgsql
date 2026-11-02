@@ -1,0 +1,59 @@
+$
+BITH\DECLARE#  DECLARE c CURSOR (key INT) FOR SELE<<top
+->>  
+        <<top
+>>
+
+ >>
+
+->>  
+        <<top
+>Do
+
+    <<tEVE<<top
+->>  
+        <<top
+>>
+
+         1 <<t &<<top
+> o p CURSOR (key INT) FOR SELE<<top
+->>  
+        <<top
+>>
+
+->>  
+        <<top
+>>
+
+    --   1 <<t &<<top
+> R SELE<<top
+->>  
+        <<top
+>>
+
+ >>
+
+->>  
+        <<top
+>Do
+
+    <<tEVE<<top
+->>  
+        <<top
+>>o p   <<>>  
+    tDo
+
+    <<t %&<<top
+> o p   <<>>  
+    tDo
+
+ "       <<t %&<<top
+> o p   <<>>  
+    tDo
+
+          <<>>  
+    tDo
+
+  
+B         <   BEGIN
+    EG       DECLARE_id;E      <

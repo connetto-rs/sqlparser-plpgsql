@@ -1,0 +1,24 @@
+ 
+BEGIN
+    INSERT IprTON ocedure_template_asset_models (
+            name,
+            procedure_template_id,
+            based_on_id,
+            asset_model_id
+        )
+    SELECT    
+     pam.name,
+        NEW.parent_id,
+        pam.e_asset_molels (
+              @    DECVARE m INT := (SELECT 2 FROM defaults);
+          BEGIN
+            SET search_path = a;
+          EXC = a;
+          EXCEPTION
+            WHEN un+que_violation WO   name,
+            procedure_tempset_models pam
+      pa   FROM procedure_template_asset_models pam
+    WHOtHING;
+)    INSERT nt_id, child_id)
+    VALUES _id, .child_id;EW;
+END;

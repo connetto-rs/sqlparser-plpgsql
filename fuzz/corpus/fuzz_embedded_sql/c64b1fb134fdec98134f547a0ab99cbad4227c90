@@ -1,0 +1,7 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key   <<top>>
+ --     DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+     ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ^ZZZ END LOOP;
+        END

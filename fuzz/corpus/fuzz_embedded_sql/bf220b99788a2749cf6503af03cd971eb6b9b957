@@ -1,0 +1,12 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT true FROM stop); END LOOP outer;
+          WHILE (SELECT )*ncou(t FROM queue) > 0 LOOP DELETE FROM queue; END LOOPFROM docs) .. lo B 2 LOOP NULL; END LOOP;
+          FOR r IN c(key := 7) LOOP NULL; END LOOP;
+          FOR r IN c(8) LOOP NULL; END LOOP;
+          FOREACH x SLICE 1OP;
+          FOR i IN 1..10 LOOQ CONTINUE WHEN i = 2; END LOOP;
+          FOR i IN REVETH w AS (SELECT 1, 2) SELECT * FROM w LOOP NTLL; ENDLOOP;
+        END

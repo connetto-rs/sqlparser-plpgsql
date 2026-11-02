@@ -1,0 +1,22 @@
+
+        <<top>>
+        DECLARE  nINT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m I        <<top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM defaults);p
+          BEGIN
+      T := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM defaults);
+          B~GIN
+            SET search_path = a;
+          EXC = a;
+          EXCEPT (1);earch_path = a;
+          EXC = a;
+          EXCEPT (1);
+            WHEN others THENN others THEN NEND top;9

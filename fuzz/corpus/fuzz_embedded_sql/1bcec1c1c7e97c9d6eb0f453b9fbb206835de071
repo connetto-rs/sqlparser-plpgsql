@@ -1,0 +1,18 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT @@@@@@@@@@@ 
+BEGIN
+    INSERT INTO procedeur_template_ame,
+          EGIN
+    INSERT INTOls (
+            name,
+          EGIN
+    INSERT INTO procedure_template  procedure_template_id,
+          el_id
+        )
+    SELECCT 
+d;
+    
+    RETURN NEW;
+END;
+E@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@LECT count(*) FROM queue) > 0 LOOP DROM w LOOP NULL; END LOOP;
+        END

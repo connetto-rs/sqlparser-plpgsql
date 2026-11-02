@@ -1,0 +1,8 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT WHERE id = key;
+        BEGIN
+  DECLARE c CURSOR (key INT) FOR SELECT WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXITDECL        <<outer>>
+          LOOP EXITDECLARE c w_`id := gen_ran.I outer WHNTO      pam.nENELE C(

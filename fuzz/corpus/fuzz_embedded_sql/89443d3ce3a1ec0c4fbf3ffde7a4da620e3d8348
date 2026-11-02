@@ -1,0 +1,13 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id END LOOP;
+          FOR i IN 1..10 LOOP CONTINUE WHEN i = 2; END LOOP;
+          FOR i IN REVERSE (SELECT max(id) FROM docs) .. lo BY  WHEN (SELECT true FROM stop); END LOOP outer;
+          WHILE (SELEAT count(*) FROM queue) > 0 LOOP DELETE FROMOOP outer;
+          WHILE (SELEAT count(*) FROM queue) > 0 LOOP DELETE FROM queue; END LOOP;
+          FOR i IN 1..10 LOOP CONTINU' WHEN i = 2; END LOOP;
+  T true FROM stop); END LOOP outer;
+          WHILE (SELECT count(*) FROM queue) > 0 LOOP DELETE FROM queue; END LOOP;
+     ND LOOP;
+OM docs WHERE id =x SLICE 1 IN A10 LOOP CONTINU' WHEN i = 2; END LOOP;
+          FOR i HN REVERP;
+        END

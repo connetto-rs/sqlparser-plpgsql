@@ -1,0 +1,4 @@
+
+        DECLARE c CURSOR (key
+        DECLARE c CURSOR (key INT) FOR SELECT @@@@@@@@@@@@@@@@@@@@@@@@LECT clunt(*) FROM queue) > 0 LOOP DELETE  FROM queue; END LOOP;
+          FOR i IN 1.         INT)

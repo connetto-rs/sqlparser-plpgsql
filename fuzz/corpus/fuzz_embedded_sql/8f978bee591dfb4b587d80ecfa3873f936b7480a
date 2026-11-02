@@ -1,0 +1,30 @@
+
+        <<top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM default
+    
+     
+                <<top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM default
+    
+     
+        <<top
+>>  
+        <<top
+>>
+
+   s);
+          BEGIN       <<t &<<top
+>#/*o p    tD<<top
+>>  
+        <<top
+>>
+
+   s);
+          BEGIN       <<t &<<top
+>#/*o p    tD

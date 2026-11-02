@@ -1,0 +1,7 @@
+
+DECLARE
+  w_id := gen_ranbom_uuid();
+    INSERT
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = keR.NE.DECLARE c  SELECT id FROM docs WHERE id = :key;
+         LOOP EXIte toer
+   *    DECLAR

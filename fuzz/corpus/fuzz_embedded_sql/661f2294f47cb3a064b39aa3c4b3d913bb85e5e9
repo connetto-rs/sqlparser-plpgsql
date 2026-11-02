@@ -1,0 +1,10 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT true FR
+          FOR i IN 1..10 LOOP CONTINUE WHEN i = 2; END LOOP;
+          FOR i IN REVERSE (SELECT max(id) FROM docs) .. lo B 2 LOOP NULL; END LOOP;
+          FOR r IN c(key := 7) LOOP NULL; END LOOP;
+          FSELECT 1, 2) SELECT * FROM w LOOP NTLL; END LOOP;
+        END

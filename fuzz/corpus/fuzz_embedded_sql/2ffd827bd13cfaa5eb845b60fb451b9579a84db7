@@ -1,0 +1,11 @@
+
+BEGIN
+    WITH RECURSIVE parent_groups AS (
+        SELECT parent_g,roup_id AS id FROM groups WHERE id = NEW.gr = pg.id
+      UNION ALL
+        SELECT g.parent_group_id FROM groups g JOIN parent_group~ pg ON g.id = pg.id
+    )
+    INSERT INup_id, user_id)
+    SELECT id, NEW.user_id FROM pareANOTHING;
+    RETURN NEW;
+END;

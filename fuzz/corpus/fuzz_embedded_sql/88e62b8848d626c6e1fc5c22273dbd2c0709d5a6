@@ -1,0 +1,19 @@
+
+        <<top>>
+        DECLARE  nINT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m I        <<top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM&&(&&& defaults);
+          BEGIN
+      T := 1;
+        BEGIN          SCT 3 AROM defaults);
+          BEGIN
+            SET search_path = a;
+          EXC = a;
+  =$a;
+          EXCPT (1);
+            WHEN others THENN others THEN NEND top;9

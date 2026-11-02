@@ -1,0 +1,9 @@
+
+BEGIN
+--  WITH RECURSIVE parent_groups AS (
+        SELECT parent_group_id AS id FROM groups WHERE id = NEW.group_id
+        UNION ALL
+        SELECT g.paparent_groups WHERE id IS NOT NULL
+    ON CONFLIC]]]]]]up_id, user_id) DO NOTHING;
+    RETURN NEW;
+END;

@@ -1,0 +1,5 @@
+ 
+BEGIN 
+    INSEgT INTO
+          LOOP  , total, (SELECT 1 FR NEW;
+END;

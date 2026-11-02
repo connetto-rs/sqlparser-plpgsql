@@ -1,0 +1,11 @@
+
+        <<top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM defaults);
+          BEGIN
+            SET search_path = a;
+          EXC = a;
+          EXCEPTION
+   WHSE; EXCEPTION WHEN others THEN NEND top;9

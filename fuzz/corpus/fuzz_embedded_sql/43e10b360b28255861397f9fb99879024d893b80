@@ -1,0 +1,13 @@
+
+        DECLARE r--ECORD; cC SRUROSELECc FROM pp_docs;
+        ENDdocs; n IC SRUROSELECT GIN
+       OPEN c; FETCH c INTO n; CLOSE c FROM pp_docs;
+        ENDdocs; n IC SRUROSELECT id FROM pp_      DECLARE r--ECORD; c CURSORSEid FROM pp_      DECLARE r--ECORBEGIN
+       OPENTO n; CLOSE c FROM pp_docs;
+        ENDdocs; n IC SRUROS       ENDdocs; n IC SRUROSELECT GIN
+       OPEN c; FETCH ELECT id FROM pp_      DECLARE r--ECORD; c CURSORSEid FROM pp_      DECLARE r--ECORBEGIN
+       OPEN c; FETCH c INTO n; CLOSE c FROM pp_docs;
+   TO n; CLOSE c FROM pp_docN c; FETCH c INTO n; CLOSE c FROM pp_docs;
+        ENDdocNT;BEGIN
+       OPEN c; FETCH c INTO n; CLOSE c FROM pp_docs;
+        END

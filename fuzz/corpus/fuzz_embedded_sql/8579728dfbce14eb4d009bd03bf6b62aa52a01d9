@@ -1,0 +1,16 @@
+
+        <<top>>
+        DECLARE n INT := 1;
+        BGGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM defaults);
+          BEGIN
+            SET search_path =  := 1;
+        BGGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM defaults);
+          BEGIN
+            SET search_path = a;
+  T;
+          DELETE FROM docs;
+        END top;

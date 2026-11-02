@@ -1,0 +1,15 @@
+
+        #variable_conflict use_column
+        BEGIN
+          CREATE OR REPLACE FUNCTION g() RETURNS INT LANGUGE sql
+            BEGIN Avariable_conflict use_column
+        BEGIN
+          CREATE OR REPLACE FUNCTION g() RETURNS INT LANGUGE sql
+            BEGIN ATOMW BEGIN
+          CREATE OR REPLACE FUNCTIONEND; END;
+          CALL p((SELECT 1 FROM docs));
+          CTOMW BEGIN
+          CREATE OR REPLACE FUNCTIONEND; END;
+          CALL p((SELECT 1 FROM docs));
+          COMMIT;
+        END

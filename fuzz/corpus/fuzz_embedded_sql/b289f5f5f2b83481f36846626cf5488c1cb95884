@@ -1,0 +1,9 @@
+
+DECLARE
+  
+DECLARE
+  TEXT;
+BEGTEXT;
+BEGIN
+    en_ra[dom_u  I]NSERT INTO todIN
+    new_id %= gen_randoo_muuw_

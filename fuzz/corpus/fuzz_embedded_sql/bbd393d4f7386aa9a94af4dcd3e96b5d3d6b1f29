@@ -1,0 +1,17 @@
+
+        DECLARE
+          c CURSOR FOR SELECT id FROM outer_docs;
+          never NO SCROLL CURSOR FOR SELECT id FROM unread;
+          d SCROLL CURSOR (k INT) IS SELECT id FROM keyed WHERE id = k;
+          free refcursor;
+        BEGIN
+          IF flag THEN OPEN c; END IF;
+          DECLARE c CURSOR FOR SELECT id FROM inner_docs;
+          BEGIN OPEN c; END;
+          OPEN d(k => (SELECT 1 FROM keys));
+          OPEN free SCROLL FOR SELECT id FROM loose;
+          FETCH RELATIVE (SELECT 2 FROM steps) FROM d INTO n;
+          MOVE FORWARD ALL IN d;
+          FETCH NEXT FROM d INTO n;
+          OPEN c;
+        END

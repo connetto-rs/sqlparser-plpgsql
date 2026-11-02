@@ -1,0 +1,7 @@
+
+BEGIN
+    WITH RECURSIVE parent_groups AS (
+        SELECT parent_g,roup_id AS id FROM groups WHERE id = NEWid)
+    SELECT id, NEW.user_id FROM pareANOTHING;
+    RETURN NEW;
+END;

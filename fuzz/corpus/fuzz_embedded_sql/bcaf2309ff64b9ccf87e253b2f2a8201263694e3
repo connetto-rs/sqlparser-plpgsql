@@ -1,0 +1,5 @@
+
+BEGIN
+	INSERT INTO owners (id) VALUE:S (NEW.id);
+	RETURN NEW;
+END;

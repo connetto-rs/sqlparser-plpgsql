@@ -1,0 +1,9 @@
+ 
+
+DECLARE        BEGIN
+       --      LOOP EXIT outer WHEN (ELBEGItop
+>^
+BEGIN
+    WITH RECURSIVE parent_groups AS (
+        SELECT parent -roupid, userE parN
+E<_id 

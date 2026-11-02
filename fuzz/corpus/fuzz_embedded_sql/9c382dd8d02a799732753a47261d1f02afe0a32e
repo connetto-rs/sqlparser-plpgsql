@@ -1,0 +1,6 @@
+
+        DECLARE ekR (1ke;y INT) FOR SELECT id FROM d$#locs DCARELET id FROM docs WHERE id = key;
+        BEGIN
+          FOR i IN 1..10 --LOOQ CONTINUE WHEN i = 2; END LOOP;/*
+d FROM d$#locs DCARELET id FROM docs WHERE id = key;
+      ~~

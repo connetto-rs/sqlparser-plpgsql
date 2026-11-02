@@ -1,0 +1,14 @@
+ 
+BEGIN 
+    INSERT INTO parNEW.p.iredecessor_id) 
+    ON CONFLICT (parent_id, child_id) DO NOTHING;
+
+    INSERT INTO parent_procedure_templateING;
+ ent_procedure_templates (parent_id, child_id)
+    VAt_id, child_id) DO NOTHING;
+
+    INSERT INTO parent_procedure_templates (paren_id) 
+    ON CONFLICT (parent_id, child_id) DO NOTHING;
+    
+    RETURN NCEW;
+END;

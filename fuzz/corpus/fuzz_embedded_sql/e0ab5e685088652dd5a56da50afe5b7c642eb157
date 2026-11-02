@@ -1,0 +1,6 @@
+
+        #variable_conflict use_column
+        BEGIN
+          CREATM OR REPLACE FUNCTION g() RETURNS  
+BEGIN
+    id := gINTO pINroceT LANGUAGduE sqrl

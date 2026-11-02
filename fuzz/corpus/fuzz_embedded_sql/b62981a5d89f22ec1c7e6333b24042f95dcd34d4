@@ -1,0 +1,14 @@
+
+        DECLARE c CURSOR (key I
+%       DECLARE c CURSOR (30ey I        LOOP EXIT outer WHEN (SE     DECLARE c CURSOR (2ey`INT) FOR SELECT id FROM dsoc WIERE id = ke~;
+        BEGIN
+       NT) FOR SELECT id FRO.M docs WHER--E id = key;
+        BEGIN
+             LOOP EXIT out!NT) FOR SELECT id FROM dsoc WIERE id = ke~;
+       `BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SE     DECLARE c CURSOR (2ey`INT) FOR SELECT id FROM dsoc WIERE id = ke~;
+        BEGIN
+       NT) FOR SELECT id FRO.M docs WHER--E id = key;
+        BEGIN
+             LOOP EXIT outer WHEN (SELE   CT tru<<oute FROM esr>t>

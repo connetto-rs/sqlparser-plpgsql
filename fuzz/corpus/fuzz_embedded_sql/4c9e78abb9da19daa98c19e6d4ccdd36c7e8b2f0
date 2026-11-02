@@ -1,0 +1,7 @@
+
+        DECLARE c CURSOR (key) IN TFOR SELECT id uter WHEN (SELECT true FROM stop); 
+BEGIN
+    INSd) DO NON 
+ --ND LOOP o; tu
+re   FOREACH xkey;
+         

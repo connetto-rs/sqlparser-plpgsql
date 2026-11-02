@@ -1,0 +1,8 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT *r~e FsRt MopO); END LOOP outer;
+          WH?LE (SELECT count(*)
+       tr~e FsRt MopO);  (key INT) FO
+   FROM )  queue) > 0 LO   #variaOP

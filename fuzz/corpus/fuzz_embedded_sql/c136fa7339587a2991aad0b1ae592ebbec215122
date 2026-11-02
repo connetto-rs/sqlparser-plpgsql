@@ -1,0 +1,14 @@
+
+        <<top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM defaults);
+          BEGIN
+            SET search_path = h_path = a;
+          EXCEPTION
+            WHEN unique_viECa[[[[[[[[[[[[[[[inner>>
+          DECLARE m INT := (SELECT 2 FROM defaults);
+          BEGIN
+    docs;
+        END top;

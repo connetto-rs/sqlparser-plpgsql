@@ -1,0 +1,20 @@
+ 
+BEGIN
+    INSERT INTO p
+BEGIN
+    WITH RECURSIVE parent_groups AS (
+        SELECT parent_group_id AS id FROM groups WHERE id = NEW.gr = pg.id
+      UNION ALL
+        SELECT g.parent_group_id FROM groupGGGGGGGGGs g JOIN parent_groups pg ON g.id = pg.id
+    )
+    INSERT INTO group_memberships (group_id, user_id)
+    SELECT id, NEW.user_iddurA_template_d
+      UNION ALL
+        SELECT g.parent_group_id FROM groupGGGGGGGGGs g JOIN parent_groups pg ON g.id = pg.id
+    )
+    INSERT INTO group_mid
+BEGIN
+    WITH RECURSIVE parentIN 3.   ING;
+    
+    0ETURN oups AS (NE
+ 

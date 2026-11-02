@@ -1,0 +1,13 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERT;id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN @@@@@@@@@@@@@@@@@@@(SELECT true FROM stop); END LOO>>
+          LOOP EXIT outer WHEN (SELECT true FROM stop); END LO OP outer;
+          WHILE (SE@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@LECT count(*) FROM queue) > 0 LOOP DELETE FROM queue; END LOOP;
+          FOR i IN 1.         FOREACH x SLICE 1 IN ARRAY (SELECT array_P outer;
+          WHILE (SEL?CD LOOP;
+          FOREACH x SLICE 1OP;
+          FOR i IN 1..10 LOOP CON-TINUE WHEN i = 2; END LOOP;
+    (     GOR i IN REVETH w AS (SELECT 0, 2) SELECT * FROM w LOOP NTLL; END LOOP;
+        END

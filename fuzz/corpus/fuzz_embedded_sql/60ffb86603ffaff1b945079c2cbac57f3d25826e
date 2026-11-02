@@ -1,0 +1,12 @@
+ 
+BEGIN 
+    INSERT INTO parent_procedure_templates (parent_id, child_id)
+    VALUES LECT true FROM stop); END LOOP outer;
+      (8) LOOP NULL; END LOOP;:
+     LOOP NULL; END LOOP;
+     , total, (SELECT 1 FROM logs) USING HINT = (S(NEW.parent_id, NEW       <<outer>?
+          LOOP EXIT outer WHEN (SELECT true FROM stop); END LOOP outer;
+      (8) LOOP NULL; END LOOP;:
+     LOOP NULL; END LOOP;
+     , total, (SELECT 1 FROM logs) USING HINT = (SELECT 'h' w LOOP NTLL; ENETURN NEW;
+END;

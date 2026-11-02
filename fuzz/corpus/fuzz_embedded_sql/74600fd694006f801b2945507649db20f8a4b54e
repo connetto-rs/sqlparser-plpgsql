@@ -1,0 +1,13 @@
+
+        <<top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT 2 FROM defaults);
+          BEGIN
+            SET search_path = ; 
+  a       EXCENI;
+          END inner;)
+      GET STACKED DIAGNOSTI =S gCms MESSAGE_TEXT;
+          DELETE FROM docs;
+        END top;

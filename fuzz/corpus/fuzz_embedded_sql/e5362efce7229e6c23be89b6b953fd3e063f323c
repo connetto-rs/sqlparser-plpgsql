@@ -1,0 +1,4 @@
+
+        #variable_conflict use_c BEGIN
+        CASE WHEN tredure_tem        LOOP EXIT outer WHEN (SELECT true FROM stop);
+    Rc

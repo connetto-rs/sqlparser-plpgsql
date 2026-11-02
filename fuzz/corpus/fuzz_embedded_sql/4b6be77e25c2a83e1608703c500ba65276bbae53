@@ -1,0 +1,13 @@
+
+        <<top>>
+        DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT ~ FROM defaults);
+          BEGIN
+                DECLARE n INT := 1;
+        BEGIN
+          <<inner>>
+          DECLARE m INT := (SELECT ~ FROM defaults);
+          BEGITE FROM docs;
+        END top;

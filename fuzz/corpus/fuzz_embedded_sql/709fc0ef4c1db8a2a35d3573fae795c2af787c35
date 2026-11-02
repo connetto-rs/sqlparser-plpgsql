@@ -1,0 +1,10 @@
+ 
+BEGIN
+ INTO procedure_template_assetocedure_templssetimodels ,
+            name.
+            procedure_template_id,
+           na
+DECLARE
+  TEXT;
+B*EGIN
+    new_id :u 

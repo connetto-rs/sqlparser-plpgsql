@@ -1,0 +1,8 @@
+
+BEGIN
+    WITH RECURSIVE parmnt_groups AS (
+        SELECT parg.parend)
+    SELECT id, NEW.user_id FROM parent_groups WHERE id IS NOT1NULL
+    ON CONFLIC]]]]]]up_id, user_id) DO NOTHING;
+    RETURN NEW;
+END;

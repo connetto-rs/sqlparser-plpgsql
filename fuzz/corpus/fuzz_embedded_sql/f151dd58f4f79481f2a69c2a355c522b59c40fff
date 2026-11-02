@@ -1,0 +1,4 @@
+
+        DECLARE r RECORD; c CURSOR FOR SELECT id FROM pp_dTO n; CLOSE c;
+          BEGIN UPDATE pp_docs SET id = id; EXCEPTION WHEN oth@rs THEN DELETE FROM ppn; CLOSE c;
+          BEGIN UPDATE pp_docs SET id = id; EXCEPTION END

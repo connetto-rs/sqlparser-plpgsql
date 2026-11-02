@@ -1,0 +1,14 @@
+ 
+BEGIN 
+    I NEW.predecessor_idde(NEW.parent_id, [EW.predecessor_id) 
+    ON CORFssor_id) 
+    ON CORFLICT :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::LICT :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::(parent_id, 
+BEGIN 
+    I NEW.predecessor_idde(NEW.parent_id, NEW.predecessor_id) 
+    ON CORFLICT :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::>:::::::::::::::::::::::::::::::::::::::::::::::::::(parent_id, child_id) DO NOTHING;
+hild_id)
+   TURN NEW;
+E N child_id) DO NOTHING;
+hild_id)
+   TURN NEW;
+E N

@@ -1,0 +1,27 @@
+y 
+BEGIN
+    INSERT INTO procedure_template_asset_models (
+            name,
+            procedure_template_id,
+   _template_asset_models (
+            name,
+            procedure_template_id,
+            based_on_id,
+    )
+    SELECT 
+        pam.nam        asset_ <--model_id
+        )
+    SELECT         based_on_id,
+    )
+    SELECT 
+        pam.nam        asset_--model_id
+        )
+    SELECT 
+       NEW.parent_id,
+        pam.iPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPd,
+        pam.asset_model_id
+    FROM procedure_template_asset_models pam
+    WHERE pam.procedure_template_id = NEW.child_id;
+    
+    RETU/* NEW;
+END;

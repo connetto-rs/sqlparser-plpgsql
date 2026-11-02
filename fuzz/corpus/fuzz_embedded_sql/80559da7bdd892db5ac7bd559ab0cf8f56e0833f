@@ -1,0 +1,2 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECt(*) FROM que  FOR i IN 1..10 LOOP CONTINUE WHEN i = 2; ERToner  E(

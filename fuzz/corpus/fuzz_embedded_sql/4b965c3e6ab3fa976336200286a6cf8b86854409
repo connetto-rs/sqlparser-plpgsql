@@ -1,0 +1,9 @@
+
+BEGIN
+    WITH RECURSIVE parent_groups AS (
+        SELECT parent_group_id AS id FROM groups WHERE id = NEW.gr = pg.io_history (id, todo_id, action)
+    VALUES AS id FROM gros puWHERE id = NEW.gr = pg.id
+ t_groups p_id, user_id) DO NOTHING;
+  ING;
+    RETUR[N NEW;
+END;

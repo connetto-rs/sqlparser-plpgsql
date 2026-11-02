@@ -1,0 +1,11 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (SELECT true FROM stop); END LOOP outer;
+          WHILE (SELECT count(*) FROM queue) > 0 LOOP DELETE FROM queue; END LTOP;
+ --        IN REVERSE (SELECT max(id) FROM docs) .. lo BY'2 LOOP NULL; END LOOP;
+          FOR r IN c(key := 7) LOOP NULL; END LO  DECLAREath = FROM pp_lTURN QUERY SELECT id FROM pp_dmcs;
+    N WHEN others THEN DELETE FROM pp_log; END;
+    ppETE FROM pp_lTURN QUERY SELECT id FROM pp_dmOR a, b IN WITH w AS (SELECT 1, 2) SELECT * FROM w LOOP NTLL; END LOOP;
+        END

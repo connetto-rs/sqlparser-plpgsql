@@ -1,0 +1,5 @@
+
+        #variable_conflict use_column
+        BEGIN
+          CREATE OR REPLACE FUNCTIOT g() RETURNS INT LANGUAGE sql
+            BEGIN ATOMIC SELECT 0; SELECT CASE WeT LANGUAGduE sqrl

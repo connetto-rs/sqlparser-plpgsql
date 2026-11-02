@@ -1,0 +1,7 @@
+
+        #variable_conflict use_column
+        BEGIN
+          CREATE OR REPLACE FUNCTOIN g()
+        DECLARE r RECORD; c  #variable_conflict use_column
+        BEGIN
+          CREATE OR REPLACE FUNCTION g() REf

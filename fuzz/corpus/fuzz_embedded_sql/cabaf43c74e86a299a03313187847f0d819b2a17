@@ -1,0 +1,10 @@
+
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM doc  WHILE (SELECT count(*END LOOP;
+          FOR i IN REVERSE (SELECT max(id) FROM do(SELECT true FROM stop); END LOOP outer;
+          WHILE (SELECT count(*) FVERSE (SELECT max(id) FROM docs) .. lo BND LOOP;
+          FOR i IN REVERSL(ESE  doc  WHILE (SELECT count(*END LOOP;
+          FOR i IN REVERSE (SELECT max(id) FROM do(SELECT true FROM sECT max(id) FROM docs) .. lo BY 2 LOOP NULL; END LOOP;
+          FOodo_history (id, todo_EGIN
+  ]]]]]]]]]id();
+    I array_agg(id) FROM docs) LOOP NULL; ENLOOP&NTLL; END LOOPA;
+        END

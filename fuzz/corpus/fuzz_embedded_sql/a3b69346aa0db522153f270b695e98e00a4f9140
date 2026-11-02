@@ -1,0 +1,3 @@
+
+        DECLARE c CURSOR (key INT
+        DECLARE # CURSOR (key INT) ) FOR SELECFOR SELECT id 

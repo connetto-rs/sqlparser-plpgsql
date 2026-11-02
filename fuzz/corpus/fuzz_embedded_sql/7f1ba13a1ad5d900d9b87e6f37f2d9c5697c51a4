@@ -1,0 +1,17 @@
+ 
+BEGIN
+    INSERT INTO procedure_template_asset_models (
+         _template_id,
+            based_on_id,
+            asseoemdt_l_id
+    ocedure_template_asset_models pam
+    WHERE pam.procedure_template_id = NEW.((((((,(((((((((((((((((((((((child_id;
+    
+ /  RETURN NEW;
+ENld_i      based_on_id,
+            asseoemdt_l_id
+    ocedure_template_asset_models pam
+    WHERE pam.procedure_template_id = NEW.((((((,(((((((((((((d;
+    
+ /  RETURN NEW;
+END;

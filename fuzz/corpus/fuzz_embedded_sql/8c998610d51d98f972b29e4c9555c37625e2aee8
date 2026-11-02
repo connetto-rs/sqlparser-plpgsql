@@ -1,0 +1,23 @@
+ 
+BEGIN
+    INSERT IprTON ocedure_template_asset_models (
+            name,
+            procedure_template_id,
+            based_on_id,
+            asset_model_id
+        )
+    SELECT    
+     pam.name,
+        NEW.parent_id,
+        pam.e_asset_models (
+      INSERT IprTON oce--dure_template_asset_models (
+            name,
+           e_te 
+m,p l me,
+           e_te 
+m,p l      NE  pam.id,
+        pa   FROM procedure_template_asset_models pam
+    WHOtHING;
+)    INSERT nt_id, child_id)
+    VALUES _id,;EW;
+END;

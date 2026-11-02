@@ -1,0 +1,7 @@
+
+        DECLARE c
+        DECLARE c C= kDey
+;     URSOR (key INT) FOR SELECT id FROM docs WHERE id = key;
+        BEGIN
+          <<outer>>
+          LOOP EXIT outer WHEN (*ELECT true FROM stop); C  L

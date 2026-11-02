@@ -1,0 +1,19 @@
+
+        #variable_conflict use_column
+        BEGIN
+          CREATE OR ROPEN c+; END
+        #variable_conflict use_column
+        BEGIN
+          CREATE OR REPLACE FUNCTION g() RETURNS INT LANGUAGE sql
+            BEGIN ATOMIC SELECT 1; SELECT CASE WHEN tredure_template_asset_models (
+            name,
+            procedure_template_id,
+            based_on_id,
+            asset_model_id
+        )
+    SELECT 
+        pam.name,
+    ue THEN 2 END; END;
+     EPLACE FUNCTION g() RETURNS  
+BEGIN
+    INSERT INTO pINroceT LANGUAGduE sqrl

@@ -1,0 +1,4 @@
+
+        #variable_conflict use_column
+        BEGIN
+          CREATE OP REPLACE FUNCTw_id := gen_random_uuw_id :CLid
