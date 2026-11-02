@@ -206,12 +206,18 @@ fn every_expression_is_read_as_the_select_postgresql_evaluates() {
           alias_value ALIAS FOR $1;
           r RECORD;
           arr INT[];
+        DECLARE
+          extra INT := 4;
         BEGIN
           total := a FROM docs WHERE id = 1;
           r.field = (SELECT max(id) FROM docs);
           arr[(SELECT 1 FROM docs)] := 2;
+          \"total\" := 5;
+          arr[1:2] := ARRAY[1, 2];
+          arr[arr[1]] := 3;
           RAISE NOTICE 'count % of %', total, (SELECT 1 FROM logs) USING HINT = (SELECT 'h' FROM hints);
           ASSERT total > 0, (SELECT 'bad' FROM messages);
+          ASSERT (SELECT true FROM checks);
           RETURN NEXT (SELECT 2 FROM docs);
           RETURN;
         END";
@@ -223,15 +229,23 @@ fn every_expression_is_read_as_the_select_postgresql_evaluates() {
               declare SELECT (SELECT count(*) FROM docs)
               declare SELECT 0
               declare SELECT 3
+              declare SELECT 4
               SELECT a FROM docs WHERE id = 1
               SELECT (SELECT max(id) FROM docs)
               SELECT (SELECT 1 FROM docs)
               SELECT 2
+              SELECT 5
+              SELECT 1
+              SELECT 2
+              SELECT ARRAY[1, 2]
+              SELECT arr[1]
+              SELECT 3
               SELECT total
               SELECT (SELECT 1 FROM logs)
               SELECT (SELECT 'h' FROM hints)
               SELECT total > 0
               SELECT (SELECT 'bad' FROM messages)
+              SELECT (SELECT true FROM checks)
               SELECT (SELECT 2 FROM docs)
             "
         )
@@ -251,6 +265,7 @@ fn branches_keep_their_conditions_and_statements_apart() {
         END IF;
         CASE kind
           WHEN 1, 2 THEN UPDATE c SET v = 1;
+          WHEN 3 THEN DELETE FROM e;
           ELSE DELETE FROM c;
         END CASE;
         CASE WHEN (SELECT true FROM d) THEN NULL; END CASE;
@@ -271,6 +286,8 @@ fn branches_keep_their_conditions_and_statements_apart() {
               case SELECT kind
                 when SELECT 1, 2
                   UPDATE c SET v = 1
+                when SELECT 3
+                  DELETE FROM e
                 else
                   DELETE FROM c
               case
@@ -283,7 +300,9 @@ fn branches_keep_their_conditions_and_statements_apart() {
 #[test]
 fn every_loop_keeps_its_control_apart_from_its_body() {
     let body = "
-        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key; x INT[]; a INT; b INT;
+        DECLARE c CURSOR (key INT) FOR SELECT id FROM docs WHERE id = key; x INT[]; a INT; b INT; y INT;
+          pair CURSOR (first_id INT, last_id INT) FOR SELECT id FROM docs WHERE id BETWEEN first_id AND last_id;
+          plain CURSOR FOR SELECT id FROM plain_docs;
         BEGIN
           <<outer>>
           LOOP EXIT outer WHEN (SELECT true FROM stop); END LOOP outer;
@@ -292,6 +311,9 @@ fn every_loop_keeps_its_control_apart_from_its_body() {
           FOR i IN REVERSE (SELECT max(id) FROM docs) .. lo BY 2 LOOP NULL; END LOOP;
           FOR r IN c(key := 7) LOOP NULL; END LOOP;
           FOR r IN c(v) LOOP NULL; END LOOP;
+          FOR r IN pair(1, (SELECT 2 FROM bounds)) LOOP NULL; END LOOP;
+          FOR r IN plain LOOP EXIT; END LOOP;
+          FOREACH y IN ARRAY x LOOP NULL; END LOOP;
           FOREACH x SLICE 1 IN ARRAY (SELECT array_agg(id) FROM docs) LOOP NULL; END LOOP;
           FOR a, b IN WITH w AS (SELECT 1, 2) SELECT * FROM w LOOP NULL; END LOOP;
         END";
@@ -312,6 +334,11 @@ fn every_loop_keeps_its_control_apart_from_its_body() {
                 argument SELECT 7
               cursor SELECT id FROM docs WHERE id = key
                 argument SELECT v
+              cursor SELECT id FROM docs WHERE id BETWEEN first_id AND last_id
+                argument SELECT 1
+                argument SELECT (SELECT 2 FROM bounds)
+              cursor SELECT id FROM plain_docs
+              array SELECT x
               array SELECT (SELECT array_agg(id) FROM docs)
               query WITH w AS (SELECT 1, 2) SELECT * FROM w
             "
@@ -520,6 +547,18 @@ fn a_malformed_body_is_a_syntax_error() {
         "BEGIN IF x; NULL; END IF; IF y THEN NULL; END IF; END",
         "BEGIN NULL; END.",
         "BEGIN RAISE SQLSTATE 22012; END",
+        "BEGIN IF x",
+        "BEGIN SELECT 1",
+        "<<top BEGIN NULL; END",
+        "BEGIN <<inner>> NULL; END",
+        "#option 1 BEGIN NULL; END",
+        "BEGIN OPEN 1; END",
+        "DECLARE c CURSOR SELECT 1; BEGIN NULL; END",
+        "BEGIN FOR i IN REVERSE SELECT 1 LOOP NULL; END LOOP; END",
+        "BEGIN EXECUTE 'SELECT 1' INTO; END",
+        "BEGIN RAISE USING MESSAGE 'm'; END",
+        "BEGIN SELECT 1 INTO a INTO b; END",
+        "BEGIN SELECT 1 INTO; END",
     ] {
         assert!(
             matches!(embedded_sql(body), Err(Error::Syntax { .. })),
@@ -527,6 +566,14 @@ fn a_malformed_body_is_a_syntax_error() {
             embedded_sql(body)
         );
     }
+}
+
+#[test]
+fn an_unterminated_string_is_an_untokenizable_body() {
+    assert!(matches!(
+        embedded_sql("BEGIN x := 'open; END"),
+        Err(Error::UntokenizableBody { .. })
+    ));
 }
 
 #[test]
