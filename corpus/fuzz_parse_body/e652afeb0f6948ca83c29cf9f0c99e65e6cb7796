@@ -1,0 +1,9 @@
+ 
+BEGIN
+  WITH RECURSIVE chain AS (
+         SELECT id, par FROM
+     (((
+        SELECT id, parent_id FROM tre     UNION ALL
+        SELECT g.id M FOR c.id, t.parN >JJ
+END;
+END;

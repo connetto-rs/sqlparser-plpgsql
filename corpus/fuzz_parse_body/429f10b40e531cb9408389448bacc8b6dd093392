@@ -1,0 +1,5 @@
+W<<
+BEGIN
+   SELECT as WHERE id = ALL
+END;
+1

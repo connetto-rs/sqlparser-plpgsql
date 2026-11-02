@@ -1,0 +1,10 @@
+ 
+BEGIN
+    INsERT IXNTO procedure_template_asset_dels (
+          b
+        )
+    SELECT 
+          
+   _id FROM chain c JOIN tree_nod  ,((((((((((( INsERT dels (
+      ree_nodes WHERE id = NEW.id
+   ;END;

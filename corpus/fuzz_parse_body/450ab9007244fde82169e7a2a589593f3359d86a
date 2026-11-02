@@ -1,0 +1,5 @@
+
+BEGIN
+  SELECT c.id, t.parent,_id FROM t(NULL
+)  ,(((((((((      SELECT id, parent_:= g*en_Rn_$qqqqqqqqqqqqqqqqqqqqqW;
+END;

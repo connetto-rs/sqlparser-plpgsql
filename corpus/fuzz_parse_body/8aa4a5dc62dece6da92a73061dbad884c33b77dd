@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+ (   SELECT id, t.parent,_id FROM chain c JOIN tr_nodes t ON k.paernt_id = t(id WHERE t.parentNULL
+)  ,(((( (((((((     ((((
+  WITH RECURSIVE chain AS (
+ (  ((( END;

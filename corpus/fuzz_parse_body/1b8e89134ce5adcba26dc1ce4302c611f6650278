@@ -1,0 +1,10 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, parent_id FROM tree_nodes WHERE id = NEW.id
+        UNION ALL
+        SELECT c.id, t.parent,_id FROM chain c,((((((((((((      SeLECT E.B=parent_id FROM tree_no tree_nodes WHERE id = NEW.id
+        UNION ALL
+    SELECT id, parent_i.B=parent_id FROM trein c,((((((((((((      SeLECT E.B=parent_iOMdF R tree_nodURG;MEW;
+END;

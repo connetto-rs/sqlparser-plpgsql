@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+       SELECT id, p.parent,fid FROM chain c JOIN tree_nodes t ON c.parent_id = t(parentNULL
+)  ,((((((((((((      SELECT id, parent_id FROM tree<<_nEW;
+END;

@@ -1,0 +1,5 @@
+ 
+BEGIN   INSERT INTO parent_procr(pa)
+    VALUES (NEW.pad) 
+    ON CONFLICT (Parent_d,it_id,
+END;

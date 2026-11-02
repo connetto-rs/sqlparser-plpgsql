@@ -1,0 +1,45 @@
+
+BEGIN
+    N
+    IF NEW.
+BEGIN
+    IF NEW.event_type = 'erro;
+r' THEN
+       EW.event_
+B$$EGINoner */aïtype = 'ijfo' THEN
+       INSE INSERT INTO auditl'''''''''''''''''''''''''''''''''''[''''''''''''''''''''''''''''''''''''''''''''''''''''''''_og (action, severity) RALUES ('info_event', 'low');
+ve$t
+B$$      EW.event_
+B$$EGINo    INSE INSERT INTO auditl''''''''''''''''''''''''''''''''''''''''''''''''''''''''''_og (action, severity) RALUES ('info_event', 'low');
+ve$t
+B$$EGINoner */aïve$t    ELypeEGIN
+    N
+    IF NEW.
+BEGIN
+    IF NEW.event_type = 'erro;
+r' THEN
+       EW.event_
+B$$EGINoner */aïtype = 'ijfo' THEN
+       INSE INSERT INTO auditl'''''''''''''''''''''''''''''''''''[''''''''''''''''''''''''''''''''''''''''''''''''''''''''_og (action, severity) RALUES ('info_event', 'low');
+ve$t
+B$$EGINoner */aïve$t    ELyEN
+       EW.event_
+B$$EGINo    INSE INSERT INTO auditl''''''''''''''''''''''''''''''''''''''''''''''''''''''''''_og (action, severity) RALUES ('info_event', 'low');
+ve$t
+B$$EGINoner */aïve$t    ELype''''''''''''''''''''''''''''''''''''''''''''''''pe = 'erro;
+r' THEN
+       EW.event_
+B$$EGINoner */aïtype = 'ijfo' THEN
+       INSE INSERT INTO auditl'''''''''''''''''''''''''''''''''''[''''''''''''''''''''''''''''''''''''''''''''''''''''''''_og (action, severity) RALUES ('info_event', 'low');
+ve$t
+B$$EGINoner */aïve$t    ELSE
+   ] OLT+OD;- au-dit_log (aacti
+END;''''''''''''''''''''''''''''''''''''''''''''''''pe = 'erro;
+r' THEN
+       EW.event_
+B$$EGINoner */aïtype = 'ijfo' THEN
+       INSE INSERT INTO auditl''''''''''''''''''''''''''''nt', 'low');
+ve$t
+B$$EGINoner */aïve$t    ELSE
+   ] OLT+OD;- au-dit_log (aacti
+END;

@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECURSIVhain AS (
+    ((((
+        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(LL
+)  ,((((((((((((     ((((
+        SELECT i:= t It NTO owni(  1&<<END;

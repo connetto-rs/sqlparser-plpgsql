@@ -1,0 +1,4 @@
+
+BEGIN
+ SELECT id, parent_id FROM(((((((((((      SELECT id, parent_id FROM tree_nodes WHENOT (iE--W,ieVAL R e%%  h% e%%%  h%RG;MEW;
+END;

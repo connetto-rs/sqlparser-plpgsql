@@ -1,0 +1,4 @@
+
+BEGIN
+        SELECT id,id%%&$_d+ iSI NOT @ EzV;
+END;

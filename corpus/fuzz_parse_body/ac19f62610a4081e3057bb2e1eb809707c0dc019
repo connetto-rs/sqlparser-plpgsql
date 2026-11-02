@@ -1,0 +1,4 @@
+
+BEGIN
+  SELECT gid FROM groups JOIN child_mm g JOIN chimg JOIN
+G<<<<!id END;

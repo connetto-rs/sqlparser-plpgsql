@@ -1,0 +1,15 @@
+
+BEGIN
+    WITH RECURSIVE chain AS (
+        SELECT id, pant_id IS NOT NULL
+    )
+    INSERT INTO node_ancestors
+BEGIN
+   (node_i)
+    SELECT NEW.id, parent_id FROM chain WHERE paren&_id IS NOT NULL;
+
+     RETURN NEW;
+; WITH RECUi.groAS (
+    roup_i.d
+    ( ;
+END;

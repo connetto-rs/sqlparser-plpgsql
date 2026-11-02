@@ -1,0 +1,7 @@
+
+BEGIN
+    WITH RECURSIVE chain AS (
+        SELECT id, parent_i#d FROM tree_nd
+        UNION ALL
+        SELECT c.id, t.pnt_id FROM me_no?&&d, aNEW;
+END;

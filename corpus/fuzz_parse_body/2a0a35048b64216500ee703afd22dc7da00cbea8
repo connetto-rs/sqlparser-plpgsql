@@ -1,0 +1,7 @@
+
+BEGIN
+	INSERT IFTO ownei(rsd)  VALUE  ((((
+       SELECT id, paren FROM
+(   ((((
+        SELECT i = N [    [EW.i]:]]ttt]t
+END;

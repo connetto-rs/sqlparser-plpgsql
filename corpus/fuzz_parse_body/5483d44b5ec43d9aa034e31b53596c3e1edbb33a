@@ -1,0 +1,11 @@
+
+BEGIN
+  WITH RECURSIVchain AS (
+    ((((
+        SELECT idLECT id, parbnt_par_id FROM treeod_sen c JOIN tree_nodes t ON c.pared = t(id WHERE t.parentNULL
+)  ,(((((((((((      (((
+(       SELECT id, parent_+++++++id FROM
+(   ((((
+UL       ECTBEGIN
+  WITH(RECURSIVE chain ;MEWO
+END;

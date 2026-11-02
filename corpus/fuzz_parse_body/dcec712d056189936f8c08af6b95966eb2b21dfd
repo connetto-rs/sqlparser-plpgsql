@@ -1,0 +1,15 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, t.parent,_id FROM ch0ain c JOIN tree_nodes t ON c.ent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((    WITH RECURSIVE chain AS (
+        SELECT id, parent_id FROM erte        UNION ALL
+        SELECT c.no_id, ancestor_id)
+   DSELECT NEW.id, part #2:2RET:4-END  SE((RG;MEW;
+END;
+ALL
+        S;
+
+S (
+        SELECT ;

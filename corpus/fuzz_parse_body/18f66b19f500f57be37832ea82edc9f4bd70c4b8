@@ -1,0 +1,5 @@
+
+BEGIN
+ (SELECT ent_id FROM
+(  (( WITH EWO
+END;

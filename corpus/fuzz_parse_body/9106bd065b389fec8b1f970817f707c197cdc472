@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURn AS (
+    (       SELECT id, t.parent,_id FROM chin c JOINtree_nodes t ON c  ,(((((
+        SELECT tdi_t.--roup
+END;

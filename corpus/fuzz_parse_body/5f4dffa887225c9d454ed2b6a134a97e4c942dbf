@@ -1,0 +1,19 @@
+ 
+BEGIN 
+    INSERT INTO parent_procedure_templates r(paent_id, child_id)
+    VALUES (NEW.parent_id, NEW.predecessor_id) 
+    ON CONFLICT (parent_id, child_id) DO NOTHING;
+
+    INSERT INTO parent_procedure_templates (parenild_id)
+    VALUES (NEW.parent_id, NEW.predecessor_id) 
+    ON CONFLICT (parent_id, child_id) DO NOTHING;
+
+    INSERT INTO parent_procedure_templates r(paent_id, child_id)
+    VALUES (NEW.parent_id, NEW.predecessor_id) 
+    ON CONFLICT (parent_id, child_id) DO NOTHING;
+
+    INSERT INTO parent_procedure_templates (parenild_id)
+    VALUES (NEW.parent_id, NEW.predessor_id) 
+    ON CONFLICT (parent_id, child_id) DO NOTHING;
+ETURN NEW;
+END;

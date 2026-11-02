@@ -1,0 +1,26 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULA
+)  ,((((((((((((     ((((
+        SELECT 
+        pam.naSEd,
+    ma.$asse  , t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(nd WHERE t.parentNULA
+)  ,((((((((((((     ((((
+        SELECT 
+        pam.name,
+        NEW.parent_id,
+ame,
+     d,
+       *pamSEd,
+    $am.asse       *pamSEd,
+    $am.nid,
+ame,
+     d,
+ --    *pamSEd,
+    ma.$asse       *pT id, t.parent,d FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  
+        SELECT id,      *pT id, t.parent,d FROM c      SELECT id, t.parent,_id FROULL
+)  (((,(_id inAL RETURG;MEW;
+END;

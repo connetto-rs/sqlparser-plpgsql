@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH hain AS (
+      SELECT d, parent_id FROM(((
+        SELECT id, pa. 5ah;MEWD;
+END;

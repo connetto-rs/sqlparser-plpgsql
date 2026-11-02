@@ -1,0 +1,3 @@
+
+BEGIN
+  SELECT c.id, tnt,_id FROM chain c JOIN((((((((((((  SELECT id, pa.tparent,_id FROM chn c JOIN tred))))JOIN tree_no))))))))R;END;*

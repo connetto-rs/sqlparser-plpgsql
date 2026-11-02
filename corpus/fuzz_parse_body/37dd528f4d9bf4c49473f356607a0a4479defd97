@@ -1,0 +1,6 @@
+
+BEGIN
+	INSERT OIF     SELECT d FROM
+(   ((((
+        SELECT id, parent_id = NU.-W.ieree_nodes W
+END;

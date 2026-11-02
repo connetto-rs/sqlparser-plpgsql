@@ -1,0 +1,6 @@
+$
+BEGIN
+ SELECT it_id FROM
+    ((((
+        SELECT rent,_id FROM$} chMWO
+END;

@@ -1,0 +1,13 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, parenLECT id, parent_id FROM tres WHENO  ,((((((((((((      SELECT id, pa&
+rent_id FROM tree_nodes WHENOT (iERHENOparentNULL
+)  ,((((((((((((     ((((
+        SELECT 
+_id,
+ame,
+     pamSEd,
+    $am.ass--W,EW;
+END;

@@ -1,0 +1,8 @@
+
+BEGIN
+	INSERT IFTO owners (id) VALUE  ((((
+        SELECT id, pid FROM
+(   ((((
+        ((((
+        SELECT id, pe_nodes WHERE id = NU.EW.iers (id)   id, parent_id t
+END;

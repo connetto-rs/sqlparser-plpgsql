@@ -1,0 +1,6 @@
+
+BEGIN
+	INSERT 					ttt
+BIN
+	INSERT 			ttt.t
+END;

@@ -1,0 +1,5 @@
+XT;
+BEGIN
+    _id := gen_rau( NEEW.id. 'ated');
+    
+END;

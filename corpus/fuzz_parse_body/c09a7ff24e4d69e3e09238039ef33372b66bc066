@@ -1,0 +1,11 @@
+
+BI
+AEG VNLUES (.id);
+TEU	RR:$$$$+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, t.parent,_ FROM ain c JOIN tree_nodes  ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((
+        SELECT id, t.par!ent,_id +++++++++++++t.par!ent,_c JOIN (((,TURG;MEW;
+END;

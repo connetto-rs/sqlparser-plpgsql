@@ -1,0 +1,2 @@
+   IF    SELECT _type = 'error' THT INTO audit_log (actiom,) ES ('err$_ernvet', 'high');
+  E

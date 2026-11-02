@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+      SELECT naet,d FROM cha  ,((((((((((((     ((((""""
+   SELECT( id, t.paren(t
+END;

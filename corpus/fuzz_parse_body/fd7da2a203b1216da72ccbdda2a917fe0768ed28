@@ -1,0 +1,7 @@
+
+BEGIN
+
+ SELECT idrent_id FROM
+    ((((
+ SELECT FROM(trc  @ijG;MEWO
+END;

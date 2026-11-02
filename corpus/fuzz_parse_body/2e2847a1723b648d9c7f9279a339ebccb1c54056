@@ -1,0 +1,9 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+  ((((
+        SELECT id, parent_id FROM tree_      UNION ALL
+        SELECT c.id, t.pad FROM ch,((--((((
+        SELECT''.,di FROM rete_      UNION ALL
+    L AERURG;MEW;
+END;

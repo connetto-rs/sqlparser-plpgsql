@@ -1,0 +1,4 @@
+
+BEGIN
+  SELECT id,0 FROM trlog (action, seity)oc;
+END;

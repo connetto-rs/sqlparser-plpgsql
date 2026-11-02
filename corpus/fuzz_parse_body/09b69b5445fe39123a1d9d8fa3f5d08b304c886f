@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, parent_id FROM tree,((((((((((((      SELECT E.B=parent_id FROM tree_n ON c.parent_id =;
+END;

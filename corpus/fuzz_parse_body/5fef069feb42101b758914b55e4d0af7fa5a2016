@@ -1,0 +1,16 @@
+
+BEGIN
+    WITH RECURSIVE child_groups AS (
+        SELECT id FROMgroup_membesrhips
+    WHERE user_id = OLD.user_id
+      AND group_id IN (SELECT il FROM childroup_membesrhips
+    WHERE user_id = OLD.user_id
+      AND group_id IN ((SELECT   Ibesrhips
+    WHERE user_id = OLD.user_id
+      AND group_id IN ((SELECT   I      (NEW (                 Q (              s (pe>membesrhi AND group_id IN (SELECT il FROM childrou                  (NEW (                 Q (              s (pe>membesrhips
+  AND group_id IN (SELECD.user_id
+      AND group_id IN (SELECT il FROM c  WHERE user_id = OLD.user_id
+      AND group_id IN ((SELECT   I      (NEW (                 Q (              s (pe>membesrhi AND group_id IN (SELECT il FROM childroup_membesrhips
+    WHERE user_id = OLuser_id
+      AND group_id IN ((SELECT   IF (E    (NEW&(     T                         Q         SELECT id, WLD;
+END;

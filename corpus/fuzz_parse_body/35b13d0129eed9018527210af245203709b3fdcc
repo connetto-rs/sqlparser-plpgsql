@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECn AS (
+   (
+        SELECT id,rent_id F UNION     SELECT c.nt,_id FROM chN
+&<|<<EERE     RG;MEW;
+END;

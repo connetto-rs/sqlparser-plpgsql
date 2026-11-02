@@ -1,0 +1,6 @@
+
+BEGIN
+     SELECT id,id FROM
+(   ((((
+      SELECT/id, p
+END;*

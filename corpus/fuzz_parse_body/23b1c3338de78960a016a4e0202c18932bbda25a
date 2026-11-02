@@ -1,0 +1,5 @@
+
+BEGIN      SELECT id, Uid FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((      SELECT id, pd FROM tree_hain c JOIN (((      Shain c JOIN trentNULL
+)  ,((((((((((((      SELE(((((((((((((      SELECT id, pd FROM tree_hain c JOIN ((( ((((((      SELECT ient_id FROM     NEW>id
+  END;

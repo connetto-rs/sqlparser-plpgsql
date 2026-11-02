@@ -1,0 +1,7 @@
+$&5~=4
+BEGIN
+  WITH RECURSIVE chain AS (
+    SELECT id, parent_id d, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(d WHERE t.parentNULL
+)  ,((((((((((((      (((((((      SELECT id, pareot_id eeeodes WHERE id = NEW.id
+        UNION ALL
+        SELECT c.id, t.*parent,_id F~=ROM chain c OJ NtIree_nodes ))))))5~=5-)))))))))$6A)S)R;END;

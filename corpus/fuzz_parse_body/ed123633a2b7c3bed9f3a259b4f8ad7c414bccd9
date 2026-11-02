@@ -1,0 +1,5 @@
+
+BEGIN
+  WITH REin AS (
+   
+        SELECT id, parent_id FROM tree_nodes WHE  ,((       SELECT  FROM chain END;

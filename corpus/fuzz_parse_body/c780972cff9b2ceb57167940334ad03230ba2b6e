@@ -1,0 +1,9 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((
+        SELECT cid FROM chakn c JOIN tree_es t ON c.parent_id = t(id WHERE t.parent_ IS NOT NULL
+)  ,((--((((
+SELECT''.id, FROM tree_      UNION ALL
+    L AERURG;MEW;
+END;

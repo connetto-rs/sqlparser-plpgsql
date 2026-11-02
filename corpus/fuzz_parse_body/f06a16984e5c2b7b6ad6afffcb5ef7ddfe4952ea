@@ -1,0 +1,4 @@
+
+BEGIN
+    SELECT id, pa FROM chai ,(((((((((((<=+((((,)(,((((;
+END;

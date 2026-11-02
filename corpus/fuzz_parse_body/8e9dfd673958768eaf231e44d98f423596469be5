@@ -1,0 +1,12 @@
+
+BEGIN
+	INSERT
+BEGIN
+ WITH RECURin AS (
+    (((
+(        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((   (  (((
+      SELECT id, t.parent,
+BEGIN	RETU_Rid FROM chain c JOIN trenrdes t
+" ""N+""#"E>;
+)END

@@ -1,0 +1,9 @@
+ 
+BEGIN
+       SELEcT id, parent_id FROM
+(   ((((
+      SELECT id, parent_i%d FROM
+(   ((((
+       INSERT   SELE
+   &(((END
+;

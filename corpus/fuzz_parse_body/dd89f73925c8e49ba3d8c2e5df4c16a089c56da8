@@ -1,0 +1,9 @@
+
+2EGI 
+BEGIN
+ (WITH RECURSIVE n AS (  SELECT id ,parentd FROM
+     (((
+        SELECT /**/
+    ner */ ovter O
+
+END;

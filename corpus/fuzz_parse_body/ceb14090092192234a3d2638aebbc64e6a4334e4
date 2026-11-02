@@ -1,0 +1,11 @@
+ 
+BEGIN
+    INsERT IXNTO prodeEGIN
+ INsERT IXNTO prodEGIN
+    INsERT IXNTO prodeEG
+    INsERT IXNTO els (
+           pam. b
+        )
+    SELECT 
+m.d--RETURN NEW;
+END;

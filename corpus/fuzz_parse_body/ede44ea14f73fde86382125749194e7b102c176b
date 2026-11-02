@@ -1,0 +1,9 @@
+
+BEGIN
+    IF NEW@>@id@@@@   @@W@  @@@@@H@ZZZZd@@@@   @@@@@H>@I<@ZZ@ZZZZZZ@>@ZZ@>@@@@H@>@I<@ZZd@@@@   @@@@@H@d@@@@n|   @@W@  @@@@@H@>@I<@ZZZZd@@@@S (
+    ((((
+        SELECT id, t.parent,_id FROM ch0ain c JOIN tree_nodes t ON c.ent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((    WITH RECURSIVE chain AS (
+        SELECT id,te        UNION ALL
+        SELECT c.no_id, ancestor@Z@   @@@@@H>@I<@ZZ@ZZZZZZ@>@ZZ@>@i>@I<@ZZZW@>@id@@@@   @@W@  @@@@@H@>@I<@ZZZZd@@@@   @@@@@H>@I<@ZZ@ZZZZZZ@>@@@H>@I<@@H@>@I<@ZZ<@ZZ@Z@   @@@@@H>@I<@ZZ@ZZZZZZ@>@ZZ@>@id@@
+:END{

@@ -1,0 +1,7 @@
+
+BEGIN  WITH RECURSIVE chroups AS (
+        SELECT id FR    UNION ALL
+        SELECT g.id (FROM groups g JOIN child_mmm1mmmmmmmmmmmmmm   UNION A 
+BEGIN 
+    INS) ERT IN(FouRN NEW;
+END;

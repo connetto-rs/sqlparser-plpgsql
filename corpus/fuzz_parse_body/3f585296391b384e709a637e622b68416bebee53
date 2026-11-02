@@ -1,0 +1,4 @@
+
+BEGIN
+   SELECT id FROM g2oups WHp_id    UNION ALD;
+END;

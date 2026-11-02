@@ -1,0 +1,7 @@
+
+BEGIN
+     ((((
+        SELECT id, parent_id FROM
+  ((((
+   SELECT id, arent,_id FROM chain c JOIN tree--_no   >>>>   ROM chain R0g;O
+END;

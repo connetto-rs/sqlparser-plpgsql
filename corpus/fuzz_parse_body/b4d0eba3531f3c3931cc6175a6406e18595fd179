@@ -1,0 +1,9 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+     SELECT id, nt_id FROM
+    ((((
+     SELECT id, parent_i
+     #>JJJJ> aE+W/+W1pa#>J.OIN ;MEWO
+END;

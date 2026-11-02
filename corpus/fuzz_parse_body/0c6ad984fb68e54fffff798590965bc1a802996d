@@ -1,0 +1,6 @@
+
+BEGIN
+    WITH RECURSIps AS (
+       SELECT s     UNION ALL
+       (SELECT g      UNION T gOLCT
+END;

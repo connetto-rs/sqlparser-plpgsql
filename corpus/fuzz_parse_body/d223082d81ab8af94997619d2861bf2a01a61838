@@ -1,0 +1,4 @@
+
+BEGIN VALUES(NEW.id);
+	RETURN$$$$++++++4+++++++3+++++++++t
+END;

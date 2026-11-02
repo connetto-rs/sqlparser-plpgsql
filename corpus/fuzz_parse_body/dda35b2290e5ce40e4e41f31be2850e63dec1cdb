@@ -1,0 +1,6 @@
+
+BEGIN
+  SELECT id, parent_idaent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.pntNULL
+)  ,(((
+        SELECT id,des WHERE id = NEW.id-- (  ) LECT id, ;
+END;

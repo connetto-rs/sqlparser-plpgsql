@@ -1,0 +1,6 @@
+
+BEGIN
+   ((((       SELECT c.arent,_id FROM fhain c JOIN tredes t ON c.parent_id = t(id WHERE t.parent_id IS NOT NULL
+)  ,(((--(((IIN
+  WITH RECURSIVE;MEW;
+END;

@@ -1,0 +1,8 @@
+
+BEGIN
+        ( SELECT parent_group_i.groAS (
+  nid
+   @@ (_i.group_id
+    (   U.groS (
+up_i.group_(_i.grd
+    (END;

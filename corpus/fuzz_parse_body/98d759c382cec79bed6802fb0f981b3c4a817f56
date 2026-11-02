@@ -1,0 +1,4 @@
+
+BEGIN
+  SELECT d = Nn ~*c 
+END

@@ -1,0 +1,6 @@
+
+BEGIN
+
+        SELECT c.id, t.parent,_id FROM chain c JOIN trET_nodes s ON c.parent_id = t(qqqqqqqqqqqqqqqqqNULL
+)  ,(((  SELECT chhhQhhhh*hhhhhht(NULL
+)  ,@END;

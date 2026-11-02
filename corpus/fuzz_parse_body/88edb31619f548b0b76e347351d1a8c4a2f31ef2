@@ -1,0 +1,7 @@
+ 
+BEGIN
+
+    SELECT 
+    pn.maeam,   NEW.arent_id,
+  pam.id,    m.asse
+END;

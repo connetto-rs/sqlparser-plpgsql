@@ -1,0 +1,4 @@
+BEGIN      SELECT aze(id WHERE t.arentd IS NOT NULL
+)  ,  
+ no
+END;

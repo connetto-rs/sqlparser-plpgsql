@@ -1,0 +1,20 @@
+ 
+BEGIN
+    INsERT IXNTO prodeEGIN
+    INsERT IXNTO prodEGIN
+    INsERT IXNTO elIN
+    INsERT IXNTO prod  INsERT IXNTO prodeEGIN
+    INsERT IXNTO prodEGIN
+    INsERT IXNTO elIN
+    INsERT IXNTO prodeEGIN
+    INsERT IXNTO prodEGIN
+    INsERT IXNTO elIN
+    INsERT IXNTO prod  INsERT IXNTO prodeEGIN
+    INsERT IXNTO prodEGIN
+    INsERT IXNTO elIN
+    INsERT IXNTO prodeEGIN
+    INsERT IXNTO prodEGIN
+    INsERT IXNTO elIN
+    INsERT IXNTOls (
+           pam.N NEW;
+END;

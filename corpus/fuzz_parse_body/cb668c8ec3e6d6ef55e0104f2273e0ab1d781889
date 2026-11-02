@@ -1,0 +1,8 @@
+ 
+BEGIN
+    INsERT INasset_models (
+            name,
+   e_id,   basndio__ed,e,
+   d,
+        W;
+END;

@@ -1,0 +1,11 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT FROM tree_nodes WHERE id = NEW.id
+        UNION ALL
+        SELECT c.id, t.pa       UNION ALL
+       SELECT FROM tr
+        UNION ALL
+        RETURG;MEW;
+END;

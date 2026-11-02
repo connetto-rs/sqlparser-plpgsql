@@ -1,0 +1,7 @@
+
+BEGIN
+WITH RECURSIVE chain AS (
+    ((((        SELECT ihQ parent_id FROM
+(   ((((
+        SELECT c.id, t.nt_id FROM &>eE id = AWO
+END;

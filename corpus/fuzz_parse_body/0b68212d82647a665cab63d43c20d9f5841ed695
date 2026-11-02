@@ -1,0 +1,6 @@
+
+BEGIN
+       SELECT id, p  UNION ALL
+        SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.pareLL
+)  ,((((((((((((     (((((((      SELECT id, ~parent_id FROM tree_nodes WHERE id ======G;MEW;
+END;

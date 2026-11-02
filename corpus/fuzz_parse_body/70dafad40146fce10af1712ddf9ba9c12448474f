@@ -1,0 +1,54 @@
+
+BEGIN
+    /*/ ou */
+    RETURN ?--URN ?--AC0CCCCTUR  ::EC0CCCCCN
+   ::CN
+   ::ECCCCC   ::EcN ?CCURN ?--AC0CCCCTUR  ::ECCCCCC0CCCCCN
+   ::CN
+   ::ECCCCC   ::EcN ?CCURN ?--AC0CCCCTUR  ::ECCCCC1CN
+   ::CN
+   ::ECCCCCN
+   ::E
+   ::EcN ?--URN ?--AC0CCCCTUR  ::ECCCCCCCCTUR  ::EC0CCCCCN
+   ::CN
+   ::ECCCCC   ::EcN ?--URN ?--AC0CCCCTUR  ::ECCCCC1CN
+   ::CN
+   ::ECCCCCN
+   ::E
+   ::EcN ?--RNU ?--AC0CCCCTUR  ::ECCCCC1CN
+   ::CN
+   ::ECCCCCCCN
+   ::EC
+   ::E
+   ::ECN ?--U   ::E
+   ::EcN ?--URN ?--AC0CCCCTUR  ::ECCCCC1CN
+   ::CN
+   ::EC1C1CN
+   ::CN
+   ::ECCCCCN
+   ::E
+   ::EcN ?--URN ?--AC0CCCCTUR  ::ECCCCCCCCTUR  ::EC0CCCCCN
+   ::CN
+   ::ECCCCC   ::EcN ?--URN ?--AC0CCCCTUR  ::ECCCCC1CN
+   ::CN
+   ::ECCCCCN
+   ::E
+   ::EcN ?--RNU ?--AC0CCCCTUR  ::ECCCCC1CN
+   ::CN
+   ::ECCCCCCCN
+   ::EC
+   ::E
+   ::ECN ?--U   ::E
+   ::EcN ?--URN ?--AC0CCCCTUR  ::ECCCCC1CN
+   ::CN
+   ::EC1CN
+   ::CN
+   ::ECCCCCCCN
+   ::EC
+   ::E
+   ::ECN ?--U   ::E
+   ::EcN ?--URN ?--AC5CCC1CN
+   ::CN
+   ::ECCCCCCCN
+   ::ECC;
+END;

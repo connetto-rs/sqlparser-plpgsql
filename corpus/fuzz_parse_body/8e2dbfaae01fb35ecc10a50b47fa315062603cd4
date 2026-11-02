@@ -1,0 +1,4 @@
+
+BEGIN
+      ( SELECT kd FROM grousW   p UNION ALL
+       g.twgrs END;

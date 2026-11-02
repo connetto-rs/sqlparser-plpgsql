@@ -1,0 +1,8 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, Uid FROM cin c JOIN tree t ON c.parent_id = t(ULL
+)  ,(((((((((((((((((((      SELECT id, pD WHERE t.pare
+)  ,(
+END;

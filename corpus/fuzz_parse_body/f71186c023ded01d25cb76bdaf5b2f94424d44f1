@@ -1,0 +1,6 @@
+
+BEGIN SELECT parent_id FROM
+ (((
+         SELECT-- id,nt+_id? FROM 10
+?-|000
+END;

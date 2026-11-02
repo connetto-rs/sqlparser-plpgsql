@@ -1,0 +1,10 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id,  aparent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(ientNULL
+)  ,((--(((((((      ((((
+        SELECT<=+<=+   
+
+	BEGN5%515&58r253~=5WHERE id = FROM chainAL RETURG;MEW;
+END;

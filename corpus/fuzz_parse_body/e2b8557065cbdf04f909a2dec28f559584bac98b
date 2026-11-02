@@ -1,0 +1,6 @@
+
+BEGIN
+	INSERT I ((((
+        SELECT id, d FROM  ((((
+        SELECT pat_i FROM tvv.&<END;
+ *&

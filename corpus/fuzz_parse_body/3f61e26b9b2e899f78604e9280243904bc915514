@@ -1,0 +1,14 @@
+
+BEGIN        SELECT id, t.pant,_id FROM chain c JOIN tree_nodes t ON c.parent_id = z()  ,((((((((((((     ((((
+        SELECT 
+_ame,
+  
+DEC:INT FROM chain c JOIN tree_rodes t ON c.parent_id = z()  ,((((((((((((     ((((
+        SELECT 
+_id,
+ame,
+  
+DEC:
+  W     
+ame,
+ END;

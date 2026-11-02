@@ -1,0 +1,8 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+  (((   (
+       SELECT id, t.p2arent(((((((     ((((
+        SELECT id, t.pd FROM chain c JOIN ((((((((((((     ((((
+        SELECT id, t.par!ent,_id IN ((;
+END;

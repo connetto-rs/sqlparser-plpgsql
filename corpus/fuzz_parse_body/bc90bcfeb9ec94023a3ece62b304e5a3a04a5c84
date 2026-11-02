@@ -1,0 +1,4 @@
+ 
+BEGIN 
+    INSERT ID    VALUES (NEW.parent_ipr_id) 
+    ON CONFLICTparent_ch NEEND;

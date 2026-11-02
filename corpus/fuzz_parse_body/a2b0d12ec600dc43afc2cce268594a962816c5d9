@@ -1,0 +1,6 @@
+
+BEGIN
+	INSERT IFT (((( SELECT id, parent_id FROM
+(  
+((((         SELECT N [ E. W[  i] [    [EW.i]]]]ttt
+END;

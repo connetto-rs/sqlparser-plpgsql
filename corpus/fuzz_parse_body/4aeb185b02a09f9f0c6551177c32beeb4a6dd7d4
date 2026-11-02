@@ -1,0 +1,6 @@
+
+BEGIN
+    /*/ ou */
+    RETURN ?--URN ?--AC0CC?|tttt?|tttt|t1?|tttCCC   ::CN
+   ::ECACCCCC;
+END;

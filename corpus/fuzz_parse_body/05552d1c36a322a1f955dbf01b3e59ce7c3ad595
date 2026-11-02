@@ -1,0 +1,8 @@
+
+BEGIN
+    IF NEW.'error' THEN
+          INSERT INTO audit_log (action,ity) VALUES ('info_');
+  RETURN NEW;
+END EN
+   ;
+END;

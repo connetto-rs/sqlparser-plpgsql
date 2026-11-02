@@ -1,0 +1,4 @@
+
+BEGIN
+RETURN ?- N ?&INn;
+END

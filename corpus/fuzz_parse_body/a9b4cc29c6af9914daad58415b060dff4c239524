@@ -1,0 +1,8 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (  SELECT i- d, pt_id FROM
+(   ((       SELECT-- id, parnd FROM  S
+DEC
+BEGIN
+ WOIE
+END;

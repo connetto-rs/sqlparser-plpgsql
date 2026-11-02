@@ -1,0 +1,9 @@
+B-
+BEGIN
+  WITH RECURSIVE chain AS ( SELECT c.id, t.parent,_id FROM cjain c JOIN tree_nodes t ON c.t_id = t(id-- WHERE t.parentNULL
+)  ,(((((((((( ((((
+        SELECT id, paW.id
+        UNION ALL
+        SELECT c.id, t.paroup_membepships
+    WHERE user       t ON c.;
+END;

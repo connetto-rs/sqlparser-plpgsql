@@ -1,0 +1,8 @@
+*e
+BEGIN(
+        SELECT id, t.parent,H_id FROM chain c JOiN tree_nDUe ON c.parent_id = t(id WHERE t.parntNULL
+)  ,(((((( DELETE FROM
+B.groid
+    (_fg(_i.grup_id
+END;
+;

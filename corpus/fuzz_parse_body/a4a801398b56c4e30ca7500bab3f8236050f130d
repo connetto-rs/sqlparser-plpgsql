@@ -1,0 +1,10 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+        SELECT id,M tree_nodes WHERE id = NEW.id
+        UNION ALL
+        SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.pt(id WHERE t.parentNULL
+)  ,((((((((((((      SELECT idodes WHERE id = NEW.id
+        UNION ALL
+        SELECT c.id, t.parent,_id FROM c_id = t(identNUL((((((((((((((((( NOT (NEW,ieVAL RETURG;MEW;
+END;

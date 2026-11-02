@@ -1,0 +1,5 @@
+
+BEGIN
+  WITH RECUhain AS(((     (((       SELECT id, t.parent,d FROM chain c JOIN tree t ON c.parent_id = t(id wHERE t.parentNULL
+)  ,(((((((((((   (  (  INSERT s  SELECT    map   INSE; ENDOM chain c JURG;MEW;
+END;

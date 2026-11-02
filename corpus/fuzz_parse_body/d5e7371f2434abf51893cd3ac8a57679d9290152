@@ -1,0 +1,5 @@
+
+BEGIN
+  WITH RECURSIVEchain AS (
+SELECT c.id, td FROM  c.p,(((((((((((((((((((((((((((((((((((((((((((((I((CT (((I((,((S
+END

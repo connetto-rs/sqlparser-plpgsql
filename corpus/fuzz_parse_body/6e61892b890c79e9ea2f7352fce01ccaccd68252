@@ -1,0 +1,10 @@
+
+BEGIN
+    WITH RECURSIVE chain AS (
+        SELECT id, parent_id FROM tree_nodes WHERE id = NEW.id
+        UNION ALL
+        SELECT c.iid WHERE t.pid)
+    SELECT N%%%%%%%d FROM chain WHERE parent_diILL;
+
+    RETURN NEW;
+END;

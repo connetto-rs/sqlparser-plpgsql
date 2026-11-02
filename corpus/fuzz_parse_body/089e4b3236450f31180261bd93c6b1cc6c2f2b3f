@@ -1,0 +1,8 @@
+ 
+BEGIN
+    INsERT INa(
+            name,
+   e_id,   basndio__ed,e,
+   d,
+        W;
+END;

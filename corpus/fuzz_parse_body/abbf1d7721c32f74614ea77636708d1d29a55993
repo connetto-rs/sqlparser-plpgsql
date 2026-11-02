@@ -1,0 +1,9 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id,d FROM chain c JOIN tree_nldes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((
+     	INSERT W.idSE
+::::::::::::::YYYYYYYYYYYYYYYYYYYMEW;
+END;

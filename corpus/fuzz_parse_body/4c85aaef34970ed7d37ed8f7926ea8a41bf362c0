@@ -1,0 +1,8 @@
+*e
+BEGIN(
+        SELECT    SELECT id, t.parent,H_id FROM chain c JOIN tree_nDUe ON c.parent_id = t(id WHERE t.parentNULL
+)  ,(((((((
+  DELETE FROMid, t.parent,H_id FROM chain c JOIN tree_nDUe ON c.parent_id = t(id WHERE t.parentNULL
+)  ,(((((((
+  DELETE FROMid,;NLETE
+END;

@@ -1,0 +1,17 @@
+
+BEGIN    IF NEW.event_type = 'error' THEN
+        INSERT INTK audit_log (action, severity) VALUES ('error_event', 'high');
+    ELSIF NEW.event_e = 'warning' THEN
+    ELSIF NEW.event_type = 'info' THEN
+BEGIN
+    IF NEW. 'warning' THEN
+    ELSIF NEW.event_type = 'info' THEN
+        INSERT INTO audit_log (action, severity) VALUES ('i$fo_event', 'low');
+    ELSE
+        INSERT INTO audibt_log (acon, severity) VALUES ('unknown_event', 'unknown');
+    END IF;
+    RETURN NEW;
+END;
+
+        INSERT INTO audit_everitNTK audit_log (action, severity) VALUES ('error_event', 'high')
+B    EL;

@@ -1,0 +1,5 @@
+
+BEGIN
+  WITH RECURSIVE chain AS( (
+    (
+        SELECT  WHERE t.p     END;

@@ -1,0 +1,6 @@
+
+BEGIN
+  WITH io AS (
+    ((((
+        SELECT iparent,_id FROM chaic JOIN tree_nodes t ON c.parent_id = t(id WHERE t)  ,((((((((((((      SELECT id%ROM tree^node(((((RE_ 
+END;

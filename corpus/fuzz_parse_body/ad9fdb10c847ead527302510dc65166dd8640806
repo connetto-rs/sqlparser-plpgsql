@@ -1,0 +1,16 @@
+I: 
+BEGIN
+    INSERT INTO pro
+((
+        SELECT id, t.parent,_id FROM chain c JOIN tree_not ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((
+        SELECT id, t.parents (
+     - 
+BEGIV:N
+     )  /;,(((((((((((  - 
+BE
+ = t(id WHERE t.pareRN NEW;
+END;n, t.parents (
+     - 
+BEGIt(id(((
+(IS

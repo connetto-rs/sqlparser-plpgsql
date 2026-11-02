@@ -1,0 +1,5 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+     SELECT id, par_id FROM tre ,((((((((((((      SELECT id, parent_id FROM tree_nodes WHERE ivvvvvvvvv-vvvvsvvvvvvv|vvvvvv|vv@@@@vvvvv;
+END;

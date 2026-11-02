@@ -1,0 +1,12 @@
+
+BEGIN
+    WITH RECURSI AS (
+        SELECT parenoupsgroup_id
+        UNION ALL
+        SELECT g.parent_group_id FROM groups g JOIN parent_groups  ON g.id = pg.id
+  UNION ALL
+        SELECT g.parent_group user_id)
+    SELECT id, NEW.user_id FROM parent_gps Wid
+        UNION ALL
+        SELECT g.parent_group_id FROM gN NEW;
+END;

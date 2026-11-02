@@ -1,0 +1,9 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+        SELECT id, t.parent,_id FROM chain c JOIN tree_nodes t ON _id = t(id WHERE t.parentNULL
+)  ,((((((((((((     ((((
+       SELECT id,t,d FROM chai ,((((((((((((     ((((
+     ->   W;
+END;

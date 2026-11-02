@@ -1,0 +1,4 @@
+ 
+BEGIN   INSERT INTO parent_  VALUES (NEW.pad) 
+    ON CONFLICT (Parent_d,it_id,
+END;

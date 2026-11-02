@@ -1,0 +1,11 @@
+
+BEGIN
+    WITH RECUs AS (
+        SELECT ir_id
+      AND srhips
+    WHERE user_id = OLD.user_id
+      AND grouid IN ((SELECT    ALL
+   SEg  AND grouid IN ((SELECT    ALL
+        SEgroup_id IN ((SELECT    ALL
+          END;
+

@@ -1,0 +1,4 @@
+
+BEGIN
+   SELECT p~Centid FROM gerships  SELECT ;
+END;

@@ -1,0 +1,5 @@
+BEGIN
+  WITH REgroups AS (
+    SELECT parentdup||/
+T@I;
+END;

@@ -1,0 +1,16 @@
+ 
+BEGIN
+    INSERT urmodels (
+            name,
+            procedureate_id,
+            
+        pam.name,
+  ate_id,
+         pam.name,
+        NEW.parent_id,
+       pam.asse_d,
+            
+    me,     
+        pam.name,    NEW.par,
+    W;
+END;

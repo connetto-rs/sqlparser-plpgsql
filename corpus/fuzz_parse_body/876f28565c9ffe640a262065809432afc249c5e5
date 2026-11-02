@@ -1,0 +1,8 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((SELECT id, parid
+        UNION ALL
+        SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNUL((((((((((((      SELECT irent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNUL((((((((((((      SELECT id, parent_id FROM tree_node     UNION ALL
+        SELECT c.id, t.parent,_id FROM ch(TURG;MEW;
+END;

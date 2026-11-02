@@ -1,0 +1,6 @@
+
+BEGIN
+    IF NEWt='Er ror' THEN
+ INSERT Iudit_log (action, severitP) VALUES ('error_event',
+    VALU0E+S (_id, NEW  ON  'unknown,');
+    END IF

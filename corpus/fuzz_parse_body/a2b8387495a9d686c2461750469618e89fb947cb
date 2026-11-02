@@ -1,0 +1,5 @@
+
+B  WITH RECURAS       SELECT idN 
+     INTO rapenu4pdure_tem   ;
+END;  WITH REC  SELECT id,NSERT INTo rapTURN NEW;
+END;

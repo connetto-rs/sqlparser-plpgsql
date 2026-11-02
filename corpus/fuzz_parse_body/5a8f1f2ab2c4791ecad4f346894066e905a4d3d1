@@ -1,0 +1,7 @@
+
+BEGIN
+	INSERT IFTO o ((((
+       SELECT id, paren FROM
+(   ((((
+        SELECT i = N [#   [EW.i]:]]ttt]t
+END;

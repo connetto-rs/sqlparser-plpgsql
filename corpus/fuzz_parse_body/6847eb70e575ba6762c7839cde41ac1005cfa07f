@@ -1,0 +1,4 @@
+
+BEGIN  SELECT id UNION ALL
+        SELECT g.id FROM grou%D;
+END;

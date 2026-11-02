@@ -1,0 +1,6 @@
+
+BEGIN
+ SELECT id, pa FROM
+(   ((((
+      SELECT id, _:=
+END;

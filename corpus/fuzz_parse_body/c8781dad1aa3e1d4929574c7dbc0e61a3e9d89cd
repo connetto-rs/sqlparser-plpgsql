@@ -1,0 +1,10 @@
+ sorparINSERT INTO
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((  SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULL
+)  ,((((((((((((      SELECT E.B=parent_id FROM treeemplates (parenild_id)
+    VALUES (NEW.pare_nodes nd) 
+  RETURG;MW;
+EEW;
+END;ND;
+

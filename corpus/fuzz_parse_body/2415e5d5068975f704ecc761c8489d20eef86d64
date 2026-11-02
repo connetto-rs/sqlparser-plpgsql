@@ -1,0 +1,6 @@
+
+BEGIN
+    WITH RECUR AS (
+   SELECT id FROM gd
+   UNION    SELECT g.id FROM grRt|tt
+END;

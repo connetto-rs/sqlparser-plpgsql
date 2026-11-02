@@ -1,0 +1,7 @@
+
+BEGIN
+  WITH RECURSIVE chain AS (
+    ((((
+      SELECT id, parent_id FROM tree_nodes        UNION ALL
+        SELECT r>^t,_id FROM cha-> c JO,ieVAL RETURG;EW;
+END;

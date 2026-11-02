@@ -1,0 +1,7 @@
+
+BEGIN
+  SELECT id, parnt_id FROM
+(   ((((
+        SELECT i.parec JOInt,_id FR<> cJOIN t?ee_no_(((EWO
+END;
+idttttttd
