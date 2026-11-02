@@ -89,3 +89,24 @@ fn the_scanner_and_the_parser_agree_on_whether_a_block_is_present() {
         );
     }
 }
+
+/// Every fixture holding one real body is readable. The adversarial inputs
+/// hold none, and `large_concatenated` holds several in one file.
+#[cfg(feature = "body-parse")]
+#[test]
+fn every_single_body_fixture_reads_to_its_embedded_sql() {
+    const NOT_ONE_BODY: [&str; 3] = [
+        "adversarial_nested",
+        "adversarial_unicode",
+        "large_concatenated",
+    ];
+
+    for (name, body) in fixtures() {
+        if NOT_ONE_BODY.contains(&name.as_str()) {
+            continue;
+        }
+        if let Err(error) = sqlparser_plpgsql::embedded_sql(&body) {
+            panic!("{name}: a real body must be readable: {error}");
+        }
+    }
+}
