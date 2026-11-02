@@ -21,11 +21,57 @@ use sqlparser::{
     tokenizer::{Token, Tokenizer, Word},
 };
 
-use crate::{Error, Region, Scanner};
+use crate::{Region, Scanner};
 
 /// How deep blocks and control structures may nest before reading stops,
 /// which keeps a hostile body from exhausting the stack.
 const NESTING_LIMIT: usize = 50;
+
+/// An error produced while reading the SQL a PL/pgSQL body embeds.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    /// The body could not be tokenized.
+    #[error("PL/pgSQL body could not be tokenized: {source}")]
+    UntokenizableBody {
+        /// The tokenizer error.
+        #[source]
+        source: sqlparser::tokenizer::TokenizerError,
+    },
+
+    /// The body does not have the shape PL/pgSQL requires.
+    #[error("PL/pgSQL body expected {expected}, found {found}")]
+    Syntax {
+        /// What the grammar requires at this point.
+        expected: &'static str,
+        /// The token found instead.
+        found: String,
+    },
+
+    /// An SQL statement or expression the body embeds could not be parsed.
+    #[error("embedded SQL `{sql}` could not be parsed: {source}")]
+    EmbeddedSql {
+        /// The SQL as the parser saw it, one space between tokens.
+        sql: String,
+        /// The parser error.
+        #[source]
+        source: sqlparser::parser::ParserError,
+    },
+
+    /// `OPEN` names a cursor that no enclosing block binds to a query.
+    #[error("cursor '{name}' is not bound to a query by any enclosing block")]
+    UnboundCursor {
+        /// The cursor name, folded as PostgreSQL folds it.
+        name: String,
+    },
+
+    /// The body nests blocks and control structures deeper than the reader
+    /// follows.
+    #[error("PL/pgSQL body nests blocks and control structures deeper than {limit}")]
+    NestingTooDeep {
+        /// The deepest nesting followed.
+        limit: usize,
+    },
+}
 
 /// A block, `[DECLARE ...] BEGIN ... [EXCEPTION ...] END`.
 #[derive(Clone, Debug, PartialEq)]
@@ -172,7 +218,7 @@ pub enum LoopControl {
 /// let Node::Statement(perform) = &block.statements[0] else { unreachable!() };
 /// assert_eq!(perform.to_string(), "SELECT 1 FROM docs");
 /// assert!(matches!(block.statements[1], Node::Dynamic(_)));
-/// # Ok::<(), sqlparser_plpgsql::Error>(())
+/// # Ok::<(), sqlparser_plpgsql::embedded::Error>(())
 /// ```
 pub fn embedded_sql(body: &str) -> Result<Block, Error> {
     let text = spaced_ranges(body);

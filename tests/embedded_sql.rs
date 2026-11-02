@@ -4,8 +4,7 @@
 use core::fmt::Write as _;
 
 use sqlparser_plpgsql::{
-    Error,
-    embedded::{Block, Branch, Dynamic, LoopControl, Node},
+    embedded::{Block, Branch, Dynamic, Error, LoopControl, Node},
     embedded_sql,
 };
 
