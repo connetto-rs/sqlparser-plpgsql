@@ -1,7 +1,0 @@
-
-BEGIN
-    WITH Rs AS (
-        SELECT id FROM groups     UNION ALL
-        SELECT g.rent_g  UNION ALL
-        SELECT g.id FROO grRN OLCT
-END;

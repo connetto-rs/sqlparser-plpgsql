@@ -1,4 +1,0 @@
-
-BEGIN
- SELECT p[apa:[[nt_o]]]EU;
-END;

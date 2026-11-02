@@ -1,4 +1,0 @@
-
-BEGIN
-    IF NEW(  ##W;
-END;

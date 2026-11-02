@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    ((((
-        SELECT id, t.parent,_id FROM chaiN c JOIN tr,((((((((((((   ( ((((
-  >=ent_id,
-ame.inAL RETURG;MEW;
-END;

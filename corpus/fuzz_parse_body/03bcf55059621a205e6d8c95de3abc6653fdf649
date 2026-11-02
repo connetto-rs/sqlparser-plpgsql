@@ -1,5 +1,0 @@
-
-BEGIN
-    WITH Roups AS (
-        SELECT pard AS _group_id FROM(groups eps (group_d, uer_id)
-    SSERT TO RETURN &NEW;@END;

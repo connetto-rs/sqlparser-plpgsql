@@ -1,4 +1,0 @@
-
-BEGIN      SELECT i= i      UNION ALL
-        SELECT FROM tp
-====?i??&&&&{{END;

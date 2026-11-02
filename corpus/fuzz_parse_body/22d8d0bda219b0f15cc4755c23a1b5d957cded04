@@ -1,9 +1,0 @@
-
-BEGIN
-	SELECT id, parent_id FROM
-(   ((((
-        SELECT idt_aid FROM tree_deS  _ (  
-BEGIITH 
-END;
-itttt
-E

@@ -1,8 +1,0 @@
- 
-BEGIN
-    INSERT INTO Procee_template_asset_m   SELECT 
-   name,
-   arid<
-        p&m.id^Eat   ;
-      ;
-END;

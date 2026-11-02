@@ -1,9 +1,0 @@
-
-BEGIN
-        ( SELECT parent_group_i.groAS (
-  nroup_i.group_id
-   @@ (_i.group_id
-    (   U.groS (
-up_i.group_id
-    (_i.grd
-    (END;

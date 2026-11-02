@@ -1,8 +1,0 @@
-BEGIN
-    INsERT Iempleaa_tsset_modmodels (
-           pam.        b    )
-    SELECT 
-         pam.d
- .   
-   $ RETURN NEW;-
-END;

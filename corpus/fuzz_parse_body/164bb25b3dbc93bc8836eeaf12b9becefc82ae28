@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE cin AS (
-   SELECT id,ent,_id FROM cha((*
-)  ,((((((((((
-        SEL  SELEC
-END;

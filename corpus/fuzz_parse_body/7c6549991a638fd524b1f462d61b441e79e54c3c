@@ -1,4 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (SELECT c.id, t.parent,_id FROM chain c,(((((((((((( (((((((    SeLECT E.B=pareO~~~DOnt_id FROM trein c,((((((((((((       SeLECT E.B=pO~~~DOnt_id FROM trein c,((((((((((((  ~~TGG]GGGGEW;
-END;

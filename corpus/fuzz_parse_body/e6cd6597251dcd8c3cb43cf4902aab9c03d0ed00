@@ -1,6 +1,0 @@
-:=
-m.BEGIN
-	   SELECT id, d FROM
-(   ((((
-        SELECT i,d,ROM trees ~~tt*tttt
-END 

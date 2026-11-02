@@ -1,5 +1,0 @@
-
-BeGIN
-    WITH RECUs AS (
- SELECT _groups); {
-END

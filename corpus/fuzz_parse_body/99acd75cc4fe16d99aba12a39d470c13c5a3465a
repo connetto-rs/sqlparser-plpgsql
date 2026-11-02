@@ -1,6 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (    ((((
-        SELECT id, t FROM chain c JOIN tree_nod ,((((((((((((     ((((
-        SELECT id, t.pa{ent,_ain((( W;
-END;

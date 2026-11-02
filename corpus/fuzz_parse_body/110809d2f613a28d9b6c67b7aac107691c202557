@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    ((((
-        SELECT id, RE FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE tvBar~*tNULL
-)  ,(((
- INSERT gINTO((
-        SELECT <<<4&<<END;

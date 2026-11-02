@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    ((  SELECT id, ent_id FROM
-(   ( WITH  chain AS (   ((((
-        SELECT iEWO
-END;

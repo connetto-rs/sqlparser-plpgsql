@@ -1,4 +1,0 @@
-
-BEGIN(
-     SELECT i.parited IS NOT ;
-END;

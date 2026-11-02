@@ -1,7 +1,0 @@
-
-BEGIN
-  DELETE FROM membe IN (SELis);
-
-  DELETE FROM meme IN (SELis);
-    RETURN OD; tE
-END;

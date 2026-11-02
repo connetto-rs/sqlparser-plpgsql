@@ -1,9 +1,0 @@
-
-BEGIN
- VALUES (NEW.id);
-	RETURN$$$$+++++++++(
-            name,EW.parNEW.parent_id,
-     b
-        )
-  +t
-END;

@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    ((((
-        SELECT id, t.parent_id FROM chiin c JOIN tree_nodes t ON t(id WHERE t.parentNULL
-)  ,((((((((((((     ((((
-        SELECT id, t.pared FROM c^ain c JOIN ree_nodes tRETURG;MEW;
-END;

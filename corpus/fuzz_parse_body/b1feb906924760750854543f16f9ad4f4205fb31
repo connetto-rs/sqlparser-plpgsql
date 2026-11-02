@@ -1,4 +1,0 @@
-
-BEGIN
-        SELECT idp_id IN (SELECT il FROM ch WHERE userroup_id IN (SELECT il FROM chi  IF (EWLD;
-END;

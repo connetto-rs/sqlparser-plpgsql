@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH REC AS (
-    (
-        SELECT id, parent_id FROM
-   ((((
-  SELECT id, &parO
-END;

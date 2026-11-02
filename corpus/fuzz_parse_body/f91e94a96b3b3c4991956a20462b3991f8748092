@@ -1,4 +1,0 @@
-
-BEGIN IF@@_id
-  'inp' T;
-END@

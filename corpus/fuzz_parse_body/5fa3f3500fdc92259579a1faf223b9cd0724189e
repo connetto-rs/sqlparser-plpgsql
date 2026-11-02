@@ -1,3 +1,0 @@
-
-BEGIN
-  SELECT c.id, t.parent(id WHERE t.parentNULLz)  ,((((((((((((      SELECT id, pa.tparent,_d)))) c JOIN tree)))o)n_))))R;END;

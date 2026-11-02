@@ -1,4 +1,0 @@
-
-BEGIN
-  DELETE FROM gr IN (SELis);
-   END;

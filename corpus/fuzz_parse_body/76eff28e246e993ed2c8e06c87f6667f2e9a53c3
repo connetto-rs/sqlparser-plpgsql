@@ -1,8 +1,0 @@
-
-BEGIN
-  SELECT c.id, t.parent,_id FROM chain c JOIN tree_nodes t ON c.parent_id = t(id WHERE t.parentNULLz)  ,((((((((((((      SELECT id, pa.tparent,_id FROM chn c JOIN tregrou0_i.groAS (
-  nt_group_i.group_id
-    (_i.group_id
-    (   U.groAS (
-up_i.group_id
-    (_i.group_ient_group_i.grearent_id)))) c JOIN tre)e))o)n_))))R?END;

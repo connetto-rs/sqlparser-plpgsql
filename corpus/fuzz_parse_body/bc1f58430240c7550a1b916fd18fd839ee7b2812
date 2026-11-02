@@ -1,8 +1,0 @@
-
-BEGIN
-    IF NEW.event_type = 'error=' THEN
-  
-    ELSE
-   INSERT INTudit_log (acactio) VALUE ('in1o_even, t','unknown');
-W;
-END;

@@ -1,4 +1,0 @@
-
-BEGIN
- VALUES (N.id);	RETURN$$$$++++++$+t
-END;

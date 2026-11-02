@@ -1,5 +1,0 @@
-
-BEGIN
-  IF NW.UEC(e'VAn');
-NE;
-END;

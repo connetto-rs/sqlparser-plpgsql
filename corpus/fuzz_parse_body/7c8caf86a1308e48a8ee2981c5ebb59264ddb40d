@@ -1,4 +1,0 @@
-
-BEGIN(
-     SELECT i.p_narited IS NOT ;
-END;

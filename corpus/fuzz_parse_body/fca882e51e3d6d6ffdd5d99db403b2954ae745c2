@@ -1,4 +1,0 @@
-
-BEGIN        SELECT ent,_id FROM chain c JOIN treet,((((((((((((     (((
-        ?SELECT id, t.parent,_d;
-END;

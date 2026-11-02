@@ -1,3 +1,0 @@
-
-BEGIN   SELECT  id FROM gcips (group_IE, w_idTURN,id, id) END R;
-ET

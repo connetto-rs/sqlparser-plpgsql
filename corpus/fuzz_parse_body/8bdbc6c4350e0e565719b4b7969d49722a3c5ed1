@@ -1,6 +1,0 @@
-
-BEGIN       SELECT ida_id FROM tree_nodes WARE
-
-   
-   W;
-END;

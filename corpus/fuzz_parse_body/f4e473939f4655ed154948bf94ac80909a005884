@@ -1,6 +1,0 @@
-
-BEGIN
-    WITH RECURSIVroups AS (
-        SELECT parent_group_id AS W   UNION
-      SELECT parent_gd AS id    N NEW;
-END;

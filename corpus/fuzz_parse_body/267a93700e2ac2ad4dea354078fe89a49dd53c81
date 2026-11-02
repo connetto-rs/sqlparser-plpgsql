@@ -1,6 +1,0 @@
-
-BEGIN
-    WITH RECURSIVE child_groups AS(
-        SELECT id FROM s p    UNION ALL
-        SELECT gp_id = OLD.group_ .id FROM ghild_!roup gat_group_D;
-END;

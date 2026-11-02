@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    SELECT id, parent_id FROM
-(   ((((
-        SELECT id, par, t.parent,_id FROM(chain c JOIN tree_nodes E t.WO
-END;

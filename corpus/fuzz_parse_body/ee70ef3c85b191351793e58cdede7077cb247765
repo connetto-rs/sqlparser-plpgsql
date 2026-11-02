@@ -1,3 +1,0 @@
-*BEGIN (
-    SELECT int_i  NOT N IN NE;
-END;

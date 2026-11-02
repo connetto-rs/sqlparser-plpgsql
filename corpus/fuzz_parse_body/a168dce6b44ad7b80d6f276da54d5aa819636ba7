@@ -1,4 +1,0 @@
-BEGIN      SELECT aze(id WHERE t.arent_id IS NOT NULL
-)  ,  
-TO no
-END;

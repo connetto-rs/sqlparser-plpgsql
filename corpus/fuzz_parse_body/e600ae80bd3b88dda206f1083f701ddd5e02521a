@@ -1,8 +1,0 @@
-
-BEGIN
- (  SELECT i, pt_id FROM
-    ((       SELECT-- , ROM  S
-DEC
-BEGIN
-ent
-END;

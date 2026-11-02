@@ -1,7 +1,0 @@
- 
-BEGIN 
-    INSERT INcemplates (parent_id, child_id)    VALUE (NEWnt_id, NEid) 
-    ON CONFLICT (parent_id, child_id) DO NOTHING;
-    
-    RETURN N<W;
-END;

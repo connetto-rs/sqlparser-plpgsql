@@ -1,6 +1,0 @@
- 
-BEGIN 
-    INSERT r
-.ent_procedu  VALUES (NEW.ecd) 
-    ON CONFLICt (pa_id,N N;
-END;

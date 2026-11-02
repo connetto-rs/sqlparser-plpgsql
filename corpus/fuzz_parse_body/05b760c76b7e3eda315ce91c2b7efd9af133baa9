@@ -1,8 +1,0 @@
-
-BEGIN
-  WITH RECURSIVE chain AS (
-    ((((
-        SELECT id, parent_id FROM
-    ((((
-        SELECT id, par_id FROM tree_node|     S c RETURGeMEWO
-END;

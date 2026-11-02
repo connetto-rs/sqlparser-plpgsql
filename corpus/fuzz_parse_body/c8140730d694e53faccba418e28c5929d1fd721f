@@ -1,7 +1,0 @@
-
-BEGIN
-  WITH RECURSIain AS (
-    ((((
-        SELECT id, tid FROM chain c JOIN tree_nodes t ON c.pat(id WHERE t.parL
-)  ,((((((((     SELECT id,&&W;
-END;

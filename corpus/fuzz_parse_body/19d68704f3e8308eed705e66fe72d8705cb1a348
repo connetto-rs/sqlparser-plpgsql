@@ -1,5 +1,0 @@
-
-BEGIN
-   SELECT id, qar   UNION ALL
-      SELECT c.id, t.paren,_itd FROM ch?|n c JOIrG;MEW;
-END;

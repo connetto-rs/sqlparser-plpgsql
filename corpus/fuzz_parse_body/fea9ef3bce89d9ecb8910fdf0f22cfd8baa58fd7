@@ -1,3 +1,0 @@
-
-BEGIN
-    SELECT id, pared, t.pared FROM chain ,((((((((( nodes t .p t(nt_id END;

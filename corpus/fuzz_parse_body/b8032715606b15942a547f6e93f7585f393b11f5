@@ -1,5 +1,0 @@
-
-BEGIN
-  WITH REin AS (  SELECT id, parent_id FROM((((
-        SELECT-- id, paN+tpa;MEWO
-END;
