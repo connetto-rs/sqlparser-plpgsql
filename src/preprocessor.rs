@@ -1085,7 +1085,7 @@ END";
         let (transformed, _) = PlPgSqlPreprocessor::preprocess(&body).expect("preprocess");
         let start = transformed
             .find("SELECT RAISE(ABORT, ")
-            .unwrap_or_else(|| panic!("no RAISE in {transformed}"))
+            .expect("the RAISE is rewritten")
             + "SELECT RAISE(ABORT, ".len();
         let end = transformed[start..].find(");").expect("RAISE closes") + start;
         transformed[start..end].to_string()
@@ -1138,18 +1138,15 @@ END";
             ("RAISE EXCEPTION 'a %%', x", 0, 1),
         ] {
             let body = format!("BEGIN\n  {raise};\nEND");
-            match PlPgSqlPreprocessor::preprocess(&body) {
-                Err(Error::RaiseParameterCount {
-                    placeholders,
-                    arguments,
-                    ..
-                }) => assert_eq!(
-                    (placeholders, arguments),
-                    (expected_placeholders, expected_arguments),
-                    "{raise}"
+            let result = PlPgSqlPreprocessor::preprocess(&body);
+            assert!(
+                matches!(
+                    result,
+                    Err(Error::RaiseParameterCount { placeholders, arguments, .. })
+                        if (placeholders, arguments) == (expected_placeholders, expected_arguments)
                 ),
-                other => panic!("{raise}: expected RaiseParameterCount, got {other:?}"),
-            }
+                "{raise}: {result:?}"
+            );
         }
     }
 
