@@ -345,7 +345,9 @@ impl PlPgSqlPreprocessor {
     ///
     /// Returns [`Error::UnsupportedRaiseUsing`] when a RAISE EXCEPTION
     /// USING clause is present but not in the single-item `MESSAGE =
-    /// '<literal>'` form that translates cleanly.
+    /// '<literal>'` form that translates cleanly, and
+    /// [`Error::RaiseParameterCount`] when a format's placeholders and its
+    /// arguments differ in number.
     fn transform_raise_statements(body: &str) -> Result<String, Error> {
         let mut result = String::new();
         let mut search_from = 0;
@@ -396,7 +398,7 @@ impl PlPgSqlPreprocessor {
                 let msg = if let Some(lit) = Self::extract_using_message_literal(message_content)? {
                     lit.to_string()
                 } else {
-                    Self::extract_first_string_literal(message_content).to_string()
+                    Self::raise_message(message_content)?
                 };
                 result.push_str("SELECT RAISE(ABORT, ");
                 result.push_str(&msg);
@@ -410,6 +412,69 @@ impl PlPgSqlPreprocessor {
 
         result.push_str(&body[search_from..]);
         Ok(result)
+    }
+
+    /// The SQLite message expression for the RAISE arguments `'<format>'[,
+    /// <argument> ...]`, each `%` of the format replaced by the next argument
+    /// and `%%` by one `%`, as PostgreSQL formats the message.
+    ///
+    /// A NULL argument prints `<NULL>`, PostgreSQL's spelling. Options after a
+    /// top-level `USING` are not arguments. A message that does not open with a
+    /// string literal is returned as found.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::RaiseParameterCount`] when the format's placeholders
+    /// and the arguments differ in number.
+    fn raise_message(content: &str) -> Result<String, Error> {
+        let format = Self::extract_first_string_literal(content);
+        if format.len() < 2 || !format.starts_with('\'') || !format.ends_with('\'') {
+            return Ok(format.to_string());
+        }
+        let rest = &content[format.len()..];
+        let rest =
+            Self::find_top_level_keyword(rest, "USING", 0).map_or(rest, |using| &rest[..using]);
+        let arguments = rest
+            .trim_start()
+            .strip_prefix(',')
+            .map(Self::split_top_level_csv)
+            .unwrap_or_default();
+
+        // The text before the first placeholder, then the text after each.
+        let mut leading = String::new();
+        let mut trailing: Vec<String> = Vec::new();
+        let mut chars = format[1..format.len() - 1].chars().peekable();
+        while let Some(character) = chars.next() {
+            if character == '%' && chars.next_if_eq(&'%').is_none() {
+                trailing.push(String::new());
+            } else {
+                trailing.last_mut().unwrap_or(&mut leading).push(character);
+            }
+        }
+        if trailing.len() != arguments.len() {
+            return Err(Error::RaiseParameterCount {
+                format: format.to_string(),
+                placeholders: trailing.len(),
+                arguments: arguments.len(),
+            });
+        }
+
+        let mut message = String::with_capacity(
+            content.len() + arguments.len() * " || coalesce(, '<NULL>') || ".len(),
+        );
+        if !leading.is_empty() || trailing.is_empty() {
+            let _ = write!(message, "'{leading}'");
+        }
+        for (argument, piece) in arguments.iter().zip(&trailing) {
+            if !message.is_empty() {
+                message.push_str(" || ");
+            }
+            let _ = write!(message, "coalesce({argument}, '<NULL>')");
+            if !piece.is_empty() {
+                let _ = write!(message, " || '{piece}'");
+            }
+        }
+        Ok(message)
     }
 
     /// True when `text` starts with the ASCII `prefix`, ignoring case.
@@ -1013,14 +1078,79 @@ END";
         );
     }
 
+    /// The `SELECT RAISE(ABORT, ...)` message for the RAISE EXCEPTION
+    /// statement `raise`.
+    fn raised_message(raise: &str) -> String {
+        let body = format!("BEGIN\n  {raise};\n  RETURN NEW;\nEND");
+        let (transformed, _) = PlPgSqlPreprocessor::preprocess(&body).expect("preprocess");
+        let start = transformed
+            .find("SELECT RAISE(ABORT, ")
+            .unwrap_or_else(|| panic!("no RAISE in {transformed}"))
+            + "SELECT RAISE(ABORT, ".len();
+        let end = transformed[start..].find(");").expect("RAISE closes") + start;
+        transformed[start..end].to_string()
+    }
+
     #[test]
-    fn test_transform_raise_exception_with_format_args() {
-        let body = "BEGIN\n  RAISE EXCEPTION 'bad value: %', NEW.val;\n  RETURN NEW;\nEND";
-        let (transformed, _) = PlPgSqlPreprocessor::preprocess(body).expect("preprocess");
-        assert!(
-            transformed.contains("SELECT RAISE(ABORT, 'bad value: %')"),
-            "Format args should be dropped, got: {transformed}"
+    fn each_placeholder_takes_the_next_argument() {
+        assert_eq!(
+            raised_message("RAISE EXCEPTION 'bad value: %', NEW.val"),
+            "'bad value: ' || coalesce(NEW.val, '<NULL>')"
         );
+        assert_eq!(
+            raised_message("RAISE EXCEPTION '% of %: %', coalesce(a, 1), b, 'x, y'"),
+            "coalesce(coalesce(a, 1), '<NULL>') || ' of ' || coalesce(b, '<NULL>') \
+             || ': ' || coalesce('x, y', '<NULL>')"
+        );
+    }
+
+    #[test]
+    fn a_doubled_percent_is_one_literal_percent() {
+        assert_eq!(raised_message("RAISE EXCEPTION 'a %% b'"), "'a % b'");
+        assert_eq!(
+            raised_message("RAISE EXCEPTION '%% of %', x"),
+            "'% of ' || coalesce(x, '<NULL>')"
+        );
+    }
+
+    #[test]
+    fn a_quote_in_the_format_stays_escaped() {
+        assert_eq!(
+            raised_message("RAISE EXCEPTION 'it''s %', x"),
+            "'it''s ' || coalesce(x, '<NULL>')"
+        );
+    }
+
+    #[test]
+    fn using_options_after_the_arguments_are_not_arguments() {
+        assert_eq!(
+            raised_message("RAISE EXCEPTION 'v=%', x USING HINT = 'h, i'"),
+            "'v=' || coalesce(x, '<NULL>')"
+        );
+    }
+
+    #[test]
+    fn a_placeholder_count_postgresql_refuses_is_refused() {
+        for (raise, expected_placeholders, expected_arguments) in [
+            ("RAISE EXCEPTION 'a % b'", 1, 0),
+            ("RAISE EXCEPTION 'a % b %', x", 2, 1),
+            ("RAISE EXCEPTION 'a %', x, y", 1, 2),
+            ("RAISE EXCEPTION 'a %%', x", 0, 1),
+        ] {
+            let body = format!("BEGIN\n  {raise};\nEND");
+            match PlPgSqlPreprocessor::preprocess(&body) {
+                Err(Error::RaiseParameterCount {
+                    placeholders,
+                    arguments,
+                    ..
+                }) => assert_eq!(
+                    (placeholders, arguments),
+                    (expected_placeholders, expected_arguments),
+                    "{raise}"
+                ),
+                other => panic!("{raise}: expected RaiseParameterCount, got {other:?}"),
+            }
+        }
     }
 
     #[test]
@@ -1131,6 +1261,18 @@ END";
         assert!(
             transformed.contains("'boom'"),
             "the closing quote must survive, got: {transformed}"
+        );
+    }
+
+    /// A message cut off right after its opening quote has no format text to
+    /// scan, and passes through as found.
+    #[test]
+    fn a_lone_quote_as_the_raise_message_passes_through() {
+        let (transformed, _) =
+            PlPgSqlPreprocessor::preprocess("BEGIN\n  RAISE EXCEPTION '").expect("preprocess");
+        assert!(
+            transformed.contains("SELECT RAISE(ABORT, ');"),
+            "got: {transformed}"
         );
     }
 

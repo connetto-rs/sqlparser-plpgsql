@@ -37,6 +37,21 @@ pub enum Error {
         clause: String,
     },
 
+    /// A RAISE format's `%` placeholders and its arguments differ in number,
+    /// which PostgreSQL refuses as too few or too many parameters.
+    #[error(
+        "RAISE format {format} has {placeholders} `%` placeholders for {arguments} \
+         arguments"
+    )]
+    RaiseParameterCount {
+        /// The format string literal, quotes included.
+        format: String,
+        /// The number of single `%` in the format.
+        placeholders: usize,
+        /// The number of arguments after the format.
+        arguments: usize,
+    },
+
     /// Tokenizing the function body failed.
     #[error("trigger function '{name}' body could not be tokenized: {source}. Body: {body}")]
     Tokenization {
