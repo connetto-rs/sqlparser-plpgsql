@@ -202,14 +202,50 @@ fn a_loop_declares_its_variable_for_its_statements_only() {
     );
     let sites = sites(&block, &plain("f", &[]));
     let index = whole(&sites[0], &["i"]);
-    assert_eq!(index.kind(), &NameKind::LoopIndex);
+    assert_eq!(
+        index.kind(),
+        &NameKind::LoopIndex {
+            variable: "i".into()
+        }
+    );
     assert_eq!(whole(&sites[0], &["lp", "i"]), index);
     assert_eq!(declared_name(whole(&sites[1], &["i"])), "i");
     match whole(&sites[2], &["r"]).kind() {
-        NameKind::LoopRecord { query } => assert_eq!(query.to_string(), "SELECT 1 AS v"),
+        NameKind::LoopRecord { variable, query } => {
+            assert_eq!(variable, "r");
+            assert_eq!(query.to_string(), "SELECT 1 AS v");
+        }
         other => panic!("expected the cursor's record, found {other:?}"),
     }
     assert_eq!(declared_name(whole(&sites[1], &["r"])), "r");
+}
+
+#[test]
+fn an_alias_of_a_loop_variable_names_the_variable_the_loop_declares() {
+    let block = read(
+        r#"DECLARE c CURSOR FOR SELECT 1 AS v;
+        BEGIN
+          FOR "Idx" IN 1..2 LOOP
+            DECLARE a ALIAS FOR "Idx";
+            BEGIN EXECUTE 'SELECT ' || a; END;
+          END LOOP;
+          FOR Rec IN c LOOP
+            DECLARE b ALIAS FOR rec;
+            BEGIN EXECUTE 'SELECT ' || b.v; END;
+          END LOOP;
+        END"#,
+    );
+    let sites = sites(&block, &plain("f", &[]));
+    assert_eq!(
+        whole(&sites[0], &["a"]).kind(),
+        &NameKind::LoopIndex {
+            variable: "Idx".into()
+        }
+    );
+    match whole(&sites[1], &["b"]).kind() {
+        NameKind::LoopRecord { variable, .. } => assert_eq!(variable, "rec"),
+        other => panic!("expected the cursor's record, found {other:?}"),
+    }
 }
 
 #[test]

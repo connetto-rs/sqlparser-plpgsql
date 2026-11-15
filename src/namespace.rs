@@ -188,7 +188,7 @@ impl Name {
             | NameKind::ReturnValue
             | NameKind::Trigger(_)
             | NameKind::Found
-            | NameKind::LoopIndex
+            | NameKind::LoopIndex { .. }
             | NameKind::SqlState
             | NameKind::SqlErrm => Some(false),
         }
@@ -239,9 +239,16 @@ pub enum NameKind {
     },
     /// The integer a `FOR i IN lower .. upper` loop declares for its
     /// statements.
-    LoopIndex,
+    LoopIndex {
+        /// The name the loop declares the integer under, as PostgreSQL
+        /// stores it.
+        variable: String,
+    },
     /// The record a `FOR r IN cursor` loop declares for its statements.
     LoopRecord {
+        /// The name the loop declares the record under, as PostgreSQL
+        /// stores it.
+        variable: String,
         /// The query the cursor's declaration binds, whose rows the record
         /// holds in turn.
         query: Arc<Statement>,
@@ -510,13 +517,16 @@ impl<'body> Collector<'body, '_> {
         );
         match &repeated.control {
             LoopControl::Range { variable, .. } => {
-                let index = self.name(NameKind::LoopIndex);
+                let index = self.name(NameKind::LoopIndex {
+                    variable: variable.clone(),
+                });
                 level.declare(variable.clone(), index);
             }
             LoopControl::Cursor {
                 variable, query, ..
             } => {
                 let record = self.name(NameKind::LoopRecord {
+                    variable: variable.clone(),
                     query: Arc::new((**query).clone()),
                 });
                 level.declare(variable.clone(), record);
