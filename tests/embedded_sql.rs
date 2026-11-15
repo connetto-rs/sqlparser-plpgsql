@@ -765,13 +765,51 @@ fn opening_a_cursor_no_block_binds_is_an_error() {
         "BEGIN OPEN c; END",
         "DECLARE c refcursor; BEGIN OPEN c; END",
         "DECLARE c CURSOR FOR SELECT 1; BEGIN DECLARE c INT; BEGIN OPEN c; END; END",
+        "DECLARE c CURSOR FOR SELECT 1; BEGIN FOR c IN 1..2 LOOP OPEN c; END LOOP; END",
+        "DECLARE sqlstate CURSOR FOR SELECT 1;
+        BEGIN NULL; EXCEPTION WHEN others THEN OPEN sqlstate; END",
     ] {
         assert!(
-            matches!(embedded_sql(body), Err(Error::UnboundCursor { ref name }) if name == "c"),
+            matches!(embedded_sql(body), Err(Error::UnboundCursor { ref name }) if name == "c" || name == "sqlstate"),
             "{body}: {:?}",
             embedded_sql(body)
         );
     }
+}
+
+#[test]
+fn a_cursor_is_reached_through_an_alias_and_through_its_block_label() {
+    let body = "
+        <<outer>> DECLARE c CURSOR FOR SELECT 1 FROM outer_docs; d ALIAS FOR c;
+        BEGIN
+          DECLARE c CURSOR FOR SELECT 2 FROM inner_docs;
+          BEGIN
+            OPEN outer.c;
+            OPEN d;
+            FOR r IN outer.c LOOP NULL; END LOOP;
+            FOR r IN d LOOP NULL; END LOOP;
+          END;
+        END";
+    assert_eq!(
+        outline(body),
+        expected(
+            "
+            <<outer>> block
+              declare c cursor
+              declare d alias for c
+              block
+                declare c cursor
+                SELECT 1 FROM outer_docs
+                SELECT 1 FROM outer_docs
+                cursor r in SELECT 1 FROM outer_docs
+                cursor r in SELECT 1 FROM outer_docs
+            "
+        )
+    );
+    assert!(matches!(
+        embedded_sql("<<b>> DECLARE c CURSOR FOR SELECT 1; BEGIN OPEN a.c; END"),
+        Err(Error::UnboundCursor { ref name }) if name == "a.c"
+    ));
 }
 
 #[test]
