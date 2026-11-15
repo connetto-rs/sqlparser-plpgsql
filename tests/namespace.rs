@@ -577,7 +577,8 @@ fn every_statement_and_expression_comes_in_body_order() {
           FOREACH b IN ARRAY 25 LOOP RETURN 26; END LOOP;
           OPEN c(27);
           DECLARE d int := 28; BEGIN RETURN 29; END;
-        EXCEPTION WHEN others THEN RETURN 30;
+          LOOP RETURN 30; END LOOP;
+        EXCEPTION WHEN others THEN RETURN 31;
         END",
     );
     assert_eq!(
@@ -614,6 +615,7 @@ fn every_statement_and_expression_comes_in_body_order() {
             "expression SELECT 28",
             "statement SELECT 29",
             "statement SELECT 30",
+            "statement SELECT 31",
         ]
     );
 }
@@ -744,7 +746,7 @@ fn opening_what_a_row_answers_for_instead_of_a_cursor_is_an_error() {
 }
 
 #[test]
-fn a_body_declaring_many_names_is_read_and_dropped_without_exhausting_the_stack() {
+fn a_body_declaring_many_names_is_read_shown_and_dropped_without_exhausting_the_stack() {
     let declarations: Vec<String> = (0..20_000).map(|index| format!("v{index} int;")).collect();
     let block = read(&format!(
         "DECLARE {} BEGIN RETURN v0; END",
@@ -752,4 +754,8 @@ fn a_body_declaring_many_names_is_read_and_dropped_without_exhausting_the_stack(
     ));
     let sites = sites(&block, &plain("f", &[]));
     assert_eq!(whole(&sites[0], &["v0"]).id(), 1);
+    let shown = format!("{:?}", sites[0].namespace);
+    let latest = shown.find("\"v19999\"").expect("the latest name is shown");
+    assert!(latest < shown.find("\"v0\"").expect("the first name is shown"));
+    assert!(shown.contains("\"found\""));
 }
