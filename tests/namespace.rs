@@ -2,6 +2,9 @@
 //! answers it, read through the public API.
 #![cfg(feature = "body-parse")]
 
+use std::collections::HashSet;
+
+use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use sqlparser_plpgsql::{
     embedded::{self, Block, Error as ReadError},
     embedded_sql,
@@ -65,6 +68,7 @@ fn every_site_comes_in_body_order_through_every_construct() {
         "DECLARE r record; c refcursor;
         BEGIN
           EXECUTE 'one';
+          PERFORM 1;
           BEGIN EXECUTE 'two'; END;
           IF a THEN EXECUTE 'three'; ELSIF b THEN EXECUTE 'four'; ELSE EXECUTE 'five'; END IF;
           CASE WHEN a THEN EXECUTE 'six'; ELSE EXECUTE 'seven'; END CASE;
@@ -379,6 +383,11 @@ fn every_variable_has_one_id_in_declaration_order() {
     );
     assert_eq!(ids(&sites[1], &["sqlstate", "sqlerrm"]), [5, 6]);
     assert_eq!(whole(&sites[0], &["x"]), whole(&sites[1], &["x"]));
+    let parameter: HashSet<&Name<'_>> = [["p"].as_slice(), &["$1"], &["f", "p"]]
+        .iter()
+        .map(|parts| whole(&sites[0], parts))
+        .collect();
+    assert_eq!(parameter.len(), 1);
 }
 
 #[test]
@@ -391,6 +400,9 @@ fn a_command_is_the_expression_its_select_evaluates() {
           EXECUTE E'esc\\'aped';
           EXECUTE $q$dollar 'quoted'$q$;
           EXECUTE NULL;
+          EXECUTE 'kept' ORDER BY 1;
+          EXECUTE 'kept' WHERE false;
+          EXECUTE 'kept' AS named;
         END",
     );
     let sites = sites(&block, &plain("f", &[]));
@@ -407,6 +419,9 @@ fn a_command_is_the_expression_its_select_evaluates() {
             "E'esc\\'aped'",
             "$q$dollar 'quoted'$q$",
             "NULL",
+            "(SELECT 'kept' ORDER BY 1)",
+            "(SELECT 'kept' WHERE false)",
+            "(SELECT 'kept' AS named)",
         ]
     );
     let constants: Vec<Option<&str>> = sites
@@ -421,8 +436,25 @@ fn a_command_is_the_expression_its_select_evaluates() {
             Some("plain"),
             Some("esc'aped"),
             Some("dollar 'quoted'"),
-            None
+            None,
+            None,
+            None,
+            None,
         ]
+    );
+}
+
+#[test]
+fn a_set_operation_is_read_as_a_scalar_subquery() {
+    let statement = Parser::parse_sql(&PostgreSqlDialect {}, "SELECT 1 UNION SELECT 2")
+        .unwrap()
+        .remove(0);
+    let Statement::Query(query) = statement else {
+        panic!("{statement}");
+    };
+    assert_eq!(
+        embedded::expression(&query).to_string(),
+        "(SELECT 1 UNION SELECT 2)"
     );
 }
 

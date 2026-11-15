@@ -462,16 +462,12 @@ impl<'body> Collector<'body, '_> {
 
     /// The variable a `%TYPE` of `data_type` names in `level`.
     ///
-    /// Like PostgreSQL, only a name of one or two parts that reaches a
-    /// variable whole counts.
+    /// Like PostgreSQL, only a name that reaches a variable whole counts.
     fn type_of(&self, level: &Names<'body>, data_type: &DeclaredType) -> Option<Box<Name<'body>>> {
         let DeclaredType::ColumnType { of, .. } = data_type else {
             return None;
         };
         let parts = stored_parts(of);
-        if parts.len() > 2 {
-            return None;
-        }
         level
             .lookup(&parts, &|name| row(name, self.holds_row))
             .filter(|&(_, consumed)| consumed == parts.len())
