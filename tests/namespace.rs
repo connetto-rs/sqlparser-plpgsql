@@ -628,8 +628,8 @@ fn every_statement_and_expression_comes_in_body_order() {
 #[test]
 fn an_assignment_reads_its_subscripts_then_its_value() {
     let block = read(
-        "DECLARE a int[]; i int;
-        BEGIN a[i] := 1; a[2:i] := 3; a[:4] := i; END",
+        "DECLARE a int[]; p pair[]; i int;
+        BEGIN a[i] := 1; a[2:i] := 3; a[:4] := i; p[i].x[2] := 5; END",
     );
     let sites = sites(&block, &plain("f", &[]));
     assert_eq!(
@@ -642,6 +642,9 @@ fn an_assignment_reads_its_subscripts_then_its_value() {
             "expression SELECT 3",
             "expression SELECT 4",
             "expression SELECT i",
+            "expression SELECT i",
+            "expression SELECT 2",
+            "expression SELECT 5",
         ]
     );
     let i = whole(&sites[0], &["i"]);
@@ -1004,18 +1007,21 @@ fn a_cursor_loop_and_an_open_write_where_their_arguments_are_read() {
     let [execute] = dynamic_sites(&block, &signature).try_into().unwrap();
     assert_eq!(whole(&execute, &["r"]), record);
     let open = &writes[4];
-    assert!(matches!(node(open), Node::Open(_)));
+    let Node::Open(opened) = node(open) else {
+        panic!("expected an OPEN");
+    };
+    assert_eq!(opened.cursor().to_string(), "c");
     assert_eq!(whole_in(&open.namespace, &["k"]), body_k);
     assert_eq!(whole_in(&open.namespace, &["c"]), cursor);
 }
 
 #[test]
-fn an_open_for_execute_is_a_dynamic_site_and_a_write_in_its_block() {
+fn an_open_reads_its_query_in_its_block_and_writes_its_cursor() {
     let block = read(
         "DECLARE s text; cur refcursor;
         BEGIN
           DECLARE s text;
-          BEGIN OPEN cur FOR EXECUTE 'SELECT ' || s USING s; END;
+          BEGIN OPEN cur FOR EXECUTE 'SELECT ' || s USING s; OPEN cur FOR SELECT s; END;
         END",
     );
     let signature = plain("f", &[]);
@@ -1028,8 +1034,20 @@ fn an_open_for_execute_is_a_dynamic_site_and_a_write_in_its_block() {
         .as_ref()
         .expect("the inner s is declared");
     assert_eq!(whole(&site, &["s"]).id(), inner_s.id());
-    assert!(matches!(node(&writes[3]), Node::Open(_)));
-    assert_eq!(whole_in(&writes[3].namespace, &["s"]), inner_s);
+    let sites = sites(&block, &signature);
+    assert_eq!(
+        outline(&sites),
+        ["dynamic SELECT 'SELECT ' || s", "statement SELECT s"]
+    );
+    assert_eq!(whole(&sites[1], &["s"]), inner_s);
+    for open in &writes[3..] {
+        let Node::Open(opened) = node(open) else {
+            panic!("expected an OPEN");
+        };
+        assert_eq!(opened.cursor().to_string(), "cur");
+        assert_eq!(whole_in(&open.namespace, &["s"]), inner_s);
+    }
+    assert_eq!(writes.len(), 5);
 }
 
 #[test]
