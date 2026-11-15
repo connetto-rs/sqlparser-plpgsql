@@ -389,9 +389,10 @@ impl Block {
     /// subject before every branch. A loop yields its control, which reads
     /// the names outside the variable the loop declares, before its
     /// statements. An assignment yields its target's subscripts, then its
-    /// value. A cursor that opens yields its arguments, then its query,
-    /// which reads the names in reach at the cursor's declaration and the
-    /// cursor's parameters.
+    /// value. `RAISE` yields its arguments, then its options, and `ASSERT`
+    /// its condition, then its message. A cursor that opens yields its
+    /// arguments, then its query, which reads the names in reach at the
+    /// cursor's declaration and the cursor's parameters.
     ///
     /// `holds_row` answers whether a parameter, a declared variable or a
     /// cursor parameter holds a row, as for [`Namespace::lookup`], which an
@@ -420,7 +421,7 @@ impl Block {
     /// let sites = block
     ///     .sites(&signature, |_| false)
     ///     .expect("the body declares no alias and opens no cursor");
-    /// let Sql::Statement(returned) = sites[0].sql else { unreachable!() };
+    /// let Sql::Expression(returned) = sites[0].sql else { unreachable!() };
     /// assert_eq!(returned.to_string(), "SELECT f.p + p");
     /// let (name, consumed) = sites[0]
     ///     .namespace
@@ -708,6 +709,27 @@ impl<'body> Collector<'body, '_> {
                     self.nodes(&case.otherwise, level)?;
                 }
                 Node::Loop(repeated) => self.looped(node, repeated, level)?,
+                Node::Exit(exit) => {
+                    if let Some(condition) = &exit.condition {
+                        self.site(Sql::Expression(condition), level);
+                    }
+                }
+                Node::Return { value } => {
+                    if let Some(value) = value {
+                        self.site(Sql::Expression(value), level);
+                    }
+                }
+                Node::Raise(raise) => {
+                    for value in raise.arguments.iter().chain(&raise.options) {
+                        self.site(Sql::Expression(value), level);
+                    }
+                }
+                Node::Assert(assert) => {
+                    self.site(Sql::Expression(&assert.condition), level);
+                    if let Some(message) = &assert.message {
+                        self.site(Sql::Expression(message), level);
+                    }
+                }
             }
         }
         Ok(())

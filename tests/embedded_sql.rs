@@ -7,7 +7,7 @@ use sqlparser::ast::{FunctionArguments, Statement};
 use sqlparser_plpgsql::{
     embedded::{
         AliasTarget, Block, BoundCursor, Branch, DeclarationKind, DeclaredType, Dynamic, Error,
-        Indirection, IntoTargets, Loop, LoopControl, Node, Open, Target,
+        ExitKind, Indirection, IntoTargets, Loop, LoopControl, Node, Open, Target,
     },
     embedded_sql,
 };
@@ -222,6 +222,36 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                 write_loop_control(out, looped, depth);
                 write_nodes(out, &looped.statements, depth + 1);
             }
+            Node::Exit(exit) => {
+                let mut text = String::from(match exit.kind {
+                    ExitKind::Exit => "exit",
+                    ExitKind::Continue => "continue",
+                });
+                if let Some(label) = &exit.label {
+                    write!(text, " {label}").expect("writing to a string");
+                }
+                if let Some(condition) = &exit.condition {
+                    write!(text, " when {condition}").expect("writing to a string");
+                }
+                line(out, depth, &text);
+            }
+            Node::Return { value: None } => line(out, depth, "return"),
+            Node::Return { value: Some(value) } => line(out, depth, &format!("return {value}")),
+            Node::Raise(raise) => {
+                line(out, depth, &format!("raise {:?}", raise.level));
+                for argument in &raise.arguments {
+                    line(out, depth + 1, &format!("argument {argument}"));
+                }
+                for option in &raise.options {
+                    line(out, depth + 1, &format!("option {option}"));
+                }
+            }
+            Node::Assert(assert) => {
+                line(out, depth, &format!("assert {}", assert.condition));
+                if let Some(message) = &assert.message {
+                    line(out, depth + 1, &format!("message {message}"));
+                }
+            }
         }
     }
 }
@@ -345,7 +375,7 @@ fn a_definer_update_and_its_return_value_are_read() {
             "
             block
               UPDATE public.photos SET content_state = p_new_state WHERE content_id = p_file_id
-              SELECT p_file_id
+              return SELECT p_file_id
             "
         )
     );
@@ -442,13 +472,15 @@ fn every_expression_is_read_as_the_select_postgresql_evaluates() {
               arr[:SELECT 2] := SELECT ARRAY[5]
               arr[SELECT 3:] := SELECT ARRAY[6]
               pairs[SELECT 1].first.inner := SELECT 7
-              SELECT total
-              SELECT (SELECT 1 FROM logs)
-              SELECT (SELECT 'h' FROM hints)
-              SELECT total > 0
-              SELECT (SELECT 'bad' FROM messages)
-              SELECT (SELECT true FROM checks)
+              raise Notice
+                argument SELECT total
+                argument SELECT (SELECT 1 FROM logs)
+                option SELECT (SELECT 'h' FROM hints)
+              assert SELECT total > 0
+                message SELECT (SELECT 'bad' FROM messages)
+              assert SELECT (SELECT true FROM checks)
               SELECT (SELECT 2 FROM docs)
+              return
             "
         )
     );
@@ -534,11 +566,11 @@ fn every_loop_keeps_its_control_apart_from_its_body() {
               declare pair cursor (first_id INT, last_id INT)
               declare plain cursor
               <<outer>> loop
-                SELECT (SELECT true FROM stop)
+                exit outer when SELECT (SELECT true FROM stop)
               while SELECT (SELECT count(*) FROM queue) > 0
                 DELETE FROM queue
               range i in SELECT 1 .. SELECT 10
-                SELECT i = 2
+                continue when SELECT i = 2
               range i in SELECT (SELECT max(id) FROM docs) .. SELECT lo
                 by SELECT 2
               cursor r in c: SELECT id FROM docs WHERE id = key
@@ -549,6 +581,7 @@ fn every_loop_keeps_its_control_apart_from_its_body() {
                 argument SELECT 1
                 argument SELECT (SELECT 2 FROM bounds)
               cursor r in plain: SELECT id FROM plain_docs
+                exit
               array y slice 0 in SELECT x
               array x slice 1 in SELECT (SELECT array_agg(id) FROM docs)
               array a, b slice 0 in SELECT pairs
@@ -682,6 +715,7 @@ fn each_handler_belongs_to_the_block_that_owns_it() {
                   INSERT INTO errors VALUES (1)
                 handler
                   block
+                    raise Exception
                     handler
               UPDATE docs SET v = 1
               handler
@@ -720,27 +754,157 @@ fn a_routine_defined_inside_the_body_is_one_statement() {
 }
 
 #[test]
-fn every_raise_form_yields_the_expressions_it_evaluates() {
+fn every_raise_form_keeps_its_level_and_the_expressions_it_evaluates() {
     let body = "BEGIN
         RAISE 'plain %', (SELECT 1 FROM a);
         RAISE SQLSTATE '22012' USING MESSAGE = (SELECT 'm' FROM b);
         RAISE division_by_zero;
         RAISE EXCEPTION USING ERRCODE = 'P0001', DETAIL := (SELECT 'd' FROM c);
         RAISE USING MESSAGE = (SELECT 'u' FROM d);
+        RAISE DEBUG 'debug';
+        raise log 'log %', (SELECT 2 FROM e);
+        RAISE INFO 'info';
+        RAISE WARNING unique_violation;
+        RAISE NOTICE USING MESSAGE = 'notice';
     END";
     assert_eq!(
         outline(body),
         expected(
             "
             block
-              SELECT (SELECT 1 FROM a)
-              SELECT (SELECT 'm' FROM b)
-              SELECT 'P0001'
-              SELECT (SELECT 'd' FROM c)
-              SELECT (SELECT 'u' FROM d)
+              raise Exception
+                argument SELECT (SELECT 1 FROM a)
+              raise Exception
+                option SELECT (SELECT 'm' FROM b)
+              raise Exception
+              raise Exception
+                option SELECT 'P0001'
+                option SELECT (SELECT 'd' FROM c)
+              raise Exception
+                option SELECT (SELECT 'u' FROM d)
+              raise Debug
+              raise Log
+                argument SELECT (SELECT 2 FROM e)
+              raise Info
+              raise Warning
+              raise Notice
+                option SELECT 'notice'
             "
         )
     );
+}
+
+#[test]
+fn every_control_transfer_stays_where_it_is_written() {
+    let body = r#"DECLARE s text; result text;
+    BEGIN
+      <<outer_loop>> LOOP
+        LOOP
+          s := 'before exit';
+          EXIT Outer_Loop;
+          s := 'after exit';
+        END LOOP;
+        s := 'outer tail';
+      END LOOP;
+      <<inner>> BEGIN
+        EXIT inner WHEN s IS NULL;
+      END;
+      <<"Mixed">> FOR iteration IN 1..2 LOOP
+        CONTINUE;
+        CONTINUE "Mixed" WHEN iteration = 1;
+        s := 'after continue';
+      END LOOP;
+      BEGIN
+        IF level = 'exception' THEN RAISE EXCEPTION 'stop'; ELSE RAISE NOTICE 'go on'; END IF;
+        ASSERT false;
+        EXECUTE s INTO result;
+        RETURN 'fell through: ' || result;
+      EXCEPTION WHEN raise_exception THEN
+        RETURN 'handler: ' || s;
+      END;
+    END"#;
+    assert_eq!(
+        outline(body),
+        expected(
+            "
+            block
+              declare s TEXT
+              declare result TEXT
+              <<outer_loop>> loop
+                loop
+                  s := SELECT 'before exit'
+                  exit outer_loop
+                  s := SELECT 'after exit'
+                s := SELECT 'outer tail'
+              <<inner>> block
+                exit inner when SELECT s IS NULL
+              <<Mixed>> range iteration in SELECT 1 .. SELECT 2
+                continue
+                continue Mixed when SELECT iteration = 1
+                s := SELECT 'after continue'
+              block
+                if
+                  when SELECT level = 'exception'
+                    raise Exception
+                  else
+                    raise Notice
+                assert SELECT false
+                dynamic SELECT s
+                  into result
+                return SELECT 'fell through: ' || result
+                handler
+                  return SELECT 'handler: ' || s
+            "
+        )
+    );
+}
+
+#[test]
+fn an_exit_or_continue_with_no_loop_to_reach_is_refused() {
+    for (body, kind, label) in [
+        ("BEGIN EXIT; END", ExitKind::Exit, None),
+        ("BEGIN EXIT WHEN true; END", ExitKind::Exit, None),
+        ("BEGIN LOOP NULL; END LOOP; EXIT; END", ExitKind::Exit, None),
+        ("BEGIN CONTINUE; END", ExitKind::Continue, None),
+        (
+            "<<b>> BEGIN LOOP CONTINUE b; END LOOP; END",
+            ExitKind::Continue,
+            Some("b"),
+        ),
+        (
+            "BEGIN LOOP CONTINUE nowhere; END LOOP; END",
+            ExitKind::Continue,
+            Some("nowhere"),
+        ),
+        (
+            "BEGIN <<x>> LOOP <<x>> BEGIN CONTINUE x; END; END LOOP; END",
+            ExitKind::Continue,
+            Some("x"),
+        ),
+    ] {
+        assert!(
+            matches!(
+                embedded_sql(body),
+                Err(Error::NoEnclosingLoop { kind: found, label: ref found_label })
+                    if found == kind && found_label.as_deref() == label
+            ),
+            "{body}: {:?}",
+            embedded_sql(body)
+        );
+    }
+    for body in [
+        "BEGIN LOOP BEGIN EXIT; END; END LOOP; END",
+        "BEGIN LOOP BEGIN NULL; EXCEPTION WHEN others THEN CONTINUE; END; END LOOP; END",
+        "<<b>> BEGIN NULL; EXCEPTION WHEN others THEN EXIT b; END",
+        "BEGIN <<x>> BEGIN <<x>> LOOP CONTINUE x; END LOOP; END; END",
+        "BEGIN EXIT f; END",
+    ] {
+        assert!(
+            embedded_sql(body).is_ok(),
+            "{body}: {:?}",
+            embedded_sql(body)
+        );
+    }
 }
 
 #[test]

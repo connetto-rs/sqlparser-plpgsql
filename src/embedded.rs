@@ -1,5 +1,6 @@
 //! Reading the SQL a PL/pgSQL function body runs, as a tree of the body's
-//! blocks, branches, loops and exception handlers.
+//! blocks, branches, loops and exception handlers, with every statement that
+//! leaves one of them where it is written.
 //!
 //! PostgreSQL evaluates every PL/pgSQL expression as a `SELECT`, so each one
 //! appears here as the `SELECT` it runs, and [`expression`] recovers the
@@ -82,6 +83,21 @@ pub enum Error {
     DuplicateDeclaration {
         /// The name, folded as PostgreSQL folds it.
         name: String,
+    },
+
+    /// `EXIT` without a label or `CONTINUE` stands outside every loop, or
+    /// `CONTINUE` names a label whose innermost carrier around it is a block
+    /// or that nothing around it carries, which PostgreSQL refuses.
+    #[error(
+        "{} {} reaches no enclosing loop",
+        .kind.keyword(),
+        .label.as_deref().unwrap_or("without a label")
+    )]
+    NoEnclosingLoop {
+        /// Whether the statement is `EXIT` or `CONTINUE`.
+        kind: ExitKind,
+        /// The label it names, folded as PostgreSQL folds an identifier.
+        label: Option<String>,
     },
 
     /// The body nests blocks and control structures deeper than the reader
@@ -240,6 +256,22 @@ pub enum Node {
     Case(Case),
     /// A loop of any kind.
     Loop(Loop),
+    /// `EXIT` or `CONTINUE`.
+    Exit(Exit),
+    /// `RETURN`, which leaves the function.
+    ///
+    /// `RETURN NEXT` and `RETURN QUERY` add rows to the result and carry on,
+    /// so they are a [`Node::Statement`] or a [`Node::Dynamic`].
+    Return {
+        /// The `SELECT` that evaluates the returned value, absent from the
+        /// bare `RETURN` of a procedure or of a function returning `void`,
+        /// a set or output parameters.
+        value: Option<Box<Query>>,
+    },
+    /// `RAISE`, which reports a message or raises an error.
+    Raise(Raise),
+    /// `ASSERT`, which raises an error when its condition fails.
+    Assert(Assert),
 }
 
 /// A cursor declared with its query, as `OPEN` or a `FOR` loop opens it.
@@ -568,6 +600,93 @@ pub enum LoopControl {
     },
 }
 
+/// `EXIT [label] [WHEN condition]` or `CONTINUE [label] [WHEN condition]`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Exit {
+    /// Whether it leaves or starts the next iteration.
+    pub kind: ExitKind,
+    /// The label it names, folded as PostgreSQL folds an identifier.
+    ///
+    /// It reaches the innermost enclosing block or loop that carries the
+    /// label, always a loop for `CONTINUE`. In a body PostgreSQL compiles, a
+    /// label no enclosing block or loop carries is the function's name,
+    /// which labels the level holding the parameters, and `EXIT` naming it
+    /// leaves the whole body. Without a label it reaches the innermost
+    /// enclosing loop.
+    pub label: Option<String>,
+    /// The `SELECT` that evaluates the `WHEN` condition, without which it
+    /// always transfers control.
+    pub condition: Option<Box<Query>>,
+}
+
+/// Which of `EXIT` and `CONTINUE` an [`Exit`] is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ExitKind {
+    /// `EXIT`, which leaves the loop or block it reaches and carries on
+    /// after it.
+    Exit,
+    /// `CONTINUE`, which skips the rest of the loop it reaches and starts
+    /// its next iteration, if its control allows one.
+    Continue,
+}
+
+impl ExitKind {
+    /// The keyword the statement starts with.
+    #[must_use]
+    pub const fn keyword(self) -> &'static str {
+        match self {
+            Self::Exit => "EXIT",
+            Self::Continue => "CONTINUE",
+        }
+    }
+}
+
+/// `RAISE [level] [format [, argument ...]] [USING option = value, ...]`,
+/// with a condition name or `SQLSTATE` in place of the format, or bare.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Raise {
+    /// The level, `EXCEPTION` when none is written and for the bare `RAISE`
+    /// that raises again the error a handler caught.
+    pub level: RaiseLevel,
+    /// The `SELECT` that evaluates each argument the format string reads.
+    pub arguments: Vec<Query>,
+    /// The `SELECT` that evaluates each `USING` option's value.
+    pub options: Vec<Query>,
+}
+
+/// The level of a [`Raise`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum RaiseLevel {
+    /// `DEBUG`.
+    Debug,
+    /// `LOG`.
+    Log,
+    /// `INFO`.
+    Info,
+    /// `NOTICE`.
+    Notice,
+    /// `WARNING`.
+    Warning,
+    /// `EXCEPTION`, the one level that raises an error, which leaves for the
+    /// handlers of the enclosing blocks. Every other level reports a message
+    /// and carries on.
+    Exception,
+}
+
+/// `ASSERT condition [, message]`.
+///
+/// When assertions are enabled, as `plpgsql.check_asserts` makes them by
+/// default, a condition that is false or null raises `assert_failure`, which
+/// leaves for the handlers of the enclosing blocks.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Assert {
+    /// The `SELECT` that evaluates the condition.
+    pub condition: Box<Query>,
+    /// The `SELECT` that evaluates the message, which only a failing
+    /// condition evaluates.
+    pub message: Option<Box<Query>>,
+}
+
 /// Reads every SQL statement and expression a PL/pgSQL body runs.
 ///
 /// `body` is the function's source between its dollar quotes. A cursor's
@@ -610,6 +729,7 @@ pub fn embedded_sql(body: &str) -> Result<Block, Error> {
         index: 0,
         depth: 0,
         level: None,
+        enclosing: Vec::new(),
     };
 
     reader.compiler_options()?;
@@ -755,7 +875,7 @@ enum Command {
     While,
     For,
     Foreach,
-    Exit,
+    Exit(ExitKind),
     Return,
     Raise,
     Assert,
@@ -780,8 +900,8 @@ impl Command {
             ("WHILE", Command::While),
             ("FOR", Command::For),
             ("FOREACH", Command::Foreach),
-            ("EXIT", Command::Exit),
-            ("CONTINUE", Command::Exit),
+            ("EXIT", Command::Exit(ExitKind::Exit)),
+            ("CONTINUE", Command::Exit(ExitKind::Continue)),
             ("RETURN", Command::Return),
             ("RAISE", Command::Raise),
             ("ASSERT", Command::Assert),
@@ -833,6 +953,17 @@ struct Reader {
     depth: usize,
     /// The innermost level of names, where `OPEN` and `FOR` find a cursor.
     level: Option<Level<'static, Bound>>,
+    /// Every block and loop around the next statement, innermost last,
+    /// where `EXIT` and `CONTINUE` find what they reach.
+    enclosing: Vec<Enclosing>,
+}
+
+/// A block or loop around the statements the reader reads.
+struct Enclosing {
+    /// The label, folded as PostgreSQL folds an identifier.
+    label: Option<String>,
+    /// Whether it is a loop, which alone `CONTINUE` reaches.
+    looped: bool,
 }
 
 impl Reader {
@@ -1088,7 +1219,11 @@ impl Reader {
             }
         }
         self.expect("BEGIN")?;
-        let (statements, handlers) = self.within(level.clone(), |reader| {
+        self.enclosing.push(Enclosing {
+            label,
+            looped: false,
+        });
+        let read = self.within(level.clone(), |reader| {
             let statements = reader.statements(&["EXCEPTION", "END"])?;
             if !reader.eat("EXCEPTION") {
                 return Ok((statements, Vec::new()));
@@ -1110,7 +1245,9 @@ impl Reader {
                 }
             })?;
             Ok((statements, handlers))
-        })?;
+        });
+        let label = self.enclosing.pop().and_then(|enclosing| enclosing.label);
+        let (statements, handlers) = read?;
         self.expect("END")?;
         self.end_label();
         Ok(Block {
@@ -1324,18 +1461,10 @@ impl Reader {
                 let looped = self.nested(|reader| reader.loop_statement(label))?;
                 nodes.push(Node::Loop(looped));
             }
-            Some(Command::Exit) => self.exit(nodes)?,
-            Some(Command::Return) => self.return_statement(nodes)?,
-            Some(Command::Raise) => self.raise(nodes)?,
-            Some(Command::Assert) => {
-                self.index += 1;
-                nodes.push(evaluated(self.expression("`;`", |token, _| {
-                    matches!(token, Token::Comma | Token::SemiColon)
-                })?));
-                if self.eat_token(&Token::Comma) {
-                    nodes.push(evaluated(self.expression_until_semicolon()?));
-                }
-            }
+            Some(Command::Exit(kind)) => nodes.push(Node::Exit(self.exit(kind)?)),
+            Some(Command::Return) => nodes.extend(self.return_statement()?),
+            Some(Command::Raise) => nodes.push(Node::Raise(self.raise()?)),
+            Some(Command::Assert) => nodes.push(Node::Assert(self.assert()?)),
             Some(Command::Execute) => {
                 self.index += 1;
                 let (dynamic, into) = self.dynamic(End::Semicolon, true)?;
@@ -1460,7 +1589,13 @@ impl Reader {
         {
             level.declare(variable.clone(), None);
         }
-        let statements = self.within(level, |reader| reader.statements(&["END"]))?;
+        self.enclosing.push(Enclosing {
+            label,
+            looped: true,
+        });
+        let statements = self.within(level, |reader| reader.statements(&["END"]));
+        let label = self.enclosing.pop().and_then(|enclosing| enclosing.label);
+        let statements = statements?;
         self.expect("END")?;
         self.expect("LOOP")?;
         self.end_label();
@@ -1629,21 +1764,44 @@ impl Reader {
         Ok(name)
     }
 
-    fn exit(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
+    /// Reads `EXIT` or `CONTINUE`, refusing one that reaches no loop where
+    /// PostgreSQL requires one.
+    fn exit(&mut self, kind: ExitKind) -> Result<Exit, Error> {
         self.index += 1;
-        if matches!(self.peek(), Some(Token::Word(_))) && !self.at("WHEN") {
-            self.index += 1;
+        let label = if matches!(self.peek(), Some(Token::Word(_))) && !self.at("WHEN") {
+            Some(self.name("a label")?)
+        } else {
+            None
+        };
+        let target = self.enclosing.iter().rev().find(|enclosing| match &label {
+            Some(label) => enclosing.label.as_ref() == Some(label),
+            None => enclosing.looped,
+        });
+        let refused = match kind {
+            ExitKind::Exit => label.is_none() && target.is_none(),
+            ExitKind::Continue => !target.is_some_and(|enclosing| enclosing.looped),
+        };
+        if refused {
+            return Err(Error::NoEnclosingLoop { kind, label });
         }
-        if self.eat("WHEN") {
-            nodes.push(evaluated(self.expression_until_semicolon()?));
-        }
-        Ok(())
+        let condition = if self.eat("WHEN") {
+            Some(self.expression_until_semicolon()?)
+        } else {
+            None
+        };
+        Ok(Exit {
+            kind,
+            label,
+            condition,
+        })
     }
 
-    fn return_statement(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
+    /// Reads `RETURN`, `RETURN NEXT` or `RETURN QUERY`. A `RETURN NEXT`
+    /// without an expression takes no step.
+    fn return_statement(&mut self) -> Result<Option<Node>, Error> {
         self.index += 1;
         if self.eat("QUERY") {
-            let node = if self.eat("EXECUTE") {
+            return Ok(Some(if self.eat("EXECUTE") {
                 Node::Dynamic {
                     dynamic: self.dynamic(End::Semicolon, false)?.0,
                     into: None,
@@ -1653,32 +1811,49 @@ impl Reader {
                     statement: self.statement_until_semicolon()?,
                     into: None,
                 }
-            };
-            nodes.push(node);
-            return Ok(());
+            }));
         }
-        self.eat("NEXT");
-        if self.peek() != Some(&Token::SemiColon) {
-            nodes.push(evaluated(self.expression_until_semicolon()?));
-        }
-        Ok(())
+        let next = self.eat("NEXT");
+        let value = if self.peek() == Some(&Token::SemiColon) {
+            None
+        } else {
+            Some(self.expression_until_semicolon()?)
+        };
+        Ok(if next {
+            value.map(evaluated)
+        } else {
+            Some(Node::Return { value })
+        })
     }
 
-    fn raise(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
-        const LEVELS: [&str; 6] = ["DEBUG", "LOG", "INFO", "NOTICE", "WARNING", "EXCEPTION"];
+    fn raise(&mut self) -> Result<Raise, Error> {
+        const LEVELS: [(&str, RaiseLevel); 6] = [
+            ("DEBUG", RaiseLevel::Debug),
+            ("LOG", RaiseLevel::Log),
+            ("INFO", RaiseLevel::Info),
+            ("NOTICE", RaiseLevel::Notice),
+            ("WARNING", RaiseLevel::Warning),
+            ("EXCEPTION", RaiseLevel::Exception),
+        ];
         self.index += 1;
+        let mut raise = Raise {
+            level: RaiseLevel::Exception,
+            arguments: Vec::new(),
+            options: Vec::new(),
+        };
         if self.peek() == Some(&Token::SemiColon) {
-            return Ok(());
+            return Ok(raise);
         }
-        if self.at_any(&LEVELS) {
+        if let Some(&(_, level)) = LEVELS.iter().find(|(keyword, _)| self.at(keyword)) {
+            raise.level = level;
             self.index += 1;
         }
         if self.peek().is_some_and(is_string_literal) {
             self.index += 1;
             while self.eat_token(&Token::Comma) {
-                nodes.push(evaluated(self.expression("`;`", |token, _| {
+                raise.arguments.push(*self.expression("`;`", |token, _| {
                     matches!(token, Token::Comma | Token::SemiColon) || is_keyword(token, "USING")
-                })?));
+                })?);
             }
         } else if self.eat("SQLSTATE") {
             if !self.peek().is_some_and(is_string_literal) {
@@ -1694,15 +1869,28 @@ impl Reader {
                 if !(self.eat_token(&Token::Eq) || self.eat_token(&Token::Assignment)) {
                     return Err(self.syntax("`=`"));
                 }
-                nodes.push(evaluated(self.expression("`;`", |token, _| {
+                raise.options.push(*self.expression("`;`", |token, _| {
                     matches!(token, Token::Comma | Token::SemiColon)
-                })?));
+                })?);
                 if !self.eat_token(&Token::Comma) {
                     break;
                 }
             }
         }
-        Ok(())
+        Ok(raise)
+    }
+
+    fn assert(&mut self) -> Result<Assert, Error> {
+        self.index += 1;
+        let condition = self.expression("`;`", |token, _| {
+            matches!(token, Token::Comma | Token::SemiColon)
+        })?;
+        let message = if self.eat_token(&Token::Comma) {
+            Some(self.expression_until_semicolon()?)
+        } else {
+            None
+        };
+        Ok(Assert { condition, message })
     }
 
     fn open(&mut self) -> Result<Open, Error> {

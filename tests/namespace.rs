@@ -582,8 +582,10 @@ fn every_statement_and_expression_comes_in_body_order() {
           FOREACH b IN ARRAY 25 LOOP RETURN 26; END LOOP;
           OPEN c(27);
           DECLARE d int := 28; BEGIN RETURN 29; END;
-          LOOP RETURN 30; END LOOP;
-        EXCEPTION WHEN others THEN RETURN 31;
+          LOOP EXIT WHEN 30; END LOOP;
+          RAISE 'thirty-one %', 32 USING HINT = 33;
+          ASSERT 34, 35;
+        EXCEPTION WHEN others THEN RETURN 36;
         END",
     );
     assert_eq!(
@@ -593,34 +595,38 @@ fn every_statement_and_expression_comes_in_body_order() {
             "statement SELECT 2",
             "expression SELECT 3",
             "expression SELECT 4",
-            "statement SELECT 5",
+            "expression SELECT 5",
             "expression SELECT 6",
-            "statement SELECT 7",
+            "expression SELECT 7",
             "expression SELECT 8",
             "expression SELECT 9",
-            "statement SELECT 10",
-            "statement SELECT 11",
+            "expression SELECT 10",
+            "expression SELECT 11",
             "expression SELECT 12",
-            "statement SELECT 13",
+            "expression SELECT 13",
             "expression SELECT 14",
             "expression SELECT 15",
             "expression SELECT 16",
-            "statement SELECT 17",
+            "expression SELECT 17",
             "statement SELECT 18",
-            "statement SELECT 19",
+            "expression SELECT 19",
             "expression SELECT 20",
             "statement SELECT k",
-            "statement SELECT 21",
+            "expression SELECT 21",
             "dynamic SELECT 'twenty-two'",
-            "statement SELECT 24",
+            "expression SELECT 24",
             "expression SELECT 25",
-            "statement SELECT 26",
+            "expression SELECT 26",
             "expression SELECT 27",
             "statement SELECT k",
             "expression SELECT 28",
-            "statement SELECT 29",
-            "statement SELECT 30",
-            "statement SELECT 31",
+            "expression SELECT 29",
+            "expression SELECT 30",
+            "expression SELECT 32",
+            "expression SELECT 33",
+            "expression SELECT 34",
+            "expression SELECT 35",
+            "expression SELECT 36",
         ]
     );
 }
