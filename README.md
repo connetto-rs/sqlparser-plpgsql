@@ -41,6 +41,6 @@ assert_eq!(sql, "BEGIN\n  SET total = 1;\nEND");
 
 Enabling the `body-parse` feature adds `parse_body`, which preprocesses, tokenizes, and parses a body into a `sqlparser` `BeginEndStatements`, refusing the shapes that cannot survive the trip: an exception handler, an unterminated dollar quote, or a missing `BEGIN` or `END`.
 
-The same feature adds `embedded_sql`, which reads every SQL statement and expression a body runs, in a tree of its blocks, branches, loops and exception handlers. Each expression appears as the `SELECT` PostgreSQL evaluates it with, a cursor's query appears where the cursor opens, and `EXECUTE` is reported as SQL built at run time.
+The same feature adds `embedded_sql`, which reads every SQL statement and expression a body runs, in a tree of its blocks, branches, loops and exception handlers. Each expression appears as the `SELECT` PostgreSQL evaluates it with, a cursor's query appears where the cursor opens, and `EXECUTE` is reported as SQL built at run time. Each block lists the names it declares with their written types, and each block and loop keeps its label, so a name in an expression can be bound to its declaration.
 
 Licensed under the MIT license.

@@ -3,7 +3,9 @@
 //!
 //! PostgreSQL evaluates every PL/pgSQL expression as a `SELECT`, so each one
 //! appears here as the `SELECT` it runs. Names the body declares and the
-//! function's parameters are left as written.
+//! function's parameters are left as written. Each block lists the names it
+//! declares, with the types written for them and unresolved, which a caller
+//! holding the schema can resolve.
 
 use alloc::{
     borrow::Cow,
@@ -14,10 +16,10 @@ use alloc::{
 use core::ops::Range;
 
 use sqlparser::{
-    ast::Statement,
+    ast::{DataType, ObjectName, Statement},
     dialect::PostgreSqlDialect,
     keywords::Keyword,
-    parser::Parser,
+    parser::{Parser, ParserError},
     tokenizer::{Token, Tokenizer, Word},
 };
 
@@ -76,12 +78,15 @@ pub enum Error {
 /// A block, `[DECLARE ...] BEGIN ... [EXCEPTION ...] END`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {
-    /// The default of each variable that declares one, as the `SELECT`
-    /// evaluated on entering the block.
+    /// The `<<label>>` before the block, folded as PostgreSQL folds an
+    /// identifier, which qualifies the names the block declares.
+    pub label: Option<String>,
+    /// Every name the `DECLARE` section binds, in the order written.
     ///
-    /// These run before the block's handlers take effect, so an error here
-    /// reaches the enclosing block's handlers instead.
-    pub declarations: Vec<Statement>,
+    /// Each default is evaluated in this order on entering the block, before
+    /// the block's handlers take effect, so an error there reaches the
+    /// enclosing block's handlers instead.
+    pub declarations: Vec<Declaration>,
     /// The block's statements.
     pub statements: Vec<Node>,
     /// The statements of each `EXCEPTION WHEN ... THEN` handler.
@@ -89,6 +94,95 @@ pub struct Block {
     /// A handler runs once a statement raises, after PostgreSQL has rolled back
     /// everything the block's statements did, `SET` included.
     pub handlers: Vec<Vec<Node>>,
+}
+
+/// A name a `DECLARE` section binds.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Declaration {
+    /// The name, folded as PostgreSQL folds an identifier.
+    pub name: String,
+    /// What the name denotes.
+    pub kind: DeclarationKind,
+}
+
+/// What a declared name denotes.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DeclarationKind {
+    /// `name [CONSTANT] type [COLLATE collation] [NOT NULL] [default]`.
+    Variable(Variable),
+    /// `name ALIAS FOR target`, another name for a parameter or variable.
+    Alias(AliasTarget),
+    /// `name [[NO] SCROLL] CURSOR [(parameters)] FOR query`, a cursor bound
+    /// to a query.
+    ///
+    /// An unbound cursor is a [`Variable`] of type `refcursor`.
+    Cursor(Cursor),
+}
+
+/// A declared variable.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Variable {
+    /// Whether `CONSTANT` forbids assigning the variable.
+    pub constant: bool,
+    /// The type written for the variable.
+    pub data_type: DeclaredType,
+    /// The `COLLATE` collation.
+    pub collation: Option<ObjectName>,
+    /// Whether `NOT NULL` forbids assigning the variable a null.
+    pub not_null: bool,
+    /// The `SELECT` that evaluates the default written after `DEFAULT`, `:=`
+    /// or `=`.
+    pub default: Option<Box<Statement>>,
+}
+
+/// The type a declaration writes.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DeclaredType {
+    /// A type named directly.
+    Data(DataType),
+    /// `name%TYPE`, the type of a column or variable, with `[]` for an array
+    /// of it.
+    ColumnType {
+        /// The column or variable, as written.
+        of: ObjectName,
+        /// Whether `[]` follows.
+        array: bool,
+    },
+    /// `name%ROWTYPE`, the row type of a table or view, with `[]` for an
+    /// array of it.
+    RowType {
+        /// The table or view, as written.
+        of: ObjectName,
+        /// Whether `[]` follows.
+        array: bool,
+    },
+}
+
+/// What `ALIAS FOR` names.
+#[derive(Clone, Debug, PartialEq)]
+pub enum AliasTarget {
+    /// `$n`, the function's parameter at position `n`, counting from 1.
+    Parameter(usize),
+    /// A parameter or variable, as written.
+    Name(ObjectName),
+}
+
+/// A cursor declared with its query.
+///
+/// The query itself appears where the cursor opens.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Cursor {
+    /// The parameters the query reads, bound when the cursor opens.
+    pub parameters: Vec<CursorParameter>,
+}
+
+/// A parameter of a cursor.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CursorParameter {
+    /// The name, folded as PostgreSQL folds an identifier.
+    pub name: String,
+    /// The type written for the parameter.
+    pub data_type: DeclaredType,
 }
 
 /// One step of a body.
@@ -155,6 +249,9 @@ pub struct Case {
 /// A loop and the statements it repeats.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Loop {
+    /// The `<<label>>` before the loop, folded as PostgreSQL folds an
+    /// identifier, which qualifies the variable a `FOR` loop declares.
+    pub label: Option<String>,
     /// What controls the loop.
     pub control: LoopControl,
     /// The statements each iteration runs.
@@ -172,6 +269,9 @@ pub enum LoopControl {
     /// `FOR i IN [REVERSE] lower .. upper [BY step] LOOP`, each bound as the
     /// `SELECT` evaluated once.
     Range {
+        /// The integer variable the loop declares for its statements, which
+        /// hides any other variable of that name.
+        variable: String,
         /// The first bound written.
         lower: Box<Statement>,
         /// The second bound written.
@@ -183,6 +283,9 @@ pub enum LoopControl {
     Query(Box<Statement>),
     /// `FOR target IN cursor [(arguments)] LOOP`.
     Cursor {
+        /// The record variable the loop declares for its statements, which
+        /// hides any other variable of that name.
+        variable: String,
         /// The `SELECT` that evaluates each argument.
         arguments: Vec<Statement>,
         /// The query the cursor's declaration binds.
@@ -236,8 +339,8 @@ pub fn embedded_sql(body: &str) -> Result<Block, Error> {
     };
 
     reader.compiler_options()?;
-    reader.label()?;
-    let block = reader.nested(Reader::block)?;
+    let label = reader.label()?;
+    let block = reader.nested(|reader| reader.block(label))?;
     reader.eat_token(&Token::SemiColon);
     if reader.peek().is_some() {
         return Err(reader.syntax("the end of the body"));
@@ -351,8 +454,8 @@ impl End {
 
 /// A name a block declares, with the query it binds when it is a cursor.
 struct Declared {
-    name: String,
-    cursor: Option<Box<Statement>>,
+    declaration: Declaration,
+    query: Option<Box<Statement>>,
 }
 
 /// A recursive-descent walk over the body's tokens.
@@ -469,6 +572,19 @@ impl Reader {
         }
     }
 
+    /// Like [`Self::segment`], refusing a segment without tokens.
+    fn filled_segment(
+        &mut self,
+        expected: &'static str,
+        stop: impl Fn(&Token, Option<&Token>) -> bool,
+    ) -> Result<Range<usize>, Error> {
+        let range = self.segment(expected, stop)?;
+        if range.is_empty() {
+            return Err(self.syntax(expected));
+        }
+        Ok(range)
+    }
+
     /// Reads up to the first token `stop` accepts as the `SELECT` that
     /// evaluates an expression.
     fn expression(
@@ -504,14 +620,14 @@ impl Reader {
         Ok(())
     }
 
-    /// Skips a `<<label>>`, returning whether there was one.
-    fn label(&mut self) -> Result<bool, Error> {
+    /// Reads a `<<label>>`, when there is one.
+    fn label(&mut self) -> Result<Option<String>, Error> {
         if !self.eat_token(&Token::ShiftLeft) {
-            return Ok(false);
+            return Ok(None);
         }
-        self.name("a label")?;
+        let label = self.name("a label")?;
         self.expect_token(&Token::ShiftRight, "`>>`")?;
-        Ok(true)
+        Ok(Some(label))
     }
 
     /// Skips the label an `END` may repeat.
@@ -537,18 +653,17 @@ impl Reader {
             .iter()
             .rev()
             .flat_map(|scope| scope.iter().rev())
-            .find(|declared| declared.name == name)
-            .and_then(|declared| declared.cursor.as_deref())
+            .find(|declared| declared.declaration.name == name)
+            .and_then(|declared| declared.query.as_deref())
     }
 
-    fn block(&mut self) -> Result<Block, Error> {
+    fn block(&mut self, label: Option<String>) -> Result<Block, Error> {
         self.scopes.push(Vec::new());
-        let mut declarations = Vec::new();
         if self.eat("DECLARE") {
             while !self.at("BEGIN") {
                 // PostgreSQL accepts a repeated DECLARE inside the section.
                 if !self.eat("DECLARE") {
-                    self.declaration(&mut declarations)?;
+                    self.declaration()?;
                 }
             }
         }
@@ -568,15 +683,22 @@ impl Reader {
         }
         self.expect("END")?;
         self.end_label();
-        self.scopes.pop();
+        let declarations = self
+            .scopes
+            .pop()
+            .expect("the block pushed its scope")
+            .into_iter()
+            .map(|declared| declared.declaration)
+            .collect();
         Ok(Block {
+            label,
             declarations,
             statements,
             handlers,
         })
     }
 
-    fn declaration(&mut self, declarations: &mut Vec<Statement>) -> Result<(), Error> {
+    fn declaration(&mut self) -> Result<(), Error> {
         let name = self.name("a declaration")?;
         let cursor_words = [
             &["CURSOR"][..],
@@ -591,33 +713,126 @@ impl Reader {
             })
         });
 
-        let cursor = if let Some(words) = cursor_words {
+        let (kind, query) = if self.eat("ALIAS") {
+            self.expect("FOR")?;
+            (DeclarationKind::Alias(self.alias_target()?), None)
+        } else if let Some(words) = cursor_words {
             self.index += words.len();
-            if self.eat_token(&Token::LParen) {
-                self.segment("`)`", |token, _| *token == Token::RParen)?;
-                self.index += 1;
-            }
+            let parameters = if self.eat_token(&Token::LParen) {
+                self.cursor_parameters()?
+            } else {
+                Vec::new()
+            };
             if !(self.eat("FOR") || self.eat("IS")) {
                 return Err(self.syntax("FOR or IS"));
             }
-            Some(self.statement_until_semicolon(false)?)
+            let query = self.statement_until_semicolon(false)?;
+            (DeclarationKind::Cursor(Cursor { parameters }), Some(query))
         } else {
-            self.segment("`;`", |token, _| {
-                matches!(token, Token::SemiColon | Token::Assignment | Token::Eq)
-                    || is_keyword(token, "DEFAULT")
-            })?;
-            if self.peek() != Some(&Token::SemiColon) {
-                self.index += 1;
-                declarations.push(*self.statement_until_semicolon(true)?);
-            }
-            None
+            (DeclarationKind::Variable(self.variable()?), None)
         };
         self.expect_semicolon()?;
         self.scopes
             .last_mut()
             .expect("a declaration sits inside a block")
-            .push(Declared { name, cursor });
+            .push(Declared {
+                declaration: Declaration { name, kind },
+                query,
+            });
         Ok(())
+    }
+
+    /// Reads what follows `ALIAS FOR`.
+    fn alias_target(&mut self) -> Result<AliasTarget, Error> {
+        if let Some(Token::Placeholder(placeholder)) = self.peek()
+            && let Some(position) = placeholder
+                .strip_prefix('$')
+                .and_then(|digits| digits.parse().ok())
+        {
+            self.index += 1;
+            return Ok(AliasTarget::Parameter(position));
+        }
+        self.object_name("a parameter or variable", |token, _| {
+            *token == Token::SemiColon
+        })
+        .map(AliasTarget::Name)
+    }
+
+    /// Reads up to the first token `stop` accepts as a qualified name.
+    fn object_name(
+        &mut self,
+        expected: &'static str,
+        stop: impl Fn(&Token, Option<&Token>) -> bool,
+    ) -> Result<ObjectName, Error> {
+        let range = self.filled_segment(expected, stop)?;
+        parse_all(&self.tokens[range], false, |parser| {
+            parser.parse_object_name(false)
+        })
+    }
+
+    /// Reads the parameters of a cursor declaration after its `(`, through
+    /// the `)`.
+    fn cursor_parameters(&mut self) -> Result<Vec<CursorParameter>, Error> {
+        let mut parameters = Vec::new();
+        loop {
+            let name = self.name("a cursor parameter")?;
+            let data_type =
+                self.declared_type(|token, _| matches!(token, Token::Comma | Token::RParen))?;
+            parameters.push(CursorParameter { name, data_type });
+            if !self.eat_token(&Token::Comma) {
+                break;
+            }
+        }
+        self.expect_token(&Token::RParen, "`)`")?;
+        Ok(parameters)
+    }
+
+    /// Reads a variable declaration after its name, up to its `;`.
+    fn variable(&mut self) -> Result<Variable, Error> {
+        /// True where the type or the collation ends.
+        fn ends_part(token: &Token, next: Option<&Token>) -> bool {
+            matches!(token, Token::SemiColon | Token::Assignment | Token::Eq)
+                || is_keyword(token, "DEFAULT")
+                || is_keyword(token, "COLLATE")
+                || (is_keyword(token, "NOT") && next.is_some_and(|next| is_keyword(next, "NULL")))
+        }
+
+        let constant = self.eat("CONSTANT");
+        let data_type = self.declared_type(ends_part)?;
+        let collation = if self.eat("COLLATE") {
+            Some(self.object_name("a collation", ends_part)?)
+        } else {
+            None
+        };
+        let not_null = self.eat("NOT");
+        if not_null {
+            self.expect("NULL")?;
+        }
+        let default = if self.eat("DEFAULT")
+            || self.eat_token(&Token::Assignment)
+            || self.eat_token(&Token::Eq)
+        {
+            Some(self.statement_until_semicolon(true)?)
+        } else {
+            None
+        };
+        Ok(Variable {
+            constant,
+            data_type,
+            collation,
+            not_null,
+            default,
+        })
+    }
+
+    /// Reads the type a declaration writes, up to the first token `stop`
+    /// accepts.
+    fn declared_type(
+        &mut self,
+        stop: impl Fn(&Token, Option<&Token>) -> bool,
+    ) -> Result<DeclaredType, Error> {
+        let range = self.filled_segment("a data type", stop)?;
+        declared_type(&self.tokens[range])
     }
 
     /// Reads statements until one of `until` starts the next.
@@ -630,12 +845,12 @@ impl Reader {
     }
 
     fn statement(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
-        let labelled = self.label()?;
+        let label = self.label()?;
         let Some(Token::Word(word)) = self.peek() else {
             return Err(self.syntax("a statement"));
         };
         let command = Command::of(word);
-        if labelled
+        if label.is_some()
             && !matches!(
                 command,
                 Some(
@@ -652,7 +867,7 @@ impl Reader {
 
         match command {
             Some(Command::Block) => {
-                let block = self.nested(Self::block)?;
+                let block = self.nested(|reader| reader.block(label))?;
                 nodes.push(Node::Block(block));
             }
             Some(Command::If) => {
@@ -664,7 +879,7 @@ impl Reader {
                 nodes.push(Node::Case(case));
             }
             Some(Command::Loop | Command::While | Command::For | Command::Foreach) => {
-                let looped = self.nested(Self::loop_statement)?;
+                let looped = self.nested(|reader| reader.loop_statement(label))?;
                 nodes.push(Node::Loop(looped));
             }
             Some(Command::Exit) => self.exit(nodes)?,
@@ -762,7 +977,7 @@ impl Reader {
         Ok(otherwise)
     }
 
-    fn loop_statement(&mut self) -> Result<Loop, Error> {
+    fn loop_statement(&mut self, label: Option<String>) -> Result<Loop, Error> {
         let control = if self.at("LOOP") {
             LoopControl::Unconditional
         } else if self.eat("WHILE") {
@@ -787,13 +1002,14 @@ impl Reader {
         self.expect("LOOP")?;
         self.end_label();
         Ok(Loop {
+            label,
             control,
             statements,
         })
     }
 
     fn for_control(&mut self) -> Result<LoopControl, Error> {
-        self.segment("IN", |token, _| is_keyword(token, "IN"))?;
+        let target = self.segment("IN", |token, _| is_keyword(token, "IN"))?;
         self.index += 1;
         if self.eat("EXECUTE") {
             return Ok(LoopControl::Dynamic(self.dynamic(End::Loop)?));
@@ -813,7 +1029,11 @@ impl Reader {
             } else {
                 Vec::new()
             };
-            return Ok(LoopControl::Cursor { arguments, query });
+            return Ok(LoopControl::Cursor {
+                variable: self.loop_variable(target)?,
+                arguments,
+                query,
+            });
         }
 
         let first = self.segment("LOOP", |token, next| {
@@ -835,7 +1055,24 @@ impl Reader {
         } else {
             None
         };
-        Ok(LoopControl::Range { lower, upper, step })
+        Ok(LoopControl::Range {
+            variable: self.loop_variable(target)?,
+            lower,
+            upper,
+            step,
+        })
+    }
+
+    /// The one variable a range or cursor `FOR` loop declares, from the
+    /// target written before its `IN`.
+    fn loop_variable(&self, target: Range<usize>) -> Result<String, Error> {
+        match &self.tokens[target] {
+            [Token::Word(word)] => Ok(identifier(word)),
+            tokens => Err(Error::Syntax {
+                expected: "one loop variable",
+                found: render(tokens, false),
+            }),
+        }
     }
 
     /// Reads the arguments of a cursor after its `(`, through the `)`.
@@ -1178,6 +1415,15 @@ fn into_target_end(tokens: &[Token], mut at: usize) -> Option<usize> {
 /// Parses `tokens` as one SQL statement, behind a `SELECT` when `select`
 /// holds.
 fn parse(tokens: &[Token], select: bool) -> Result<Box<Statement>, Error> {
+    parse_all(tokens, select, Parser::parse_statement).map(Box::new)
+}
+
+/// Reads all of `tokens` with `read`, behind a `SELECT` when `select` holds.
+fn parse_all<T>(
+    tokens: &[Token],
+    select: bool,
+    read: impl FnOnce(&mut Parser<'static>) -> Result<T, ParserError>,
+) -> Result<T, Error> {
     let mut owned = Vec::with_capacity(tokens.len() + 1);
     if select {
         owned.push(Token::Word(Word {
@@ -1188,17 +1434,38 @@ fn parse(tokens: &[Token], select: bool) -> Result<Box<Statement>, Error> {
     }
     owned.extend_from_slice(tokens);
     let mut parser = Parser::new(&PostgreSqlDialect {}).with_tokens(owned);
-    parser
-        .parse_statement()
-        .and_then(|statement| {
-            parser
-                .expect_token(&Token::EOF)
-                .map(|_| Box::new(statement))
-        })
+    read(&mut parser)
+        .and_then(|read| parser.expect_token(&Token::EOF).map(|_| read))
         .map_err(|source| Error::EmbeddedSql {
             sql: render(tokens, select),
             source,
         })
+}
+
+/// Reads the type a declaration writes: `name%TYPE` or `name%ROWTYPE`, each
+/// with any `[]` after it, or else a type named directly.
+fn declared_type(tokens: &[Token]) -> Result<DeclaredType, Error> {
+    let mut end = tokens.len();
+    loop {
+        match &tokens[..end] {
+            [.., Token::LBracket, Token::RBracket] => end -= 2,
+            [.., Token::LBracket, Token::Number(..), Token::RBracket] => end -= 3,
+            _ => break,
+        }
+    }
+    let array = end < tokens.len();
+    if let [of @ .., Token::Mod, reference] = &tokens[..end]
+        && !of.is_empty()
+    {
+        let of = || parse_all(of, false, |parser| parser.parse_object_name(false));
+        if is_keyword(reference, "TYPE") {
+            return Ok(DeclaredType::ColumnType { of: of()?, array });
+        }
+        if is_keyword(reference, "ROWTYPE") {
+            return Ok(DeclaredType::RowType { of: of()?, array });
+        }
+    }
+    parse_all(tokens, false, Parser::parse_data_type).map(DeclaredType::Data)
 }
 
 /// The text of `tokens`, one space apart, for an error message.

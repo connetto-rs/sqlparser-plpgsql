@@ -4,7 +4,10 @@
 use core::fmt::Write as _;
 
 use sqlparser_plpgsql::{
-    embedded::{Block, Branch, Dynamic, Error, LoopControl, Node},
+    embedded::{
+        AliasTarget, Block, Branch, DeclarationKind, DeclaredType, Dynamic, Error, LoopControl,
+        Node,
+    },
     embedded_sql,
 };
 
@@ -21,14 +24,73 @@ fn line(out: &mut String, depth: usize, text: &str) {
 }
 
 fn write_block(out: &mut String, block: &Block, depth: usize) {
-    line(out, depth, "block");
+    line(out, depth, &labelled(block.label.as_deref(), "block"));
     for declaration in &block.declarations {
-        line(out, depth + 1, &format!("declare {declaration}"));
+        line(
+            out,
+            depth + 1,
+            &format!(
+                "declare {} {}",
+                declaration.name,
+                describe(&declaration.kind)
+            ),
+        );
     }
     write_nodes(out, &block.statements, depth + 1);
     for handler in &block.handlers {
         line(out, depth + 1, "handler");
         write_nodes(out, handler, depth + 2);
+    }
+}
+
+fn labelled(label: Option<&str>, text: &str) -> String {
+    match label {
+        Some(label) => format!("<<{label}>> {text}"),
+        None => text.into(),
+    }
+}
+
+fn describe(kind: &DeclarationKind) -> String {
+    match kind {
+        DeclarationKind::Variable(variable) => {
+            let mut text = String::new();
+            if variable.constant {
+                text.push_str("constant ");
+            }
+            text.push_str(&type_text(&variable.data_type));
+            if let Some(collation) = &variable.collation {
+                write!(text, " collate {collation}").expect("writing to a string");
+            }
+            if variable.not_null {
+                text.push_str(" not null");
+            }
+            if let Some(default) = &variable.default {
+                write!(text, " default {default}").expect("writing to a string");
+            }
+            text
+        }
+        DeclarationKind::Alias(AliasTarget::Parameter(position)) => {
+            format!("alias for ${position}")
+        }
+        DeclarationKind::Alias(AliasTarget::Name(name)) => format!("alias for {name}"),
+        DeclarationKind::Cursor(cursor) if cursor.parameters.is_empty() => "cursor".into(),
+        DeclarationKind::Cursor(cursor) => {
+            let parameters: Vec<String> = cursor
+                .parameters
+                .iter()
+                .map(|parameter| format!("{} {}", parameter.name, type_text(&parameter.data_type)))
+                .collect();
+            format!("cursor ({})", parameters.join(", "))
+        }
+    }
+}
+
+fn type_text(data_type: &DeclaredType) -> String {
+    let brackets = |array: bool| if array { "[]" } else { "" };
+    match data_type {
+        DeclaredType::Data(data_type) => data_type.to_string(),
+        DeclaredType::ColumnType { of, array } => format!("{of}%TYPE{}", brackets(*array)),
+        DeclaredType::RowType { of, array } => format!("{of}%ROWTYPE{}", brackets(*array)),
     }
 }
 
@@ -73,29 +135,45 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                 write_branches(out, &case.branches, &case.otherwise, depth + 1);
             }
             Node::Loop(looped) => {
+                let label = looped.label.as_deref();
                 match &looped.control {
-                    LoopControl::Unconditional => line(out, depth, "loop"),
+                    LoopControl::Unconditional => line(out, depth, &labelled(label, "loop")),
                     LoopControl::While(condition) => {
-                        line(out, depth, &format!("while {condition}"));
+                        line(out, depth, &labelled(label, &format!("while {condition}")));
                     }
-                    LoopControl::Range { lower, upper, step } => {
-                        line(out, depth, &format!("range {lower} .. {upper}"));
+                    LoopControl::Range {
+                        variable,
+                        lower,
+                        upper,
+                        step,
+                    } => {
+                        let text = format!("range {variable} in {lower} .. {upper}");
+                        line(out, depth, &labelled(label, &text));
                         if let Some(step) = step {
                             line(out, depth + 1, &format!("by {step}"));
                         }
                     }
-                    LoopControl::Query(query) => line(out, depth, &format!("query {query}")),
-                    LoopControl::Cursor { arguments, query } => {
-                        line(out, depth, &format!("cursor {query}"));
+                    LoopControl::Query(query) => {
+                        line(out, depth, &labelled(label, &format!("query {query}")));
+                    }
+                    LoopControl::Cursor {
+                        variable,
+                        arguments,
+                        query,
+                    } => {
+                        let text = format!("cursor {variable} in {query}");
+                        line(out, depth, &labelled(label, &text));
                         for argument in arguments {
                             line(out, depth + 1, &format!("argument {argument}"));
                         }
                     }
                     LoopControl::Dynamic(dynamic) => {
-                        line(out, depth, "loop over");
+                        line(out, depth, &labelled(label, "loop over"));
                         write_dynamic(out, dynamic, depth + 1);
                     }
-                    LoopControl::Array(array) => line(out, depth, &format!("array {array}")),
+                    LoopControl::Array(array) => {
+                        line(out, depth, &labelled(label, &format!("array {array}")));
+                    }
                 }
                 write_nodes(out, &looped.statements, depth + 1);
             }
@@ -136,6 +214,9 @@ fn every_statement_postgresql_ran_is_read_in_place() {
         expected(
             "
             block
+              declare r RECORD
+              declare c cursor
+              declare n INT
               SELECT 1 FROM pp_docs
               query SELECT id FROM pp_docs
                 INSERT INTO pp_log VALUES (r.id)
@@ -184,6 +265,10 @@ fn into_targets_are_removed_wherever_postgresql_reads_them() {
         expected(
             "
             block
+              declare n INT
+              declare x INT
+              declare y INT
+              declare r RECORD
               SELECT count(*) FROM docs
               SELECT a, b FROM docs
               SELECT * FROM docs WHERE id = 1
@@ -225,10 +310,13 @@ fn every_expression_is_read_as_the_select_postgresql_evaluates() {
         expected(
             "
             block
-              declare SELECT (SELECT count(*) FROM docs)
-              declare SELECT 0
-              declare SELECT 3
-              declare SELECT 4
+              declare total INT default SELECT (SELECT count(*) FROM docs)
+              declare fallback INT default SELECT 0
+              declare limit_value constant INT default SELECT 3
+              declare alias_value alias for $1
+              declare r RECORD
+              declare arr INT[]
+              declare extra INT default SELECT 4
               SELECT a FROM docs WHERE id = 1
               SELECT (SELECT max(id) FROM docs)
               SELECT (SELECT 1 FROM docs)
@@ -321,22 +409,29 @@ fn every_loop_keeps_its_control_apart_from_its_body() {
         expected(
             "
             block
-              loop
+              declare c cursor (key INT)
+              declare x INT[]
+              declare a INT
+              declare b INT
+              declare y INT
+              declare pair cursor (first_id INT, last_id INT)
+              declare plain cursor
+              <<outer>> loop
                 SELECT (SELECT true FROM stop)
               while SELECT (SELECT count(*) FROM queue) > 0
                 DELETE FROM queue
-              range SELECT 1 .. SELECT 10
+              range i in SELECT 1 .. SELECT 10
                 SELECT i = 2
-              range SELECT (SELECT max(id) FROM docs) .. SELECT lo
+              range i in SELECT (SELECT max(id) FROM docs) .. SELECT lo
                 by SELECT 2
-              cursor SELECT id FROM docs WHERE id = key
+              cursor r in SELECT id FROM docs WHERE id = key
                 argument SELECT 7
-              cursor SELECT id FROM docs WHERE id = key
+              cursor r in SELECT id FROM docs WHERE id = key
                 argument SELECT v
-              cursor SELECT id FROM docs WHERE id BETWEEN first_id AND last_id
+              cursor r in SELECT id FROM docs WHERE id BETWEEN first_id AND last_id
                 argument SELECT 1
                 argument SELECT (SELECT 2 FROM bounds)
-              cursor SELECT id FROM plain_docs
+              cursor r in SELECT id FROM plain_docs
               array SELECT x
               array SELECT (SELECT array_agg(id) FROM docs)
               query WITH w AS (SELECT 1, 2) SELECT * FROM w
@@ -370,10 +465,16 @@ fn a_cursor_query_runs_where_the_cursor_opens() {
         expected(
             "
             block
+              declare c cursor
+              declare never cursor
+              declare d cursor (k INT)
+              declare free refcursor
+              declare n INT
               if
                 when SELECT flag
                   SELECT id FROM outer_docs
               block
+                declare c cursor
                 SELECT id FROM inner_docs
               SELECT (SELECT 1 FROM keys)
               SELECT id FROM keyed WHERE id = k
@@ -400,6 +501,9 @@ fn sql_built_at_run_time_is_reported_with_the_expressions_that_build_it() {
         expected(
             "
             block
+              declare n INT
+              declare cur refcursor
+              declare r RECORD
               dynamic SELECT 'DELETE FROM ' || quote_ident(t)
                 using SELECT a
                 using SELECT (SELECT 1 FROM b)
@@ -440,10 +544,11 @@ fn each_handler_belongs_to_the_block_that_owns_it() {
         outline(body),
         expected(
             "
-            block
-              declare SELECT 1
-              block
-                declare SELECT (SELECT 2 FROM defaults)
+            <<top>> block
+              declare n INT default SELECT 1
+              declare msg TEXT
+              <<inner>> block
+                declare m INT default SELECT (SELECT 2 FROM defaults)
                 SET search_path = a
                 handler
                   INSERT INTO errors VALUES (1)
@@ -518,6 +623,74 @@ fn sibling_blocks_do_not_count_toward_the_nesting_limit() {
 }
 
 #[test]
+fn every_declaration_keeps_its_name_type_and_default() {
+    let body = r#"
+        DECLARE
+          plain text;
+          sized varchar(10)[];
+          exact numeric(10, 2) = 1;
+          zoned timestamp with time zone;
+          qualified public.mood;
+          column_value t.name%TYPE := p;
+          row_value t%ROWTYPE;
+          column_array public.t.name % TYPE[];
+          row_array t%ROWTYPE[3][];
+          constant_value CONSTANT text COLLATE "C" NOT NULL DEFAULT 'x';
+          required int NOT NULL := 0;
+          "Quoted" record;
+          by_position ALIAS FOR $2;
+          by_name ALIAS FOR f.p;
+          free refcursor;
+          bound NO SCROLL CURSOR (k t.name%TYPE, n INT) FOR SELECT * FROM t WHERE name = k;
+        BEGIN
+          EXECUTE 'SELECT ' || plain;
+        END"#;
+    assert_eq!(
+        outline(body),
+        expected(
+            r#"
+            block
+              declare plain TEXT
+              declare sized VARCHAR(10)[]
+              declare exact NUMERIC(10,2) default SELECT 1
+              declare zoned TIMESTAMP WITH TIME ZONE
+              declare qualified public.mood
+              declare column_value t.name%TYPE default SELECT p
+              declare row_value t%ROWTYPE
+              declare column_array public.t.name%TYPE[]
+              declare row_array t%ROWTYPE[]
+              declare constant_value constant TEXT collate "C" not null default SELECT 'x'
+              declare required INT not null default SELECT 0
+              declare Quoted record
+              declare by_position alias for $2
+              declare by_name alias for f.p
+              declare free refcursor
+              declare bound cursor (k t.name%TYPE, n INT)
+              dynamic SELECT 'SELECT ' || plain
+            "#
+        )
+    );
+}
+
+#[test]
+fn a_type_the_parser_cannot_read_is_an_error_naming_it() {
+    for (body, sql) in [
+        ("DECLARE x %TYPE; BEGIN NULL; END", "% TYPE"),
+        (
+            "DECLARE x integer integer; BEGIN NULL; END",
+            "integer integer",
+        ),
+        ("DECLARE x text COLLATE 1; BEGIN NULL; END", "1"),
+        ("DECLARE x ALIAS FOR 1; BEGIN NULL; END", "1"),
+    ] {
+        match embedded_sql(body) {
+            Err(Error::EmbeddedSql { sql: found, .. }) => assert_eq!(found, sql, "{body}"),
+            other => panic!("{body}: expected an embedded SQL error, got {other:?}"),
+        }
+    }
+}
+
+#[test]
 fn an_unparsable_embedded_statement_is_an_error_naming_it() {
     let error = embedded_sql("BEGIN SELECT FROM WHERE; END").unwrap_err();
     match error {
@@ -558,6 +731,16 @@ fn a_malformed_body_is_a_syntax_error() {
         "BEGIN RAISE USING MESSAGE 'm'; END",
         "BEGIN SELECT 1 INTO a INTO b; END",
         "BEGIN SELECT 1 INTO; END",
+        "DECLARE x; BEGIN NULL; END",
+        "DECLARE x CONSTANT := 1; BEGIN NULL; END",
+        "DECLARE x text NOT NULL COLLATE \"C\" := 'a'; BEGIN NULL; END",
+        "DECLARE x text COLLATE; BEGIN NULL; END",
+        "DECLARE x ALIAS FOR; BEGIN NULL; END",
+        "DECLARE x ALIAS $1; BEGIN NULL; END",
+        "DECLARE c CURSOR (k) FOR SELECT 1; BEGIN NULL; END",
+        "DECLARE c CURSOR (k INT,) FOR SELECT 1; BEGIN NULL; END",
+        "BEGIN FOR a, b IN 1..2 LOOP NULL; END LOOP; END",
+        "DECLARE c CURSOR FOR SELECT 1; BEGIN FOR a, b IN c LOOP NULL; END LOOP; END",
     ] {
         assert!(
             matches!(embedded_sql(body), Err(Error::Syntax { .. })),
@@ -599,6 +782,8 @@ fn a_cursor_name_matches_by_postgresql_identifier_rules() {
         expected(
             "
             block
+              declare Mixed cursor
+              declare plain cursor
               SELECT 1 FROM quoted
               SELECT 2 FROM folded
             "
