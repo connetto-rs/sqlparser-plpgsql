@@ -18,7 +18,7 @@ use alloc::{
 };
 use core::hash::{Hash, Hasher};
 
-use sqlparser::ast::{Ident, ObjectName};
+use sqlparser::ast::{Ident, ObjectName, Statement};
 
 use crate::embedded::{
     AliasTarget, Block, Declaration, DeclarationKind, DeclaredType, Dynamic, Loop, LoopControl,
@@ -150,12 +150,12 @@ impl TriggerVariable {
 /// Two names compare equal when they reach the same variable of the same
 /// body, whatever they are written as.
 #[derive(Clone, Debug)]
-pub struct Name<'body> {
+pub struct Name {
     id: usize,
-    kind: NameKind<'body>,
+    kind: NameKind,
 }
 
-impl<'body> Name<'body> {
+impl Name {
     /// The variable's position among the variables of the body in the order
     /// PostgreSQL declares them, which is the parameters, then the rest of
     /// the function's level, then the body's in the order written.
@@ -169,44 +169,41 @@ impl<'body> Name<'body> {
 
     /// What declares the variable.
     #[must_use]
-    pub const fn kind(&self) -> &NameKind<'body> {
+    pub const fn kind(&self) -> &NameKind {
         &self.kind
     }
 
     /// Whether the variable holds a row, when its kind alone settles it.
-    const fn fixed_row(&self) -> Option<bool> {
+    fn fixed_row(&self) -> Option<bool> {
         match &self.kind {
-            NameKind::Parameter { .. }
-            | NameKind::Declared {
-                declaration:
-                    Declaration {
-                        kind: DeclarationKind::Variable(_),
-                        ..
-                    },
-                ..
-            } => None,
-            NameKind::LoopRecord(_)
+            NameKind::Parameter { .. } => None,
+            NameKind::Declared { declaration, .. }
+                if matches!(declaration.kind, DeclarationKind::Variable(_)) =>
+            {
+                None
+            }
+            NameKind::LoopRecord { .. }
             | NameKind::Trigger(TriggerVariable::New | TriggerVariable::Old) => Some(true),
             NameKind::Declared { .. }
             | NameKind::ReturnValue
             | NameKind::Trigger(_)
             | NameKind::Found
-            | NameKind::LoopIndex(_)
+            | NameKind::LoopIndex
             | NameKind::SqlState
             | NameKind::SqlErrm => Some(false),
         }
     }
 }
 
-impl PartialEq for Name<'_> {
+impl PartialEq for Name {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl Eq for Name<'_> {}
+impl Eq for Name {}
 
-impl Hash for Name<'_> {
+impl Hash for Name {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
@@ -214,7 +211,7 @@ impl Hash for Name<'_> {
 
 /// What declares a variable.
 #[derive(Clone, Debug, PartialEq)]
-pub enum NameKind<'body> {
+pub enum NameKind {
     /// The function's parameter `$position`, counting from 1.
     Parameter {
         /// The position, counting from 1.
@@ -232,19 +229,23 @@ pub enum NameKind<'body> {
     /// An alias never appears here, since it reaches the variable it is for.
     Declared {
         /// The declaration.
-        declaration: &'body Declaration,
+        declaration: Arc<Declaration>,
         /// The variable whose type a `name%TYPE` copies, where the
         /// declaration stands.
         ///
         /// `None` when the declaration writes no `%TYPE` or its name reaches
         /// no variable there, which leaves it to name a column.
-        type_of: Option<Box<Name<'body>>>,
+        type_of: Option<Box<Name>>,
     },
     /// The integer a `FOR i IN lower .. upper` loop declares for its
     /// statements.
-    LoopIndex(&'body Loop),
+    LoopIndex,
     /// The record a `FOR r IN cursor` loop declares for its statements.
-    LoopRecord(&'body Loop),
+    LoopRecord {
+        /// The query the cursor's declaration binds, whose rows the record
+        /// holds in turn.
+        query: Arc<Statement>,
+    },
     /// `SQLSTATE`, which an `EXCEPTION` section declares for its handlers.
     SqlState,
     /// `SQLERRM`, which an `EXCEPTION` section declares for its handlers.
@@ -252,12 +253,14 @@ pub enum NameKind<'body> {
 }
 
 /// The names in reach at one point of a body.
+///
+/// It owns what it holds, so it outlives the [`Block`] it was read from.
 #[derive(Clone, Debug)]
-pub struct Namespace<'body> {
-    level: Arc<Names<'body>>,
+pub struct Namespace {
+    level: Arc<Names>,
 }
 
-impl<'body> Namespace<'body> {
+impl Namespace {
     /// The variable the name written as `parts` reaches, with how many of
     /// the parts name it. Each part is an identifier as PostgreSQL stores
     /// it, or `$n` for a parameter.
@@ -275,15 +278,15 @@ impl<'body> Namespace<'body> {
     pub fn lookup<S: AsRef<str>>(
         &self,
         parts: &[S],
-        holds_row: impl Fn(&Name<'body>) -> bool,
-    ) -> Option<(&Name<'body>, usize)> {
+        holds_row: impl Fn(&Name) -> bool,
+    ) -> Option<(&Name, usize)> {
         self.level.lookup(parts, &|name| row(name, &holds_row))
     }
 }
 
 /// Whether `name` holds a row, asking `holds_row` when its kind does not
 /// settle it.
-fn row<'body>(name: &Name<'body>, holds_row: &dyn Fn(&Name<'body>) -> bool) -> bool {
+fn row(name: &Name, holds_row: &dyn Fn(&Name) -> bool) -> bool {
     name.fixed_row().unwrap_or_else(|| holds_row(name))
 }
 
@@ -294,7 +297,7 @@ pub struct DynamicSite<'body> {
     /// The command and its `USING` arguments.
     pub dynamic: &'body Dynamic,
     /// The names the command and its arguments reach.
-    pub namespace: Namespace<'body>,
+    pub namespace: Namespace,
 }
 
 impl Block {
@@ -339,7 +342,7 @@ impl Block {
     pub fn dynamic_sites<'body>(
         &'body self,
         signature: &Signature,
-        holds_row: impl Fn(&Name<'body>) -> bool,
+        holds_row: impl Fn(&Name) -> bool,
     ) -> Result<Vec<DynamicSite<'body>>, Error> {
         let mut collector = Collector {
             holds_row: &holds_row,
@@ -355,21 +358,21 @@ impl Block {
 /// Walks a body in order, numbering its variables and recording each
 /// dynamic site with the level in force there.
 struct Collector<'body, 'predicate> {
-    holds_row: &'predicate dyn Fn(&Name<'body>) -> bool,
+    holds_row: &'predicate dyn Fn(&Name) -> bool,
     next_id: usize,
     sites: Vec<DynamicSite<'body>>,
 }
 
 impl<'body> Collector<'body, '_> {
     /// A variable of the next id.
-    fn name(&mut self, kind: NameKind<'body>) -> Name<'body> {
+    fn name(&mut self, kind: NameKind) -> Name {
         let id = self.next_id;
         self.next_id += 1;
         Name { id, kind }
     }
 
     /// The level every body starts in, in the order PostgreSQL declares it.
-    fn function_level(&mut self, signature: &Signature) -> Names<'body> {
+    fn function_level(&mut self, signature: &Signature) -> Names {
         let mut level = Level::new(Some(Cow::Owned(signature.name.clone())), None);
         for (index, name) in signature.parameters.iter().enumerate() {
             let position = index + 1;
@@ -398,9 +401,9 @@ impl<'body> Collector<'body, '_> {
         level
     }
 
-    fn block(&mut self, block: &'body Block, parent: &Arc<Names<'body>>) -> Result<(), Error> {
+    fn block(&mut self, block: &'body Block, parent: &Arc<Names>) -> Result<(), Error> {
         let mut level = Level::new(
-            block.label.as_deref().map(Cow::Borrowed),
+            block.label.clone().map(Cow::Owned),
             Some(Arc::clone(parent)),
         );
         for declaration in &block.declarations {
@@ -409,16 +412,16 @@ impl<'body> Collector<'body, '_> {
                 DeclarationKind::Variable(variable) => {
                     let type_of = self.type_of(&level, &variable.data_type);
                     self.name(NameKind::Declared {
-                        declaration,
+                        declaration: Arc::new(declaration.clone()),
                         type_of,
                     })
                 }
                 DeclarationKind::Cursor(_) => self.name(NameKind::Declared {
-                    declaration,
+                    declaration: Arc::new(declaration.clone()),
                     type_of: None,
                 }),
             };
-            level.declare(declaration.name.as_str(), name);
+            level.declare(declaration.name.clone(), name);
         }
         let level = Arc::new(level);
         self.nodes(&block.statements, &level)?;
@@ -440,10 +443,10 @@ impl<'body> Collector<'body, '_> {
     /// stands.
     fn aliased(
         &self,
-        level: &Names<'body>,
+        level: &Names,
         declaration: &Declaration,
         target: &AliasTarget,
-    ) -> Result<Name<'body>, Error> {
+    ) -> Result<Name, Error> {
         let parts = match target {
             AliasTarget::Parameter(position) => Vec::from([format!("${position}")]),
             AliasTarget::Name(name) => stored_parts(name),
@@ -463,7 +466,7 @@ impl<'body> Collector<'body, '_> {
     /// The variable a `%TYPE` of `data_type` names in `level`.
     ///
     /// Like PostgreSQL, only a name that reaches a variable whole counts.
-    fn type_of(&self, level: &Names<'body>, data_type: &DeclaredType) -> Option<Box<Name<'body>>> {
+    fn type_of(&self, level: &Names, data_type: &DeclaredType) -> Option<Box<Name>> {
         let DeclaredType::ColumnType { of, .. } = data_type else {
             return None;
         };
@@ -474,7 +477,7 @@ impl<'body> Collector<'body, '_> {
             .map(|(name, _)| Box::new(name.clone()))
     }
 
-    fn nodes(&mut self, nodes: &'body [Node], level: &Arc<Names<'body>>) -> Result<(), Error> {
+    fn nodes(&mut self, nodes: &'body [Node], level: &Arc<Names>) -> Result<(), Error> {
         for node in nodes {
             match node {
                 Node::Statement(_) => {}
@@ -500,19 +503,23 @@ impl<'body> Collector<'body, '_> {
 
     /// A loop opens a level, labelled with its label, which holds the
     /// variable a range or cursor `FOR` loop declares.
-    fn looped(&mut self, repeated: &'body Loop, parent: &Arc<Names<'body>>) -> Result<(), Error> {
+    fn looped(&mut self, repeated: &'body Loop, parent: &Arc<Names>) -> Result<(), Error> {
         let mut level = Level::new(
-            repeated.label.as_deref().map(Cow::Borrowed),
+            repeated.label.clone().map(Cow::Owned),
             Some(Arc::clone(parent)),
         );
         match &repeated.control {
             LoopControl::Range { variable, .. } => {
-                let index = self.name(NameKind::LoopIndex(repeated));
-                level.declare(variable.as_str(), index);
+                let index = self.name(NameKind::LoopIndex);
+                level.declare(variable.clone(), index);
             }
-            LoopControl::Cursor { variable, .. } => {
-                let record = self.name(NameKind::LoopRecord(repeated));
-                level.declare(variable.as_str(), record);
+            LoopControl::Cursor {
+                variable, query, ..
+            } => {
+                let record = self.name(NameKind::LoopRecord {
+                    query: Arc::new((**query).clone()),
+                });
+                level.declare(variable.clone(), record);
             }
             LoopControl::Unconditional
             | LoopControl::While(_)
@@ -527,7 +534,7 @@ impl<'body> Collector<'body, '_> {
         self.nodes(&repeated.statements, &level)
     }
 
-    fn site(&mut self, dynamic: &'body Dynamic, level: &Arc<Names<'body>>) {
+    fn site(&mut self, dynamic: &'body Dynamic, level: &Arc<Names>) {
         self.sites.push(DynamicSite {
             dynamic,
             namespace: Namespace {
@@ -551,9 +558,9 @@ fn stored(ident: &Ident) -> String {
     crate::embedded::folded(&ident.value, ident.quote_style.is_some())
 }
 
-/// The levels of names [`Block::dynamic_sites`] keeps, which borrow their
-/// names from the body where it writes them.
-type Names<'body> = Level<'body, Name<'body>>;
+/// The levels of names [`Block::dynamic_sites`] keeps, which own their names
+/// so that a [`Namespace`] outlives the body.
+type Names = Level<'static, Name>;
 
 /// One level of names, inside the level enclosing it.
 ///
