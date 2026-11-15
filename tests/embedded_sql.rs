@@ -892,6 +892,19 @@ fn an_exit_or_continue_with_no_loop_to_reach_is_refused() {
             embedded_sql(body)
         );
     }
+    for (body, message) in [
+        (
+            "BEGIN EXIT; END",
+            "EXIT without a label reaches no enclosing loop",
+        ),
+        (
+            "<<b>> BEGIN LOOP CONTINUE b; END LOOP; END",
+            "CONTINUE b reaches no enclosing loop",
+        ),
+    ] {
+        let error = embedded_sql(body).expect_err("PostgreSQL refuses the body");
+        assert_eq!(error.to_string(), message, "{body}");
+    }
     for body in [
         "BEGIN LOOP BEGIN EXIT; END; END LOOP; END",
         "BEGIN LOOP BEGIN NULL; EXCEPTION WHEN others THEN CONTINUE; END; END LOOP; END",

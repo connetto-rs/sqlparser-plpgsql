@@ -582,10 +582,12 @@ fn every_statement_and_expression_comes_in_body_order() {
           FOREACH b IN ARRAY 25 LOOP RETURN 26; END LOOP;
           OPEN c(27);
           DECLARE d int := 28; BEGIN RETURN 29; END;
-          LOOP EXIT WHEN 30; END LOOP;
+          LOOP EXIT WHEN 30; EXIT; END LOOP;
           RAISE 'thirty-one %', 32 USING HINT = 33;
           ASSERT 34, 35;
-        EXCEPTION WHEN others THEN RETURN 36;
+          ASSERT 36;
+          RETURN;
+        EXCEPTION WHEN others THEN RETURN 37;
         END",
     );
     assert_eq!(
@@ -627,6 +629,7 @@ fn every_statement_and_expression_comes_in_body_order() {
             "expression SELECT 34",
             "expression SELECT 35",
             "expression SELECT 36",
+            "expression SELECT 37",
         ]
     );
 }
