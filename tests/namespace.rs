@@ -154,6 +154,21 @@ fn a_qualified_name_passes_over_a_scalar_and_stops_at_a_row() {
 }
 
 #[test]
+fn a_parameter_is_passed_over_as_a_scalar_and_read_from_as_a_row() {
+    let block = read("BEGIN EXECUTE f.x; END");
+    let sites = sites(&block, &plain("f", &[Some("f"), Some("x")]));
+    let namespace = &sites[0].namespace;
+    let first = NameKind::Parameter { position: 1 };
+    let second = NameKind::Parameter { position: 2 };
+    let (scalar, consumed) = namespace.lookup(&["f", "x"], |_| false).unwrap();
+    assert_eq!((scalar.kind(), consumed), (&second, 2));
+    let (row, consumed) = namespace
+        .lookup(&["f", "x"], |name| name.kind() == &first)
+        .unwrap();
+    assert_eq!((row.kind(), consumed), (&first, 1));
+}
+
+#[test]
 fn a_third_part_passes_over_a_scalar_the_label_qualifies() {
     let block = read(
         "<<blk>> DECLARE x record;
