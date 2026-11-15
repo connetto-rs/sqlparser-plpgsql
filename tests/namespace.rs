@@ -2,7 +2,7 @@
 //! answers it, read through the public API.
 #![cfg(feature = "body-parse")]
 
-use std::collections::HashSet;
+use std::{collections::HashSet, thread};
 
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use sqlparser_plpgsql::{
@@ -39,15 +39,12 @@ fn sites<'body>(block: &'body Block, signature: &Signature) -> Vec<DynamicSite<'
 
 /// The variable `parts` reaches at `site`, every variable taken for a scalar,
 /// with the number of parts it consumed.
-fn reach<'site, 'body>(
-    site: &'site DynamicSite<'body>,
-    parts: &[&str],
-) -> Option<(&'site Name<'body>, usize)> {
+fn reach<'site>(site: &'site DynamicSite<'_>, parts: &[&str]) -> Option<(&'site Name, usize)> {
     site.namespace.lookup(parts, |_| false)
 }
 
 /// The variable `parts` reaches whole at `site`.
-fn whole<'site, 'body>(site: &'site DynamicSite<'body>, parts: &[&str]) -> &'site Name<'body> {
+fn whole<'site>(site: &'site DynamicSite<'_>, parts: &[&str]) -> &'site Name {
     match reach(site, parts) {
         Some((name, consumed)) if consumed == parts.len() => name,
         other => panic!("{parts:?} reaches {other:?}"),
@@ -55,7 +52,7 @@ fn whole<'site, 'body>(site: &'site DynamicSite<'body>, parts: &[&str]) -> &'sit
 }
 
 /// The name a declared variable is declared under.
-fn declared_name<'body>(name: &Name<'body>) -> &'body str {
+fn declared_name(name: &Name) -> &str {
     match name.kind() {
         NameKind::Declared { declaration, .. } => &declaration.name,
         other => panic!("expected a declared variable, found {other:?}"),
@@ -169,7 +166,7 @@ fn a_third_part_passes_over_a_scalar_the_label_qualifies() {
     let inner_x = whole(site, &["blk", "x"]);
     assert_ne!(outer_x, inner_x);
 
-    let row = |name: &Name<'_>| name == outer_x;
+    let row = |name: &Name| name == outer_x;
     assert_eq!(
         site.namespace.lookup(&["blk", "x", "y"], row),
         Some((outer_x, 2))
@@ -190,14 +187,27 @@ fn a_loop_declares_its_variable_for_its_statements_only() {
     );
     let sites = sites(&block, &plain("f", &[]));
     let index = whole(&sites[0], &["i"]);
-    assert!(matches!(index.kind(), NameKind::LoopIndex(_)), "{index:?}");
+    assert_eq!(index.kind(), &NameKind::LoopIndex);
     assert_eq!(whole(&sites[0], &["lp", "i"]), index);
     assert_eq!(declared_name(whole(&sites[1], &["i"])), "i");
-    assert!(matches!(
-        whole(&sites[2], &["r"]).kind(),
-        NameKind::LoopRecord(_)
-    ));
+    match whole(&sites[2], &["r"]).kind() {
+        NameKind::LoopRecord { query } => assert_eq!(query.to_string(), "SELECT 1 AS v"),
+        other => panic!("expected the cursor's record, found {other:?}"),
+    }
     assert_eq!(declared_name(whole(&sites[1], &["r"])), "r");
+}
+
+#[test]
+fn a_namespace_outlives_its_body_and_crosses_threads() {
+    let namespace = {
+        let block = read("DECLARE x text; BEGIN EXECUTE x; END");
+        sites(&block, &plain("f", &[Some("p")])).remove(0).namespace
+    };
+    let found = thread::spawn(move || {
+        let (name, _) = namespace.lookup(&["x"], |_| false).unwrap();
+        declared_name(name).to_owned()
+    });
+    assert_eq!(found.join().unwrap(), "x");
 }
 
 #[test]
@@ -383,7 +393,7 @@ fn every_variable_has_one_id_in_declaration_order() {
     );
     assert_eq!(ids(&sites[1], &["sqlstate", "sqlerrm"]), [5, 6]);
     assert_eq!(whole(&sites[0], &["x"]), whole(&sites[1], &["x"]));
-    let parameter: HashSet<&Name<'_>> = [["p"].as_slice(), &["$1"], &["f", "p"]]
+    let parameter: HashSet<&Name> = [["p"].as_slice(), &["$1"], &["f", "p"]]
         .iter()
         .map(|parts| whole(&sites[0], parts))
         .collect();
