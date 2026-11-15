@@ -2,28 +2,36 @@
 //! blocks, branches, loops and exception handlers.
 //!
 //! PostgreSQL evaluates every PL/pgSQL expression as a `SELECT`, so each one
-//! appears here as the `SELECT` it runs. Names the body declares and the
-//! function's parameters are left as written. Each block lists the names it
-//! declares, with the types written for them and unresolved, which a caller
-//! holding the schema can resolve.
+//! appears here as the `SELECT` it runs, and [`expression`] recovers the
+//! expression itself. Names the body declares and the function's parameters
+//! are left as written. Each block lists the names it declares, with the
+//! types written for them and unresolved, which a caller holding the schema
+//! can resolve, and [`crate::namespace`] answers which of them a name reaches.
 
 use alloc::{
     borrow::Cow,
     boxed::Box,
     string::{String, ToString},
+    sync::Arc,
     vec::Vec,
 };
 use core::ops::Range;
 
 use sqlparser::{
-    ast::{DataType, ObjectName, Statement},
+    ast::{
+        DataType, Expr, GroupByExpr, ObjectName, Query, Select, SelectItem, SetExpr, Statement,
+        Value,
+    },
     dialect::PostgreSqlDialect,
     keywords::Keyword,
     parser::{Parser, ParserError},
     tokenizer::{Token, Tokenizer, Word},
 };
 
-use crate::{Region, Scanner};
+use crate::{
+    Region, Scanner,
+    namespace::{Level, stored_parts},
+};
 
 /// How deep blocks and control structures may nest before reading stops,
 /// which keeps a hostile body from exhausting the stack.
@@ -62,7 +70,15 @@ pub enum Error {
     /// `OPEN` names a cursor that no enclosing block binds to a query.
     #[error("cursor '{name}' is not bound to a query by any enclosing block")]
     UnboundCursor {
-        /// The cursor name, folded as PostgreSQL folds it.
+        /// The cursor name, each part folded as PostgreSQL folds it and
+        /// joined by periods.
+        name: String,
+    },
+
+    /// A `DECLARE` section declares a name twice, which PostgreSQL refuses.
+    #[error("'{name}' is declared twice in one DECLARE section")]
+    DuplicateDeclaration {
+        /// The name, folded as PostgreSQL folds it.
         name: String,
     },
 
@@ -132,7 +148,7 @@ pub struct Variable {
     pub not_null: bool,
     /// The `SELECT` that evaluates the default written after `DEFAULT`, `:=`
     /// or `=`.
-    pub default: Option<Box<Statement>>,
+    pub default: Option<Box<Query>>,
 }
 
 /// The type a declaration writes.
@@ -209,9 +225,28 @@ pub enum Node {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Dynamic {
     /// The `SELECT` that evaluates the command string.
-    pub command: Box<Statement>,
+    pub command: Box<Query>,
     /// The `SELECT` that evaluates each `USING` argument.
-    pub arguments: Vec<Statement>,
+    pub arguments: Vec<Query>,
+}
+
+impl Dynamic {
+    /// The command's text when it is a string constant, single-quoted, `E''`
+    /// or dollar-quoted.
+    ///
+    /// `None` for anything else, `NULL` included, which only running the body
+    /// decides.
+    #[must_use]
+    pub fn constant_command(&self) -> Option<&str> {
+        let Some(Expr::Value(value)) = lone_expression(&self.command) else {
+            return None;
+        };
+        match &value.value {
+            Value::SingleQuotedString(text) | Value::EscapedStringLiteral(text) => Some(text),
+            Value::DollarQuotedString(text) => Some(&text.value),
+            _ => None,
+        }
+    }
 }
 
 /// A condition and the statements that run when it holds.
@@ -221,7 +256,7 @@ pub struct Branch {
     ///
     /// For a `WHEN` of a `CASE` with a subject, it selects the listed values
     /// the subject is compared with.
-    pub condition: Box<Statement>,
+    pub condition: Box<Query>,
     /// The statements of the branch.
     pub statements: Vec<Node>,
 }
@@ -239,7 +274,7 @@ pub struct If {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Case {
     /// The `SELECT` that evaluates the subject, when there is one.
-    pub subject: Option<Box<Statement>>,
+    pub subject: Option<Box<Query>>,
     /// Every `WHEN`, tried in order until one holds.
     pub branches: Vec<Branch>,
     /// The `ELSE` statements.
@@ -265,7 +300,7 @@ pub enum LoopControl {
     /// `LOOP`, which only `EXIT` or `RETURN` ends.
     Unconditional,
     /// `WHILE condition LOOP`, as the `SELECT` evaluated before each iteration.
-    While(Box<Statement>),
+    While(Box<Query>),
     /// `FOR i IN [REVERSE] lower .. upper [BY step] LOOP`, each bound as the
     /// `SELECT` evaluated once.
     Range {
@@ -273,11 +308,11 @@ pub enum LoopControl {
         /// hides any other variable of that name.
         variable: String,
         /// The first bound written.
-        lower: Box<Statement>,
+        lower: Box<Query>,
         /// The second bound written.
-        upper: Box<Statement>,
+        upper: Box<Query>,
         /// The `BY` step.
-        step: Option<Box<Statement>>,
+        step: Option<Box<Query>>,
     },
     /// `FOR target IN query LOOP`.
     Query(Box<Statement>),
@@ -287,7 +322,7 @@ pub enum LoopControl {
         /// hides any other variable of that name.
         variable: String,
         /// The `SELECT` that evaluates each argument.
-        arguments: Vec<Statement>,
+        arguments: Vec<Query>,
         /// The query the cursor's declaration binds.
         query: Box<Statement>,
     },
@@ -295,7 +330,7 @@ pub enum LoopControl {
     Dynamic(Dynamic),
     /// `FOREACH target [SLICE n] IN ARRAY array LOOP`, as the `SELECT` that
     /// evaluates the array.
-    Array(Box<Statement>),
+    Array(Box<Query>),
 }
 
 /// Reads every SQL statement and expression a PL/pgSQL body runs.
@@ -307,8 +342,9 @@ pub enum LoopControl {
 /// # Errors
 ///
 /// Returns an [`Error`] when the body is not PL/pgSQL, when an SQL statement
-/// or expression in it does not parse, when `OPEN` names a cursor no
-/// enclosing block binds, or when it nests deeper than the reader follows.
+/// or expression in it does not parse, when a `DECLARE` section declares a
+/// name twice, when `OPEN` names a cursor no enclosing block binds, or when
+/// it nests deeper than the reader follows.
 ///
 /// # Example
 ///
@@ -335,7 +371,7 @@ pub fn embedded_sql(body: &str) -> Result<Block, Error> {
         tokens,
         index: 0,
         depth: 0,
-        scopes: Vec::new(),
+        level: None,
     };
 
     reader.compiler_options()?;
@@ -346,6 +382,101 @@ pub fn embedded_sql(body: &str) -> Result<Block, Error> {
         return Err(reader.syntax("the end of the body"));
     }
     Ok(block)
+}
+
+/// The expression a `SELECT` read from a PL/pgSQL expression evaluates.
+///
+/// That is the one expression it selects, or the whole query as a scalar
+/// subquery when it writes more, a `FROM` for one.
+///
+/// # Example
+///
+/// ```
+/// use sqlparser_plpgsql::{embedded::{self, Node}, embedded_sql};
+///
+/// let block = embedded_sql(
+///     "BEGIN EXECUTE 'SELECT ' || t; EXECUTE c FROM commands() AS c; END",
+/// )?;
+/// let Node::Dynamic(built) = &block.statements[0] else { unreachable!() };
+/// assert_eq!(embedded::expression(&built.command).to_string(), "'SELECT ' || t");
+/// let Node::Dynamic(read) = &block.statements[1] else { unreachable!() };
+/// assert_eq!(
+///     embedded::expression(&read.command).to_string(),
+///     "(SELECT c FROM commands() AS c)",
+/// );
+/// # Ok::<(), sqlparser_plpgsql::embedded::Error>(())
+/// ```
+#[must_use]
+pub fn expression(select: &Query) -> Cow<'_, Expr> {
+    lone_expression(select).map_or_else(
+        || Cow::Owned(Expr::Subquery(Box::new(select.clone()))),
+        Cow::Borrowed,
+    )
+}
+
+/// The one expression `select` selects, when it writes nothing else.
+fn lone_expression(select: &Query) -> Option<&Expr> {
+    let Query {
+        with: None,
+        body,
+        order_by: None,
+        limit_clause: None,
+        fetch: None,
+        locks,
+        for_clause: None,
+        settings: None,
+        format_clause: None,
+        pipe_operators,
+        ..
+    } = select
+    else {
+        return None;
+    };
+    let SetExpr::Select(body) = &**body else {
+        return None;
+    };
+    let Select {
+        distinct: None,
+        top: None,
+        into: None,
+        prewhere: None,
+        selection: None,
+        having: None,
+        qualify: None,
+        value_table_mode: None,
+        exclude: None,
+        select_modifiers: None,
+        optimizer_hints,
+        projection,
+        from,
+        lateral_views,
+        connect_by,
+        group_by: GroupByExpr::Expressions(keys, modifiers),
+        cluster_by,
+        distribute_by,
+        sort_by,
+        named_window,
+        ..
+    } = &**body
+    else {
+        return None;
+    };
+    let [SelectItem::UnnamedExpr(expression)] = projection.as_slice() else {
+        return None;
+    };
+    let alone = locks.is_empty()
+        && pipe_operators.is_empty()
+        && optimizer_hints.is_empty()
+        && from.is_empty()
+        && lateral_views.is_empty()
+        && connect_by.is_empty()
+        && keys.is_empty()
+        && modifiers.is_empty()
+        && cluster_by.is_empty()
+        && distribute_by.is_empty()
+        && sort_by.is_empty()
+        && named_window.is_empty();
+    alone.then_some(expression)
 }
 
 /// Sets every `..` of live code apart from its neighbours.
@@ -452,18 +583,17 @@ impl End {
     }
 }
 
-/// A name a block declares, with the query it binds when it is a cursor.
-struct Declared {
-    declaration: Declaration,
-    query: Option<Box<Statement>>,
-}
+/// The query a name binds when it is a cursor declared with one, as the
+/// reader's levels hold it.
+type Bound = Option<Arc<Statement>>;
 
 /// A recursive-descent walk over the body's tokens.
 struct Reader {
     tokens: Vec<Token>,
     index: usize,
     depth: usize,
-    scopes: Vec<Vec<Declared>>,
+    /// The innermost level of names, where `OPEN` and `FOR` find a cursor.
+    level: Option<Arc<Level<'static, Bound>>>,
 }
 
 impl Reader {
@@ -591,20 +721,26 @@ impl Reader {
         &mut self,
         expected: &'static str,
         stop: impl Fn(&Token, Option<&Token>) -> bool,
-    ) -> Result<Box<Statement>, Error> {
+    ) -> Result<Box<Query>, Error> {
         let range = self.segment(expected, stop)?;
-        parse(&self.tokens[range], true)
+        select(&self.tokens[range])
     }
 
     /// Reads up to `keyword` as the `SELECT` that evaluates an expression.
-    fn expression_until(&mut self, keyword: &'static str) -> Result<Box<Statement>, Error> {
+    fn expression_until(&mut self, keyword: &'static str) -> Result<Box<Query>, Error> {
         self.expression(keyword, |token, _| is_keyword(token, keyword))
     }
 
+    /// Reads up to the `;` that ends the statement as the `SELECT` that
+    /// evaluates an expression.
+    fn expression_until_semicolon(&mut self) -> Result<Box<Query>, Error> {
+        self.expression("`;`", |token, _| *token == Token::SemiColon)
+    }
+
     /// Reads up to the `;` that ends the statement as one SQL statement.
-    fn statement_until_semicolon(&mut self, select: bool) -> Result<Box<Statement>, Error> {
+    fn statement_until_semicolon(&mut self) -> Result<Box<Statement>, Error> {
         let range = self.segment("`;`", |token, _| *token == Token::SemiColon)?;
-        parse(&self.tokens[range], select)
+        parse(&self.tokens[range])
     }
 
     /// Skips `#option` lines, which configure the PL/pgSQL compiler.
@@ -647,49 +783,93 @@ impl Reader {
         Ok(name)
     }
 
-    /// The query `name` binds, looked up from the innermost block outwards.
-    fn bound_cursor(&self, name: &str) -> Option<&Statement> {
-        self.scopes
-            .iter()
-            .rev()
-            .flat_map(|scope| scope.iter().rev())
-            .find(|declared| declared.declaration.name == name)
-            .and_then(|declared| declared.query.as_deref())
+    /// The name starting at the next token, its parts folded, with how many
+    /// tokens it spans.
+    fn peek_qualified(&self) -> Option<(Vec<String>, usize)> {
+        let Some(Token::Word(first)) = self.peek() else {
+            return None;
+        };
+        let mut parts = Vec::from([identifier(first)]);
+        let mut length = 1;
+        while let (Some(Token::Period), Some(Token::Word(word))) =
+            (self.peek_nth(length), self.peek_nth(length + 1))
+        {
+            parts.push(identifier(word));
+            length += 2;
+        }
+        Some((parts, length))
+    }
+
+    /// The query of the cursor the name `parts` reaches.
+    ///
+    /// Every variable counts as holding no row, which answers as PostgreSQL
+    /// does for every body it compiles. Where PostgreSQL stops at a row
+    /// instead, the name reaches no cursor and the body does not compile.
+    fn bound_cursor(&self, parts: &[String]) -> Option<&Statement> {
+        self.level
+            .as_deref()?
+            .lookup(parts, &|_| false)
+            .and_then(|(bound, _)| bound.as_deref())
+    }
+
+    /// A level inside the current one, labelled `label`.
+    fn inner_level(&self, label: Option<&str>) -> Level<'static, Bound> {
+        Level::new(
+            label.map(|label| Cow::Owned(label.into())),
+            self.level.clone(),
+        )
+    }
+
+    /// Runs `read` with `level` as the innermost level of names.
+    fn within<T>(
+        &mut self,
+        level: Arc<Level<'static, Bound>>,
+        read: impl FnOnce(&mut Self) -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        let enclosing = self.level.replace(level);
+        let read = read(self);
+        self.level = enclosing;
+        read
     }
 
     fn block(&mut self, label: Option<String>) -> Result<Block, Error> {
-        self.scopes.push(Vec::new());
+        let mut level = self.inner_level(label.as_deref());
+        let mut declarations = Vec::new();
         if self.eat("DECLARE") {
             while !self.at("BEGIN") {
                 // PostgreSQL accepts a repeated DECLARE inside the section.
                 if !self.eat("DECLARE") {
-                    self.declaration()?;
+                    declarations.push(self.declaration(&mut level)?);
                 }
             }
         }
         self.expect("BEGIN")?;
-        let statements = self.statements(&["EXCEPTION", "END"])?;
-        let mut handlers = Vec::new();
-        if self.eat("EXCEPTION") {
-            loop {
-                self.expect("WHEN")?;
-                self.segment("THEN", |token, _| is_keyword(token, "THEN"))?;
-                self.index += 1;
-                handlers.push(self.statements(&["WHEN", "END"])?);
-                if !self.at("WHEN") {
-                    break;
-                }
+        let level = Arc::new(level);
+        let (statements, handlers) = self.within(Arc::clone(&level), |reader| {
+            let statements = reader.statements(&["EXCEPTION", "END"])?;
+            if !reader.eat("EXCEPTION") {
+                return Ok((statements, Vec::new()));
             }
-        }
+            // The section declares SQLSTATE and SQLERRM in the block's level.
+            let mut section = level.extended();
+            section.declare("sqlstate", None);
+            section.declare("sqlerrm", None);
+            let handlers = reader.within(Arc::new(section), |reader| {
+                let mut handlers = Vec::new();
+                loop {
+                    reader.expect("WHEN")?;
+                    reader.segment("THEN", |token, _| is_keyword(token, "THEN"))?;
+                    reader.index += 1;
+                    handlers.push(reader.statements(&["WHEN", "END"])?);
+                    if !reader.at("WHEN") {
+                        return Ok(handlers);
+                    }
+                }
+            })?;
+            Ok((statements, handlers))
+        })?;
         self.expect("END")?;
         self.end_label();
-        let declarations = self
-            .scopes
-            .pop()
-            .expect("the block pushed its scope")
-            .into_iter()
-            .map(|declared| declared.declaration)
-            .collect();
         Ok(Block {
             label,
             declarations,
@@ -698,8 +878,12 @@ impl Reader {
         })
     }
 
-    fn declaration(&mut self) -> Result<(), Error> {
+    /// Reads one declaration into `level`, the level its block opens.
+    fn declaration(&mut self, level: &mut Level<'static, Bound>) -> Result<Declaration, Error> {
         let name = self.name("a declaration")?;
+        if level.declares(&name) {
+            return Err(Error::DuplicateDeclaration { name });
+        }
         let cursor_words = [
             &["CURSOR"][..],
             &["SCROLL", "CURSOR"],
@@ -713,9 +897,18 @@ impl Reader {
             })
         });
 
-        let (kind, query) = if self.eat("ALIAS") {
+        let (kind, bound) = if self.eat("ALIAS") {
             self.expect("FOR")?;
-            (DeclarationKind::Alias(self.alias_target()?), None)
+            let target = self.alias_target()?;
+            // An alias of a cursor opens the cursor's query. A parameter is
+            // never a cursor declared with one.
+            let bound = match &target {
+                AliasTarget::Parameter(_) => None,
+                AliasTarget::Name(name) => level
+                    .lookup(&stored_parts(name), &|_| false)
+                    .and_then(|(bound, _)| bound.clone()),
+            };
+            (DeclarationKind::Alias(target), bound)
         } else if let Some(words) = cursor_words {
             self.index += words.len();
             let parameters = if self.eat_token(&Token::LParen) {
@@ -726,20 +919,17 @@ impl Reader {
             if !(self.eat("FOR") || self.eat("IS")) {
                 return Err(self.syntax("FOR or IS"));
             }
-            let query = self.statement_until_semicolon(false)?;
-            (DeclarationKind::Cursor(Cursor { parameters }), Some(query))
+            let query = self.statement_until_semicolon()?;
+            (
+                DeclarationKind::Cursor(Cursor { parameters }),
+                Some(Arc::from(query)),
+            )
         } else {
             (DeclarationKind::Variable(self.variable()?), None)
         };
         self.expect_semicolon()?;
-        self.scopes
-            .last_mut()
-            .expect("a declaration sits inside a block")
-            .push(Declared {
-                declaration: Declaration { name, kind },
-                query,
-            });
-        Ok(())
+        level.declare(name.clone(), bound);
+        Ok(Declaration { name, kind })
     }
 
     /// Reads what follows `ALIAS FOR`.
@@ -812,7 +1002,7 @@ impl Reader {
             || self.eat_token(&Token::Assignment)
             || self.eat_token(&Token::Eq)
         {
-            Some(self.statement_until_semicolon(true)?)
+            Some(self.expression_until_semicolon()?)
         } else {
             None
         };
@@ -887,11 +1077,11 @@ impl Reader {
             Some(Command::Raise) => self.raise(nodes)?,
             Some(Command::Assert) => {
                 self.index += 1;
-                nodes.push(Node::Statement(self.expression("`;`", |token, _| {
+                nodes.push(evaluated(self.expression("`;`", |token, _| {
                     matches!(token, Token::Comma | Token::SemiColon)
                 })?));
                 if self.eat_token(&Token::Comma) {
-                    nodes.push(Node::Statement(self.statement_until_semicolon(true)?));
+                    nodes.push(evaluated(self.expression_until_semicolon()?));
                 }
             }
             Some(Command::Execute) => {
@@ -900,7 +1090,7 @@ impl Reader {
             }
             Some(Command::Perform) => {
                 self.index += 1;
-                nodes.push(Node::Statement(self.statement_until_semicolon(true)?));
+                nodes.push(evaluated(self.expression_until_semicolon()?));
             }
             Some(Command::Open) => self.open(nodes)?,
             Some(Command::Fetch) => self.fetch(nodes)?,
@@ -997,7 +1187,14 @@ impl Reader {
             LoopControl::Array(self.expression_until("LOOP")?)
         };
         self.expect("LOOP")?;
-        let statements = self.statements(&["END"])?;
+        // The loop opens a level, which holds the variable a range or cursor
+        // loop declares.
+        let mut level = self.inner_level(label.as_deref());
+        if let LoopControl::Range { variable, .. } | LoopControl::Cursor { variable, .. } = &control
+        {
+            level.declare(variable.clone(), None);
+        }
+        let statements = self.within(Arc::new(level), |reader| reader.statements(&["END"]))?;
         self.expect("END")?;
         self.expect("LOOP")?;
         self.end_label();
@@ -1016,14 +1213,14 @@ impl Reader {
         }
         let reverse = self.eat("REVERSE");
         if !reverse
-            && let Some(Token::Word(word)) = self.peek()
-            && (matches!(self.peek_nth(1), Some(Token::LParen))
+            && let Some((parts, length)) = self.peek_qualified()
+            && (matches!(self.peek_nth(length), Some(Token::LParen))
                 || self
-                    .peek_nth(1)
+                    .peek_nth(length)
                     .is_some_and(|token| is_keyword(token, "LOOP")))
-            && let Some(query) = self.bound_cursor(&identifier(word)).cloned().map(Box::new)
+            && let Some(query) = self.bound_cursor(&parts).cloned().map(Box::new)
         {
-            self.index += 1;
+            self.index += length;
             let arguments = if self.eat_token(&Token::LParen) {
                 self.cursor_arguments()?
             } else {
@@ -1043,9 +1240,9 @@ impl Reader {
             if reverse {
                 return Err(self.syntax("`..`"));
             }
-            return Ok(LoopControl::Query(parse(&self.tokens[first], false)?));
+            return Ok(LoopControl::Query(parse(&self.tokens[first])?));
         }
-        let lower = parse(&self.tokens[first], true)?;
+        let lower = select(&self.tokens[first])?;
         self.index += 2;
         let upper = self.expression("LOOP", |token, _| {
             is_keyword(token, "BY") || is_keyword(token, "LOOP")
@@ -1079,7 +1276,7 @@ impl Reader {
     ///
     /// A named argument's `name :=` or `name =>` is dropped, since only the
     /// value is evaluated.
-    fn cursor_arguments(&mut self) -> Result<Vec<Statement>, Error> {
+    fn cursor_arguments(&mut self) -> Result<Vec<Query>, Error> {
         let mut arguments = Vec::new();
         loop {
             if matches!(self.peek(), Some(Token::Word(_)))
@@ -1132,7 +1329,7 @@ impl Reader {
             self.index += 1;
         }
         if self.eat("WHEN") {
-            nodes.push(Node::Statement(self.statement_until_semicolon(true)?));
+            nodes.push(evaluated(self.expression_until_semicolon()?));
         }
         Ok(())
     }
@@ -1143,13 +1340,13 @@ impl Reader {
             if self.eat("EXECUTE") {
                 nodes.push(Node::Dynamic(self.dynamic(End::Semicolon)?));
             } else {
-                nodes.push(Node::Statement(self.statement_until_semicolon(false)?));
+                nodes.push(Node::Statement(self.statement_until_semicolon()?));
             }
             return Ok(());
         }
         self.eat("NEXT");
         if self.peek() != Some(&Token::SemiColon) {
-            nodes.push(Node::Statement(self.statement_until_semicolon(true)?));
+            nodes.push(evaluated(self.expression_until_semicolon()?));
         }
         Ok(())
     }
@@ -1166,7 +1363,7 @@ impl Reader {
         if self.peek().is_some_and(is_string_literal) {
             self.index += 1;
             while self.eat_token(&Token::Comma) {
-                nodes.push(Node::Statement(self.expression("`;`", |token, _| {
+                nodes.push(evaluated(self.expression("`;`", |token, _| {
                     matches!(token, Token::Comma | Token::SemiColon) || is_keyword(token, "USING")
                 })?));
             }
@@ -1184,7 +1381,7 @@ impl Reader {
                 if !(self.eat_token(&Token::Eq) || self.eat_token(&Token::Assignment)) {
                     return Err(self.syntax("`=`"));
                 }
-                nodes.push(Node::Statement(self.expression("`;`", |token, _| {
+                nodes.push(evaluated(self.expression("`;`", |token, _| {
                     matches!(token, Token::Comma | Token::SemiColon)
                 })?));
                 if !self.eat_token(&Token::Comma) {
@@ -1197,7 +1394,10 @@ impl Reader {
 
     fn open(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
         self.index += 1;
-        let name = self.name("a cursor name")?;
+        let Some((name, length)) = self.peek_qualified() else {
+            return Err(self.syntax("a cursor name"));
+        };
+        self.index += length;
         if self.eat("NO") {
             self.expect("SCROLL")?;
         } else {
@@ -1207,18 +1407,20 @@ impl Reader {
             if self.eat("EXECUTE") {
                 nodes.push(Node::Dynamic(self.dynamic(End::Semicolon)?));
             } else {
-                nodes.push(Node::Statement(self.statement_until_semicolon(false)?));
+                nodes.push(Node::Statement(self.statement_until_semicolon()?));
             }
             return Ok(());
         }
         let Some(query) = self.bound_cursor(&name).cloned().map(Box::new) else {
-            return Err(Error::UnboundCursor { name });
+            return Err(Error::UnboundCursor {
+                name: name.join("."),
+            });
         };
         if self.eat_token(&Token::LParen) {
             nodes.extend(
                 self.cursor_arguments()?
                     .into_iter()
-                    .map(|argument| Node::Statement(Box::new(argument))),
+                    .map(|argument| evaluated(Box::new(argument))),
             );
         }
         nodes.push(Node::Statement(query));
@@ -1242,7 +1444,7 @@ impl Reader {
                 .take_while(|token| DIRECTIONS.iter().any(|word| is_keyword(token, word)))
                 .count();
             if skipped < count.len() {
-                nodes.push(Node::Statement(parse(&count[skipped..], true)?));
+                nodes.push(evaluated(select(&count[skipped..])?));
             }
             self.segment("`;`", |token, _| *token == Token::SemiColon)?;
         }
@@ -1290,7 +1492,7 @@ impl Reader {
                 Some(Token::LBracket) => {
                     self.index += 1;
                     loop {
-                        nodes.push(Node::Statement(self.expression("`]`", |token, _| {
+                        nodes.push(evaluated(self.expression("`]`", |token, _| {
                             matches!(token, Token::Colon | Token::RBracket)
                         })?));
                         if !self.eat_token(&Token::Colon) {
@@ -1303,7 +1505,7 @@ impl Reader {
             }
         }
         self.index += 1;
-        nodes.push(Node::Statement(self.statement_until_semicolon(true)?));
+        nodes.push(evaluated(self.expression_until_semicolon()?));
         Ok(())
     }
 
@@ -1371,12 +1573,12 @@ impl Reader {
         }
 
         match into {
-            None => parse(&self.tokens[start..self.index], false),
+            None => parse(&self.tokens[start..self.index]),
             Some(into) => {
                 let mut kept = Vec::with_capacity(self.index - start - into.len());
                 kept.extend_from_slice(&self.tokens[start..into.start]);
                 kept.extend_from_slice(&self.tokens[into.end..self.index]);
-                parse(&kept, false)
+                parse(&kept)
             }
         }
     }
@@ -1412,10 +1614,19 @@ fn into_target_end(tokens: &[Token], mut at: usize) -> Option<usize> {
     }
 }
 
-/// Parses `tokens` as one SQL statement, behind a `SELECT` when `select`
-/// holds.
-fn parse(tokens: &[Token], select: bool) -> Result<Box<Statement>, Error> {
-    parse_all(tokens, select, Parser::parse_statement).map(Box::new)
+/// Parses `tokens` as one SQL statement.
+fn parse(tokens: &[Token]) -> Result<Box<Statement>, Error> {
+    parse_all(tokens, false, Parser::parse_statement).map(Box::new)
+}
+
+/// Parses `tokens`, an expression, as the `SELECT` that evaluates it.
+fn select(tokens: &[Token]) -> Result<Box<Query>, Error> {
+    parse_all(tokens, true, Parser::parse_query)
+}
+
+/// The step that evaluates `select`, an expression read as its `SELECT`.
+fn evaluated(select: Box<Query>) -> Node {
+    Node::Statement(Box::new(Statement::Query(select)))
 }
 
 /// Reads all of `tokens` with `read`, behind a `SELECT` when `select` holds.
@@ -1502,12 +1713,18 @@ fn is_string_literal(token: &Token) -> bool {
     )
 }
 
-/// The name an identifier denotes: as written when quoted, ASCII-folded to
-/// lower case otherwise, as PostgreSQL folds it.
+/// The name an identifier denotes, as PostgreSQL folds it.
 fn identifier(word: &Word) -> String {
-    if word.quote_style.is_some() {
-        word.value.clone()
+    folded(&word.value, word.quote_style.is_some())
+}
+
+/// The name an identifier written as `value` denotes, as PostgreSQL folds
+/// it. A `quoted` one stays as written, and any other is ASCII-folded to
+/// lower case.
+pub(crate) fn folded(value: &str, quoted: bool) -> String {
+    if quoted {
+        value.into()
     } else {
-        word.value.to_ascii_lowercase()
+        value.to_ascii_lowercase()
     }
 }

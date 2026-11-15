@@ -15,6 +15,8 @@ pub mod scanner;
 pub mod body;
 #[cfg(feature = "body-parse")]
 pub mod embedded;
+#[cfg(feature = "body-parse")]
+pub mod namespace;
 pub use context::{PlPgSqlContext, UuidFirstUse, VariableBinding, VariableDeclaration};
 pub use error::Error;
 pub use preprocessor::PlPgSqlPreprocessor;
