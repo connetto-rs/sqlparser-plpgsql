@@ -11,6 +11,7 @@
 use alloc::{
     borrow::Cow,
     boxed::Box,
+    collections::BTreeSet,
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
@@ -25,7 +26,7 @@ use sqlparser::{
     dialect::PostgreSqlDialect,
     keywords::Keyword,
     parser::{Parser, ParserError},
-    tokenizer::{Token, Tokenizer, Word},
+    tokenizer::{Span, Token, Tokenizer, Word},
 };
 
 use crate::{
@@ -185,7 +186,7 @@ pub enum AliasTarget {
 
 /// A cursor declared with its query.
 ///
-/// The query itself appears where the cursor opens.
+/// The query itself appears in each [`BoundCursor`] that opens the cursor.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cursor {
     /// The parameters the query reads, bound when the cursor opens.
@@ -217,6 +218,23 @@ pub enum Node {
     Case(Case),
     /// A loop of any kind.
     Loop(Loop),
+    /// `OPEN` of a cursor declared with its query.
+    Open(BoundCursor),
+}
+
+/// A cursor declared with its query, as `OPEN` or a `FOR` loop opens it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoundCursor {
+    /// The cursor, as written.
+    pub name: ObjectName,
+    /// The `SELECT` that evaluates each argument, a named argument's name
+    /// dropped.
+    pub arguments: Vec<Query>,
+    /// The query the cursor's declaration binds.
+    ///
+    /// It reads the names in reach where the cursor is declared and the
+    /// cursor's parameters, which [`crate::namespace`] answers.
+    pub query: Box<Statement>,
 }
 
 /// SQL built at run time by `EXECUTE`, `RETURN QUERY EXECUTE`,
@@ -321,10 +339,8 @@ pub enum LoopControl {
         /// The record variable the loop declares for its statements, which
         /// hides any other variable of that name.
         variable: String,
-        /// The `SELECT` that evaluates each argument.
-        arguments: Vec<Query>,
-        /// The query the cursor's declaration binds.
-        query: Box<Statement>,
+        /// The cursor the loop opens.
+        cursor: BoundCursor,
     },
     /// `FOR target IN EXECUTE command [USING ...] LOOP`.
     Dynamic(Dynamic),
@@ -593,7 +609,7 @@ struct Reader {
     index: usize,
     depth: usize,
     /// The innermost level of names, where `OPEN` and `FOR` find a cursor.
-    level: Option<Arc<Level<'static, Bound>>>,
+    level: Option<Level<'static, Bound>>,
 }
 
 impl Reader {
@@ -783,32 +799,32 @@ impl Reader {
         Ok(name)
     }
 
-    /// The name starting at the next token, its parts folded, with how many
-    /// tokens it spans.
-    fn peek_qualified(&self) -> Option<(Vec<String>, usize)> {
+    /// The name starting at the next token, as written, with how many tokens
+    /// it spans.
+    fn peek_qualified(&self) -> Option<(ObjectName, usize)> {
         let Some(Token::Word(first)) = self.peek() else {
             return None;
         };
-        let mut parts = Vec::from([identifier(first)]);
+        let mut parts = Vec::from([first.to_ident(Span::empty())]);
         let mut length = 1;
         while let (Some(Token::Period), Some(Token::Word(word))) =
             (self.peek_nth(length), self.peek_nth(length + 1))
         {
-            parts.push(identifier(word));
+            parts.push(word.to_ident(Span::empty()));
             length += 2;
         }
-        Some((parts, length))
+        Some((ObjectName::from(parts), length))
     }
 
-    /// The query of the cursor the name `parts` reaches.
+    /// The query of the cursor `name` reaches.
     ///
     /// Every variable counts as holding no row, which answers as PostgreSQL
     /// does for every body it compiles. Where PostgreSQL stops at a row
     /// instead, the name reaches no cursor and the body does not compile.
-    fn bound_cursor(&self, parts: &[String]) -> Option<&Statement> {
+    fn bound_cursor(&self, name: &ObjectName) -> Option<&Statement> {
         self.level
-            .as_deref()?
-            .lookup(parts, &|_| false)
+            .as_ref()?
+            .lookup(&stored_parts(name), &|_| false)
             .and_then(|(bound, _)| bound.as_deref())
     }
 
@@ -816,14 +832,14 @@ impl Reader {
     fn inner_level(&self, label: Option<&str>) -> Level<'static, Bound> {
         Level::new(
             label.map(|label| Cow::Owned(label.into())),
-            self.level.clone(),
+            self.level.as_ref(),
         )
     }
 
     /// Runs `read` with `level` as the innermost level of names.
     fn within<T>(
         &mut self,
-        level: Arc<Level<'static, Bound>>,
+        level: Level<'static, Bound>,
         read: impl FnOnce(&mut Self) -> Result<T, Error>,
     ) -> Result<T, Error> {
         let enclosing = self.level.replace(level);
@@ -836,25 +852,25 @@ impl Reader {
         let mut level = self.inner_level(label.as_deref());
         let mut declarations = Vec::new();
         if self.eat("DECLARE") {
+            let mut declared = BTreeSet::new();
             while !self.at("BEGIN") {
                 // PostgreSQL accepts a repeated DECLARE inside the section.
                 if !self.eat("DECLARE") {
-                    declarations.push(self.declaration(&mut level)?);
+                    declarations.push(self.declaration(&mut level, &mut declared)?);
                 }
             }
         }
         self.expect("BEGIN")?;
-        let level = Arc::new(level);
-        let (statements, handlers) = self.within(Arc::clone(&level), |reader| {
+        let (statements, handlers) = self.within(level.clone(), |reader| {
             let statements = reader.statements(&["EXCEPTION", "END"])?;
             if !reader.eat("EXCEPTION") {
                 return Ok((statements, Vec::new()));
             }
             // The section declares SQLSTATE and SQLERRM in the block's level.
-            let mut section = level.extended();
+            let mut section = level;
             section.declare("sqlstate", None);
             section.declare("sqlerrm", None);
-            let handlers = reader.within(Arc::new(section), |reader| {
+            let handlers = reader.within(section, |reader| {
                 let mut handlers = Vec::new();
                 loop {
                     reader.expect("WHEN")?;
@@ -878,10 +894,15 @@ impl Reader {
         })
     }
 
-    /// Reads one declaration into `level`, the level its block opens.
-    fn declaration(&mut self, level: &mut Level<'static, Bound>) -> Result<Declaration, Error> {
+    /// Reads one declaration into `level`, the level its block opens, where
+    /// `declared` holds every name declared before it.
+    fn declaration(
+        &mut self,
+        level: &mut Level<'static, Bound>,
+        declared: &mut BTreeSet<String>,
+    ) -> Result<Declaration, Error> {
         let name = self.name("a declaration")?;
-        if level.declares(&name) {
+        if !declared.insert(name.clone()) {
             return Err(Error::DuplicateDeclaration { name });
         }
         let cursor_words = [
@@ -1194,7 +1215,7 @@ impl Reader {
         {
             level.declare(variable.clone(), None);
         }
-        let statements = self.within(Arc::new(level), |reader| reader.statements(&["END"]))?;
+        let statements = self.within(level, |reader| reader.statements(&["END"]))?;
         self.expect("END")?;
         self.expect("LOOP")?;
         self.end_label();
@@ -1213,12 +1234,12 @@ impl Reader {
         }
         let reverse = self.eat("REVERSE");
         if !reverse
-            && let Some((parts, length)) = self.peek_qualified()
+            && let Some((name, length)) = self.peek_qualified()
             && (matches!(self.peek_nth(length), Some(Token::LParen))
                 || self
                     .peek_nth(length)
                     .is_some_and(|token| is_keyword(token, "LOOP")))
-            && let Some(query) = self.bound_cursor(&parts).cloned().map(Box::new)
+            && let Some(query) = self.bound_cursor(&name).cloned().map(Box::new)
         {
             self.index += length;
             let arguments = if self.eat_token(&Token::LParen) {
@@ -1228,8 +1249,11 @@ impl Reader {
             };
             return Ok(LoopControl::Cursor {
                 variable: self.loop_variable(target)?,
-                arguments,
-                query,
+                cursor: BoundCursor {
+                    name,
+                    arguments,
+                    query,
+                },
             });
         }
 
@@ -1413,17 +1437,19 @@ impl Reader {
         }
         let Some(query) = self.bound_cursor(&name).cloned().map(Box::new) else {
             return Err(Error::UnboundCursor {
-                name: name.join("."),
+                name: stored_parts(&name).join("."),
             });
         };
-        if self.eat_token(&Token::LParen) {
-            nodes.extend(
-                self.cursor_arguments()?
-                    .into_iter()
-                    .map(|argument| evaluated(Box::new(argument))),
-            );
-        }
-        nodes.push(Node::Statement(query));
+        let arguments = if self.eat_token(&Token::LParen) {
+            self.cursor_arguments()?
+        } else {
+            Vec::new()
+        };
+        nodes.push(Node::Open(BoundCursor {
+            name,
+            arguments,
+            query,
+        }));
         Ok(())
     }
 
