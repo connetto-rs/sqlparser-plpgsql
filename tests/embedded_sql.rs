@@ -3,10 +3,11 @@
 
 use core::fmt::Write as _;
 
+use sqlparser::ast::{FunctionArguments, Statement};
 use sqlparser_plpgsql::{
     embedded::{
         AliasTarget, Block, BoundCursor, Branch, DeclarationKind, DeclaredType, Dynamic, Error,
-        LoopControl, Node,
+        Indirection, IntoTargets, Loop, LoopControl, Node, Open, Target,
     },
     embedded_sql,
 };
@@ -113,6 +114,44 @@ fn write_bound_cursor(out: &mut String, opened: &str, cursor: &BoundCursor, dept
     }
 }
 
+/// A target as written, each subscript as the `SELECT` evaluating it.
+fn target_text(target: &Target) -> String {
+    let mut text = target.name.to_string();
+    for step in &target.indirection {
+        match step {
+            Indirection::Field(field) => write!(text, ".{field}"),
+            Indirection::Index(index) => write!(text, "[{index}]"),
+            Indirection::Slice { lower, upper } => {
+                let bound = |bound: &Option<Box<_>>| {
+                    bound.as_ref().map(ToString::to_string).unwrap_or_default()
+                };
+                write!(text, "[{}:{}]", bound(lower), bound(upper))
+            }
+        }
+        .expect("writing to a string");
+    }
+    text
+}
+
+fn targets_text(targets: &[Target]) -> String {
+    targets
+        .iter()
+        .map(target_text)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn write_into(out: &mut String, into: Option<&IntoTargets>, depth: usize) {
+    if let Some(into) = into {
+        let strict = if into.strict { "strict " } else { "" };
+        line(
+            out,
+            depth,
+            &format!("into {strict}{}", targets_text(&into.targets)),
+        );
+    }
+}
+
 fn write_branches(out: &mut String, branches: &[Branch], otherwise: &[Node], depth: usize) {
     for branch in branches {
         line(out, depth, &format!("when {}", branch.condition));
@@ -127,10 +166,42 @@ fn write_branches(out: &mut String, branches: &[Branch], otherwise: &[Node], dep
 fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
     for node in nodes {
         match node {
-            Node::Statement(statement) => line(out, depth, &statement.to_string()),
-            Node::Dynamic(dynamic) => write_dynamic(out, dynamic, depth),
+            Node::Statement { statement, into } => {
+                line(out, depth, &statement.to_string());
+                write_into(out, into.as_ref(), depth + 1);
+            }
+            Node::Assignment(assignment) => line(
+                out,
+                depth,
+                &format!(
+                    "{} := {}",
+                    target_text(&assignment.target),
+                    assignment.value
+                ),
+            ),
+            Node::Dynamic { dynamic, into } => {
+                write_dynamic(out, dynamic, depth);
+                write_into(out, into.as_ref(), depth + 1);
+            }
+            Node::Fetch(fetch) => line(
+                out,
+                depth,
+                &format!(
+                    "fetch {} into {}",
+                    fetch.cursor,
+                    targets_text(&fetch.targets)
+                ),
+            ),
+            Node::Diagnostics(diagnostics) => {
+                let stacked = if diagnostics.stacked { " stacked" } else { "" };
+                line(out, depth, &format!("diagnostics{stacked}"));
+                for item in &diagnostics.items {
+                    let text = format!("{} = {:?}", target_text(&item.target), item.kind);
+                    line(out, depth + 1, &text);
+                }
+            }
+            Node::Open(open) => write_open(out, open, depth),
             Node::Block(block) => write_block(out, block, depth),
-            Node::Open(cursor) => write_bound_cursor(out, "open", cursor, depth),
             Node::If(conditional) => {
                 line(out, depth, "if");
                 write_branches(
@@ -148,41 +219,65 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                 write_branches(out, &case.branches, &case.otherwise, depth + 1);
             }
             Node::Loop(looped) => {
-                let label = looped.label.as_deref();
-                match &looped.control {
-                    LoopControl::Unconditional => line(out, depth, &labelled(label, "loop")),
-                    LoopControl::While(condition) => {
-                        line(out, depth, &labelled(label, &format!("while {condition}")));
-                    }
-                    LoopControl::Range {
-                        variable,
-                        lower,
-                        upper,
-                        step,
-                    } => {
-                        let text = format!("range {variable} in {lower} .. {upper}");
-                        line(out, depth, &labelled(label, &text));
-                        if let Some(step) = step {
-                            line(out, depth + 1, &format!("by {step}"));
-                        }
-                    }
-                    LoopControl::Query(query) => {
-                        line(out, depth, &labelled(label, &format!("query {query}")));
-                    }
-                    LoopControl::Cursor { variable, cursor } => {
-                        let opened = labelled(label, &format!("cursor {variable} in"));
-                        write_bound_cursor(out, &opened, cursor, depth);
-                    }
-                    LoopControl::Dynamic(dynamic) => {
-                        line(out, depth, &labelled(label, "loop over"));
-                        write_dynamic(out, dynamic, depth + 1);
-                    }
-                    LoopControl::Array(array) => {
-                        line(out, depth, &labelled(label, &format!("array {array}")));
-                    }
-                }
+                write_loop_control(out, looped, depth);
                 write_nodes(out, &looped.statements, depth + 1);
             }
+        }
+    }
+}
+
+fn write_open(out: &mut String, open: &Open, depth: usize) {
+    match open {
+        Open::Bound(cursor) => write_bound_cursor(out, "open", cursor, depth),
+        Open::Query { cursor, query } => {
+            line(out, depth, &format!("open {cursor} for {query}"));
+        }
+        Open::Dynamic { cursor, dynamic } => {
+            line(out, depth, &format!("open {cursor} for"));
+            write_dynamic(out, dynamic, depth + 1);
+        }
+    }
+}
+
+fn write_loop_control(out: &mut String, looped: &Loop, depth: usize) {
+    let label = looped.label.as_deref();
+    match &looped.control {
+        LoopControl::Unconditional => line(out, depth, &labelled(label, "loop")),
+        LoopControl::While(condition) => {
+            line(out, depth, &labelled(label, &format!("while {condition}")));
+        }
+        LoopControl::Range {
+            variable,
+            lower,
+            upper,
+            step,
+        } => {
+            let text = format!("range {variable} in {lower} .. {upper}");
+            line(out, depth, &labelled(label, &text));
+            if let Some(step) = step {
+                line(out, depth + 1, &format!("by {step}"));
+            }
+        }
+        LoopControl::Query { targets, query } => {
+            let text = format!("query {} in {query}", targets_text(targets));
+            line(out, depth, &labelled(label, &text));
+        }
+        LoopControl::Cursor { variable, cursor } => {
+            let opened = labelled(label, &format!("cursor {variable} in"));
+            write_bound_cursor(out, &opened, cursor, depth);
+        }
+        LoopControl::Dynamic { targets, dynamic } => {
+            let text = format!("loop over {}", targets_text(targets));
+            line(out, depth, &labelled(label, &text));
+            write_dynamic(out, dynamic, depth + 1);
+        }
+        LoopControl::Array {
+            targets,
+            slice,
+            array,
+        } => {
+            let text = format!("array {} slice {slice} in {array}", targets_text(targets));
+            line(out, depth, &labelled(label, &text));
         }
     }
 }
@@ -224,9 +319,10 @@ fn every_statement_postgresql_ran_is_read_in_place() {
               declare c cursor
               declare n INT
               SELECT 1 FROM pp_docs
-              query SELECT id FROM pp_docs
+              query r in SELECT id FROM pp_docs
                 INSERT INTO pp_log VALUES (r.id)
               open c: SELECT id FROM pp_docs
+              fetch c into n
               block
                 UPDATE pp_docs SET id = id
                 handler
@@ -256,13 +352,15 @@ fn a_definer_update_and_its_return_value_are_read() {
 }
 
 #[test]
-fn into_targets_are_removed_wherever_postgresql_reads_them() {
+fn every_into_clause_is_kept_apart_from_its_statement() {
     let body = "DECLARE n INT; x INT; y INT; r RECORD;
     BEGIN
         SELECT count(*) INTO n FROM docs;
         SELECT INTO x, y a, b FROM docs;
         SELECT * INTO STRICT r FROM docs WHERE id = 1;
         INSERT INTO docs VALUES (1) RETURNING id INTO n;
+        UPDATE docs SET v = 1 RETURNING id, v INTO STRICT x, \"Y\";
+        DELETE FROM docs WHERE id = 1 RETURNING * INTO outer_block.r;
         MERGE INTO docs USING src ON docs.id = src.id WHEN MATCHED THEN DELETE;
         SELECT 1 FROM docs INTO r.field;
     END";
@@ -276,11 +374,20 @@ fn into_targets_are_removed_wherever_postgresql_reads_them() {
               declare y INT
               declare r RECORD
               SELECT count(*) FROM docs
+                into n
               SELECT a, b FROM docs
+                into x, y
               SELECT * FROM docs WHERE id = 1
+                into strict r
               INSERT INTO docs VALUES (1) RETURNING id
+                into n
+              UPDATE docs SET v = 1 RETURNING id, v
+                into strict x, \"Y\"
+              DELETE FROM docs WHERE id = 1 RETURNING *
+                into outer_block.r
               MERGE INTO docs USING src ON docs.id = src.id WHEN MATCHED THEN DELETE
               SELECT 1 FROM docs
+                into r.field
             "
         )
     );
@@ -305,6 +412,9 @@ fn every_expression_is_read_as_the_select_postgresql_evaluates() {
           \"total\" := 5;
           arr[1:2] := ARRAY[1, 2];
           arr[arr[1]] := 3;
+          arr[:2] := ARRAY[5];
+          arr[3:] := ARRAY[6];
+          pairs[1].first.inner := 7;
           RAISE NOTICE 'count % of %', total, (SELECT 1 FROM logs) USING HINT = (SELECT 'h' FROM hints);
           ASSERT total > 0, (SELECT 'bad' FROM messages);
           ASSERT (SELECT true FROM checks);
@@ -323,16 +433,15 @@ fn every_expression_is_read_as_the_select_postgresql_evaluates() {
               declare r RECORD
               declare arr INT[]
               declare extra INT default SELECT 4
-              SELECT a FROM docs WHERE id = 1
-              SELECT (SELECT max(id) FROM docs)
-              SELECT (SELECT 1 FROM docs)
-              SELECT 2
-              SELECT 5
-              SELECT 1
-              SELECT 2
-              SELECT ARRAY[1, 2]
-              SELECT arr[1]
-              SELECT 3
+              total := SELECT a FROM docs WHERE id = 1
+              r.field := SELECT (SELECT max(id) FROM docs)
+              arr[SELECT (SELECT 1 FROM docs)] := SELECT 2
+              \"total\" := SELECT 5
+              arr[SELECT 1:SELECT 2] := SELECT ARRAY[1, 2]
+              arr[SELECT arr[1]] := SELECT 3
+              arr[:SELECT 2] := SELECT ARRAY[5]
+              arr[SELECT 3:] := SELECT ARRAY[6]
+              pairs[SELECT 1].first.inner := SELECT 7
               SELECT total
               SELECT (SELECT 1 FROM logs)
               SELECT (SELECT 'h' FROM hints)
@@ -408,7 +517,9 @@ fn every_loop_keeps_its_control_apart_from_its_body() {
           FOR r IN plain LOOP EXIT; END LOOP;
           FOREACH y IN ARRAY x LOOP NULL; END LOOP;
           FOREACH x SLICE 1 IN ARRAY (SELECT array_agg(id) FROM docs) LOOP NULL; END LOOP;
+          FOREACH a, b IN ARRAY pairs LOOP NULL; END LOOP;
           FOR a, b IN WITH w AS (SELECT 1, 2) SELECT * FROM w LOOP NULL; END LOOP;
+          FOR r.field IN SELECT 1 LOOP NULL; END LOOP;
         END";
     assert_eq!(
         outline(body),
@@ -438,9 +549,11 @@ fn every_loop_keeps_its_control_apart_from_its_body() {
                 argument SELECT 1
                 argument SELECT (SELECT 2 FROM bounds)
               cursor r in plain: SELECT id FROM plain_docs
-              array SELECT x
-              array SELECT (SELECT array_agg(id) FROM docs)
-              query WITH w AS (SELECT 1, 2) SELECT * FROM w
+              array y slice 0 in SELECT x
+              array x slice 1 in SELECT (SELECT array_agg(id) FROM docs)
+              array a, b slice 0 in SELECT pairs
+              query a, b in WITH w AS (SELECT 1, 2) SELECT * FROM w
+              query r.field in SELECT 1
             "
         )
     );
@@ -464,6 +577,8 @@ fn a_cursor_query_runs_where_the_cursor_opens() {
           FETCH RELATIVE (SELECT 2 FROM steps) FROM d INTO n;
           MOVE FORWARD ALL IN d;
           FETCH NEXT FROM d INTO n;
+          FETCH FROM d INTO n, r.field;
+          FETCH d INTO n;
           OPEN c;
         END";
     assert_eq!(
@@ -484,8 +599,12 @@ fn a_cursor_query_runs_where_the_cursor_opens() {
                 open c: SELECT id FROM inner_docs
               open d: SELECT id FROM keyed WHERE id = k
                 argument SELECT (SELECT 1 FROM keys)
-              SELECT id FROM loose
+              open free for SELECT id FROM loose
               SELECT (SELECT 2 FROM steps)
+              fetch d into n
+              fetch d into n
+              fetch d into n, r.field
+              fetch d into n
               open c: SELECT id FROM outer_docs
             "
         )
@@ -513,12 +632,15 @@ fn sql_built_at_run_time_is_reported_with_the_expressions_that_build_it() {
               dynamic SELECT 'DELETE FROM ' || quote_ident(t)
                 using SELECT a
                 using SELECT (SELECT 1 FROM b)
+                into n
               dynamic SELECT format('SELECT %I', c)
                 using SELECT d
+                into strict n
               dynamic SELECT 'SELECT 1'
-              dynamic SELECT 'SELECT 2'
-                using SELECT e
-              loop over
+              open cur for
+                dynamic SELECT 'SELECT 2'
+                  using SELECT e
+              loop over r
                 dynamic SELECT 'SELECT 3'
                   using SELECT f
             "
@@ -563,6 +685,8 @@ fn each_handler_belongs_to_the_block_that_owns_it() {
                     handler
               UPDATE docs SET v = 1
               handler
+                diagnostics stacked
+                  msg = MessageText
                 DELETE FROM docs
             "
         )
@@ -748,6 +872,21 @@ fn a_malformed_body_is_a_syntax_error() {
         "DECLARE c CURSOR (k INT,) FOR SELECT 1; BEGIN NULL; END",
         "BEGIN FOR a, b IN 1..2 LOOP NULL; END LOOP; END",
         "DECLARE c CURSOR FOR SELECT 1; BEGIN FOR a, b IN c LOOP NULL; END LOOP; END",
+        "BEGIN FOR r IN EXECUTE 'SELECT 1' INTO n LOOP NULL; END LOOP; END",
+        "BEGIN OPEN c FOR EXECUTE 'SELECT 1' INTO n; END",
+        "BEGIN RETURN QUERY EXECUTE 'SELECT 1' INTO n; END",
+        "BEGIN EXECUTE 'SELECT 1' INTO a INTO b; END",
+        "BEGIN FETCH NEXT c INTO s; END",
+        "BEGIN FETCH c; END",
+        "BEGIN FETCH c INTO STRICT s; END",
+        "BEGIN GET CURRENT DIAGNOSTICS t = MESSAGE_TEXT; END",
+        "BEGIN GET STACKED DIAGNOSTICS n = ROW_COUNT; END",
+        "BEGIN GET DIAGNOSTICS n = ROW_COUNT n; END",
+        "BEGIN GET DIAGNOSTICS n ROW_COUNT; END",
+        "BEGIN GET DIAGNOSTICS n = \"ROW_COUNT\"; END",
+        "BEGIN FOREACH x SLICE (1) IN ARRAY a LOOP NULL; END LOOP; END",
+        "BEGIN x.* := 2; END",
+        "BEGIN x[] := 2; END",
     ] {
         assert!(
             matches!(embedded_sql(body), Err(Error::Syntax { .. })),
@@ -838,6 +977,115 @@ fn a_cursor_name_matches_by_postgresql_identifier_rules() {
         embedded_sql(r#"DECLARE "Mixed" CURSOR FOR SELECT 1; BEGIN OPEN mixed; END"#),
         Err(Error::UnboundCursor { .. })
     ));
+}
+
+#[test]
+fn every_diagnostics_item_is_kept_with_its_target() {
+    let body = "BEGIN
+        GET DIAGNOSTICS a = ROW_COUNT, b := pg_routine_oid, outer_block.c = PG_CONTEXT;
+        GET CURRENT DIAGNOSTICS d = ROW_COUNT;
+    EXCEPTION WHEN others THEN
+        GET STACKED DIAGNOSTICS
+          e = RETURNED_SQLSTATE, f = COLUMN_NAME, g = CONSTRAINT_NAME, h = PG_DATATYPE_NAME,
+          i = MESSAGE_TEXT, j = TABLE_NAME, k = SCHEMA_NAME, l = PG_EXCEPTION_DETAIL,
+          m = PG_EXCEPTION_HINT, n = PG_EXCEPTION_CONTEXT, r.o = PG_CONTEXT;
+    END";
+    assert_eq!(
+        outline(body),
+        expected(
+            "
+            block
+              diagnostics
+                a = RowCount
+                b = RoutineOid
+                outer_block.c = Context
+              diagnostics
+                d = RowCount
+              handler
+                diagnostics stacked
+                  e = ReturnedSqlstate
+                  f = ColumnName
+                  g = ConstraintName
+                  h = DatatypeName
+                  i = MessageText
+                  j = TableName
+                  k = SchemaName
+                  l = ExceptionDetail
+                  m = ExceptionHint
+                  n = ExceptionContext
+                  r.o = Context
+            "
+        )
+    );
+}
+
+#[test]
+fn a_call_keeps_its_arguments_in_its_sql() {
+    let block = embedded_sql("DECLARE s text; BEGIN CALL p(s); END").expect("a CALL reads");
+    let [Node::Statement { statement, into }] = block.statements.as_slice() else {
+        panic!("expected one statement, got {:?}", block.statements);
+    };
+    assert!(into.is_none());
+    let Statement::Call(call) = statement.as_ref() else {
+        panic!("expected a CALL, got {statement}");
+    };
+    let FunctionArguments::List(list) = &call.args else {
+        panic!("expected an argument list, got {}", call.args);
+    };
+    assert_eq!(list.args.len(), 1);
+    assert_eq!(list.args[0].to_string(), "s");
+}
+
+#[test]
+fn a_parameter_written_as_its_number_is_a_target() {
+    let body = "DECLARE c CURSOR FOR SELECT 1;
+    BEGIN
+        $1 := 3;
+        $1.f := 4;
+        SELECT 1, 2 INTO a, $2;
+        OPEN c;
+        FETCH c INTO $2;
+        GET DIAGNOSTICS $1 = ROW_COUNT;
+        FOR $1 IN SELECT 3 LOOP NULL; END LOOP;
+        FOREACH $1 IN ARRAY ARRAY[4] LOOP NULL; END LOOP;
+    END";
+    assert_eq!(
+        outline(body),
+        expected(
+            "
+            block
+              declare c cursor
+              $1 := SELECT 3
+              $1.f := SELECT 4
+              SELECT 1, 2
+                into a, $2
+              open c: SELECT 1
+              fetch c into $2
+              diagnostics
+                $1 = RowCount
+              query $1 in SELECT 3
+              array $1 slice 0 in SELECT ARRAY[4]
+            "
+        )
+    );
+}
+
+#[test]
+fn a_statement_keyword_followed_by_an_assignment_is_a_variable() {
+    let body = "BEGIN get := 4; open.f = 5; fetch[1] := 6; GET DIAGNOSTICS get = ROW_COUNT; END";
+    assert_eq!(
+        outline(body),
+        expected(
+            "
+            block
+              get := SELECT 4
+              open.f := SELECT 5
+              fetch[SELECT 1] := SELECT 6
+              diagnostics
+                get = RowCount
+            "
+        )
+    );
 }
 
 #[test]

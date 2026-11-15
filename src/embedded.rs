@@ -4,9 +4,10 @@
 //! PostgreSQL evaluates every PL/pgSQL expression as a `SELECT`, so each one
 //! appears here as the `SELECT` it runs, and [`expression`] recovers the
 //! expression itself. Names the body declares and the function's parameters
-//! are left as written. Each block lists the names it declares, with the
-//! types written for them and unresolved, which a caller holding the schema
-//! can resolve, and [`crate::namespace`] answers which of them a name reaches.
+//! are left as written, and so is every variable a statement assigns. Each
+//! block lists the names it declares, with the types written for them and
+//! unresolved, which a caller holding the schema can resolve, and
+//! [`crate::namespace`] answers which of them a name reaches.
 
 use alloc::{
     borrow::Cow,
@@ -20,8 +21,8 @@ use core::ops::Range;
 
 use sqlparser::{
     ast::{
-        DataType, Expr, GroupByExpr, ObjectName, Query, Select, SelectItem, SetExpr, Statement,
-        Value,
+        DataType, Expr, GroupByExpr, Ident, ObjectName, Query, Select, SelectItem, SetExpr,
+        Statement, Value,
     },
     dialect::PostgreSqlDialect,
     keywords::Keyword,
@@ -31,7 +32,7 @@ use sqlparser::{
 
 use crate::{
     Region, Scanner,
-    namespace::{Level, stored_parts},
+    namespace::{Level, stored, stored_parts},
 };
 
 /// How deep blocks and control structures may nest before reading stops,
@@ -205,11 +206,32 @@ pub struct CursorParameter {
 /// One step of a body.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
-    /// An SQL statement or query PostgreSQL runs at this point, with any
-    /// `INTO` target removed.
-    Statement(Box<Statement>),
+    /// An SQL statement or query PostgreSQL runs at this point.
+    Statement {
+        /// The statement, without the `INTO` clause PL/pgSQL reads out of it.
+        statement: Box<Statement>,
+        /// The `INTO` clause, which assigns the statement's first row.
+        into: Option<IntoTargets>,
+    },
+    /// `target := value`.
+    Assignment(Assignment),
     /// SQL text the body builds at run time and executes.
-    Dynamic(Dynamic),
+    Dynamic {
+        /// The command and its arguments.
+        dynamic: Dynamic,
+        /// The `INTO` clause of `EXECUTE`, which assigns the first row the
+        /// command returns.
+        into: Option<IntoTargets>,
+    },
+    /// `FETCH`, which assigns the row it reads.
+    ///
+    /// Any count its direction evaluates is the step before it.
+    Fetch(Fetch),
+    /// `GET [CURRENT | STACKED] DIAGNOSTICS`.
+    Diagnostics(Diagnostics),
+    /// `OPEN`, which assigns the cursor variable a generated portal name
+    /// when it holds null.
+    Open(Open),
     /// A nested block.
     Block(Block),
     /// An `IF` statement.
@@ -218,8 +240,6 @@ pub enum Node {
     Case(Case),
     /// A loop of any kind.
     Loop(Loop),
-    /// `OPEN` of a cursor declared with its query.
-    Open(BoundCursor),
 }
 
 /// A cursor declared with its query, as `OPEN` or a `FOR` loop opens it.
@@ -235,6 +255,183 @@ pub struct BoundCursor {
     /// It reads the names in reach where the cursor is declared and the
     /// cursor's parameters, which [`crate::namespace`] answers.
     pub query: Box<Statement>,
+}
+
+/// A variable, or a part of one, that a statement assigns.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Target {
+    /// The name up to the first subscript, as written. It holds the
+    /// variable, any label qualifying it and any fields of it, which only a
+    /// lookup tells apart.
+    pub name: ObjectName,
+    /// The subscripts after the name and the fields of the elements they
+    /// pick, in the order written.
+    ///
+    /// Only an assignment writes these.
+    pub indirection: Vec<Indirection>,
+}
+
+/// One step into the value a [`Target`] names.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Indirection {
+    /// `.field`, a field of a composite value.
+    Field(Ident),
+    /// `[index]`, as the `SELECT` that evaluates the index.
+    Index(Box<Query>),
+    /// `[lower:upper]`, each bound written as the `SELECT` that evaluates it.
+    Slice {
+        /// The first bound, unless omitted.
+        lower: Option<Box<Query>>,
+        /// The second bound, unless omitted.
+        upper: Option<Box<Query>>,
+    },
+}
+
+/// `target := value`, or `target = value`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Assignment {
+    /// What the value is assigned to.
+    pub target: Target,
+    /// The `SELECT` that evaluates the value.
+    pub value: Box<Query>,
+}
+
+/// `INTO [STRICT] target, ...`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct IntoTargets {
+    /// Whether `STRICT` makes any row count but one an error.
+    pub strict: bool,
+    /// One row or record variable, or the variables receiving the columns
+    /// in order.
+    pub targets: Vec<Target>,
+}
+
+/// `FETCH [direction {FROM | IN}] cursor INTO target, ...`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Fetch {
+    /// The cursor variable, as written.
+    pub cursor: ObjectName,
+    /// One row or record variable, or the variables receiving the columns
+    /// in order.
+    pub targets: Vec<Target>,
+}
+
+/// `GET [CURRENT | STACKED] DIAGNOSTICS target = item, ...`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Diagnostics {
+    /// Whether `STACKED` reads the error a handler caught, instead of the
+    /// statement run last.
+    pub stacked: bool,
+    /// Every `target = item`, in the order written.
+    pub items: Vec<DiagnosticsItem>,
+}
+
+/// One `target = item` of `GET DIAGNOSTICS`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DiagnosticsItem {
+    /// The variable the item is assigned to.
+    pub target: Target,
+    /// The item.
+    pub kind: DiagnosticsKind,
+}
+
+/// What `GET DIAGNOSTICS` reads.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DiagnosticsKind {
+    /// `ROW_COUNT`, only without `STACKED`.
+    RowCount,
+    /// `PG_ROUTINE_OID`, only without `STACKED`.
+    RoutineOid,
+    /// `PG_CONTEXT`.
+    Context,
+    /// `RETURNED_SQLSTATE`, only with `STACKED`.
+    ReturnedSqlstate,
+    /// `COLUMN_NAME`, only with `STACKED`.
+    ColumnName,
+    /// `CONSTRAINT_NAME`, only with `STACKED`.
+    ConstraintName,
+    /// `PG_DATATYPE_NAME`, only with `STACKED`.
+    DatatypeName,
+    /// `MESSAGE_TEXT`, only with `STACKED`.
+    MessageText,
+    /// `TABLE_NAME`, only with `STACKED`.
+    TableName,
+    /// `SCHEMA_NAME`, only with `STACKED`.
+    SchemaName,
+    /// `PG_EXCEPTION_DETAIL`, only with `STACKED`.
+    ExceptionDetail,
+    /// `PG_EXCEPTION_HINT`, only with `STACKED`.
+    ExceptionHint,
+    /// `PG_EXCEPTION_CONTEXT`, only with `STACKED`.
+    ExceptionContext,
+}
+
+impl DiagnosticsKind {
+    const KEYWORDS: [(&str, Self); 13] = [
+        ("ROW_COUNT", Self::RowCount),
+        ("PG_ROUTINE_OID", Self::RoutineOid),
+        ("PG_CONTEXT", Self::Context),
+        ("RETURNED_SQLSTATE", Self::ReturnedSqlstate),
+        ("COLUMN_NAME", Self::ColumnName),
+        ("CONSTRAINT_NAME", Self::ConstraintName),
+        ("PG_DATATYPE_NAME", Self::DatatypeName),
+        ("MESSAGE_TEXT", Self::MessageText),
+        ("TABLE_NAME", Self::TableName),
+        ("SCHEMA_NAME", Self::SchemaName),
+        ("PG_EXCEPTION_DETAIL", Self::ExceptionDetail),
+        ("PG_EXCEPTION_HINT", Self::ExceptionHint),
+        ("PG_EXCEPTION_CONTEXT", Self::ExceptionContext),
+    ];
+
+    /// The item `token` names.
+    fn of(token: &Token) -> Option<Self> {
+        Self::KEYWORDS
+            .iter()
+            .find(|(keyword, _)| is_keyword(token, keyword))
+            .map(|&(_, kind)| kind)
+    }
+
+    /// Whether PostgreSQL accepts the item with `STACKED` when `stacked`
+    /// holds, and without it otherwise.
+    const fn allowed(self, stacked: bool) -> bool {
+        match self {
+            Self::RowCount | Self::RoutineOid => !stacked,
+            Self::Context => true,
+            _ => stacked,
+        }
+    }
+}
+
+/// `OPEN cursor ...`, by where the query it runs comes from.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Open {
+    /// `OPEN cursor [(arguments)]`, for a cursor declared with its query.
+    Bound(BoundCursor),
+    /// `OPEN cursor [[NO] SCROLL] FOR query`.
+    Query {
+        /// The cursor variable, as written.
+        cursor: ObjectName,
+        /// The query.
+        query: Box<Statement>,
+    },
+    /// `OPEN cursor [[NO] SCROLL] FOR EXECUTE command [USING ...]`.
+    Dynamic {
+        /// The cursor variable, as written.
+        cursor: ObjectName,
+        /// The command and its arguments.
+        dynamic: Dynamic,
+    },
+}
+
+impl Open {
+    /// The cursor variable, as written.
+    #[must_use]
+    pub const fn cursor(&self) -> &ObjectName {
+        match self {
+            Self::Bound(bound) => &bound.name,
+            Self::Query { cursor, .. } | Self::Dynamic { cursor, .. } => cursor,
+        }
+    }
 }
 
 /// SQL built at run time by `EXECUTE`, `RETURN QUERY EXECUTE`,
@@ -333,7 +530,14 @@ pub enum LoopControl {
         step: Option<Box<Query>>,
     },
     /// `FOR target IN query LOOP`.
-    Query(Box<Statement>),
+    Query {
+        /// One row or record variable, or the variables receiving the
+        /// columns in order, each assigned every row in turn. The loop
+        /// declares none of them.
+        targets: Vec<Target>,
+        /// The query.
+        query: Box<Statement>,
+    },
     /// `FOR target IN cursor [(arguments)] LOOP`.
     Cursor {
         /// The record variable the loop declares for its statements, which
@@ -343,10 +547,25 @@ pub enum LoopControl {
         cursor: BoundCursor,
     },
     /// `FOR target IN EXECUTE command [USING ...] LOOP`.
-    Dynamic(Dynamic),
-    /// `FOREACH target [SLICE n] IN ARRAY array LOOP`, as the `SELECT` that
-    /// evaluates the array.
-    Array(Box<Query>),
+    Dynamic {
+        /// One row or record variable, or the variables receiving the
+        /// columns in order, each assigned every row in turn. The loop
+        /// declares none of them.
+        targets: Vec<Target>,
+        /// The command and its arguments.
+        dynamic: Dynamic,
+    },
+    /// `FOREACH target [SLICE n] IN ARRAY array LOOP`.
+    Array {
+        /// One variable, or the fields of a composite element in order,
+        /// each assigned every element or slice in turn. The loop declares
+        /// none of them.
+        targets: Vec<Target>,
+        /// The `SLICE` dimension, 0 without one, which assigns elements.
+        slice: u32,
+        /// The `SELECT` that evaluates the array.
+        array: Box<Query>,
+    },
 }
 
 /// Reads every SQL statement and expression a PL/pgSQL body runs.
@@ -368,11 +587,14 @@ pub enum LoopControl {
 /// use sqlparser_plpgsql::{embedded::Node, embedded_sql};
 ///
 /// let block = embedded_sql(
-///     "BEGIN PERFORM 1 FROM docs; EXECUTE 'DELETE FROM ' || t; END",
+///     "BEGIN PERFORM 1 FROM docs; s := 'DELETE FROM ' || t; EXECUTE s; END",
 /// )?;
-/// let Node::Statement(perform) = &block.statements[0] else { unreachable!() };
-/// assert_eq!(perform.to_string(), "SELECT 1 FROM docs");
-/// assert!(matches!(block.statements[1], Node::Dynamic(_)));
+/// let Node::Statement { statement, .. } = &block.statements[0] else { unreachable!() };
+/// assert_eq!(statement.to_string(), "SELECT 1 FROM docs");
+/// let Node::Assignment(assignment) = &block.statements[1] else { unreachable!() };
+/// assert_eq!(assignment.target.name.to_string(), "s");
+/// assert_eq!(assignment.value.to_string(), "SELECT 'DELETE FROM ' || t");
+/// assert!(matches!(block.statements[2], Node::Dynamic { .. }));
 /// # Ok::<(), sqlparser_plpgsql::embedded::Error>(())
 /// ```
 pub fn embedded_sql(body: &str) -> Result<Block, Error> {
@@ -413,9 +635,9 @@ pub fn embedded_sql(body: &str) -> Result<Block, Error> {
 /// let block = embedded_sql(
 ///     "BEGIN EXECUTE 'SELECT ' || t; EXECUTE c FROM commands() AS c; END",
 /// )?;
-/// let Node::Dynamic(built) = &block.statements[0] else { unreachable!() };
+/// let Node::Dynamic { dynamic: built, .. } = &block.statements[0] else { unreachable!() };
 /// assert_eq!(embedded::expression(&built.command).to_string(), "'SELECT ' || t");
-/// let Node::Dynamic(read) = &block.statements[1] else { unreachable!() };
+/// let Node::Dynamic { dynamic: read, .. } = &block.statements[1] else { unreachable!() };
 /// assert_eq!(
 ///     embedded::expression(&read.command).to_string(),
 ///     "(SELECT c FROM commands() AS c)",
@@ -541,6 +763,7 @@ enum Command {
     Perform,
     Open,
     Fetch,
+    Diagnostics,
     Silent,
 }
 
@@ -567,7 +790,7 @@ impl Command {
             ("OPEN", Command::Open),
             ("FETCH", Command::Fetch),
             ("MOVE", Command::Fetch),
-            ("GET", Command::Silent),
+            ("GET", Command::Diagnostics),
             ("CLOSE", Command::Silent),
             ("NULL", Command::Silent),
             ("COMMIT", Command::Silent),
@@ -799,13 +1022,17 @@ impl Reader {
         Ok(name)
     }
 
-    /// The name starting at the next token, as written, with how many tokens
-    /// it spans.
+    /// The name starting at the next token, or a parameter's `$n`, as
+    /// written with any fields after periods, with how many tokens it spans.
     fn peek_qualified(&self) -> Option<(ObjectName, usize)> {
-        let Some(Token::Word(first)) = self.peek() else {
-            return None;
+        let first = match self.peek()? {
+            Token::Word(first) => first.to_ident(Span::empty()),
+            Token::Placeholder(placeholder) if parameter_number(placeholder).is_some() => {
+                Ident::new(placeholder.clone())
+            }
+            _ => return None,
         };
-        let mut parts = Vec::from([first.to_ident(Span::empty())]);
+        let mut parts = Vec::from([first]);
         let mut length = 1;
         while let (Some(Token::Period), Some(Token::Word(word))) =
             (self.peek_nth(length), self.peek_nth(length + 1))
@@ -956,9 +1183,7 @@ impl Reader {
     /// Reads what follows `ALIAS FOR`.
     fn alias_target(&mut self) -> Result<AliasTarget, Error> {
         if let Some(Token::Placeholder(placeholder)) = self.peek()
-            && let Some(position) = placeholder
-                .strip_prefix('$')
-                .and_then(|digits| digits.parse().ok())
+            && let Some(position) = parameter_number(placeholder)
         {
             self.index += 1;
             return Ok(AliasTarget::Parameter(position));
@@ -1057,6 +1282,12 @@ impl Reader {
 
     fn statement(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
         let label = self.label()?;
+        // PostgreSQL takes a statement's first word for a variable when an
+        // assignment follows it, even an unreserved keyword such as `get`.
+        if label.is_none() && self.at_assignment() {
+            nodes.push(Node::Assignment(self.assignment()?));
+            return self.expect_semicolon();
+        }
         let Some(Token::Word(word)) = self.peek() else {
             return Err(self.syntax("a statement"));
         };
@@ -1107,19 +1338,23 @@ impl Reader {
             }
             Some(Command::Execute) => {
                 self.index += 1;
-                nodes.push(Node::Dynamic(self.dynamic(End::Semicolon)?));
+                let (dynamic, into) = self.dynamic(End::Semicolon, true)?;
+                nodes.push(Node::Dynamic { dynamic, into });
             }
             Some(Command::Perform) => {
                 self.index += 1;
                 nodes.push(evaluated(self.expression_until_semicolon()?));
             }
-            Some(Command::Open) => self.open(nodes)?,
+            Some(Command::Open) => nodes.push(Node::Open(self.open()?)),
             Some(Command::Fetch) => self.fetch(nodes)?,
+            Some(Command::Diagnostics) => nodes.push(Node::Diagnostics(self.diagnostics()?)),
             Some(Command::Silent) => {
                 self.segment("`;`", |token, _| *token == Token::SemiColon)?;
             }
-            None if self.at_assignment() => self.assignment(nodes)?,
-            None => nodes.push(Node::Statement(self.sql_statement()?)),
+            None => {
+                let (statement, into) = self.sql_statement()?;
+                nodes.push(Node::Statement { statement, into });
+            }
         }
         self.expect_semicolon()
     }
@@ -1197,15 +1432,25 @@ impl Reader {
             self.for_control()?
         } else {
             self.expect("FOREACH")?;
-            self.segment("IN", |token, _| {
-                is_keyword(token, "SLICE") || is_keyword(token, "IN")
-            })?;
-            if self.eat("SLICE") {
-                self.segment("IN", |token, _| is_keyword(token, "IN"))?;
-            }
+            let targets = self.targets("a loop target")?;
+            let slice = if self.eat("SLICE") {
+                let slice = match self.peek() {
+                    Some(Token::Number(digits, false)) => digits.parse().ok(),
+                    _ => None,
+                }
+                .ok_or_else(|| self.syntax("a slice dimension"))?;
+                self.index += 1;
+                slice
+            } else {
+                0
+            };
             self.expect("IN")?;
             self.expect("ARRAY")?;
-            LoopControl::Array(self.expression_until("LOOP")?)
+            LoopControl::Array {
+                targets,
+                slice,
+                array: self.expression_until("LOOP")?,
+            }
         };
         self.expect("LOOP")?;
         // The loop opens a level, which holds the variable a range or cursor
@@ -1227,10 +1472,13 @@ impl Reader {
     }
 
     fn for_control(&mut self) -> Result<LoopControl, Error> {
-        let target = self.segment("IN", |token, _| is_keyword(token, "IN"))?;
-        self.index += 1;
+        let targets = self.targets("a loop target")?;
+        self.expect("IN")?;
         if self.eat("EXECUTE") {
-            return Ok(LoopControl::Dynamic(self.dynamic(End::Loop)?));
+            return Ok(LoopControl::Dynamic {
+                targets,
+                dynamic: self.dynamic(End::Loop, false)?.0,
+            });
         }
         let reverse = self.eat("REVERSE");
         if !reverse
@@ -1248,7 +1496,7 @@ impl Reader {
                 Vec::new()
             };
             return Ok(LoopControl::Cursor {
-                variable: self.loop_variable(target)?,
+                variable: loop_variable(&targets)?,
                 cursor: BoundCursor {
                     name,
                     arguments,
@@ -1264,7 +1512,10 @@ impl Reader {
             if reverse {
                 return Err(self.syntax("`..`"));
             }
-            return Ok(LoopControl::Query(parse(&self.tokens[first])?));
+            return Ok(LoopControl::Query {
+                targets,
+                query: parse(&self.tokens[first])?,
+            });
         }
         let lower = select(&self.tokens[first])?;
         self.index += 2;
@@ -1277,23 +1528,11 @@ impl Reader {
             None
         };
         Ok(LoopControl::Range {
-            variable: self.loop_variable(target)?,
+            variable: loop_variable(&targets)?,
             lower,
             upper,
             step,
         })
-    }
-
-    /// The one variable a range or cursor `FOR` loop declares, from the
-    /// target written before its `IN`.
-    fn loop_variable(&self, target: Range<usize>) -> Result<String, Error> {
-        match &self.tokens[target] {
-            [Token::Word(word)] => Ok(identifier(word)),
-            tokens => Err(Error::Syntax {
-                expected: "one loop variable",
-                found: render(tokens, false),
-            }),
-        }
     }
 
     /// Reads the arguments of a cursor after its `(`, through the `)`.
@@ -1319,18 +1558,19 @@ impl Reader {
         Ok(arguments)
     }
 
-    /// Reads a command string and its `INTO` and `USING` clauses, in either
-    /// order, up to `end`.
-    fn dynamic(&mut self, end: End) -> Result<Dynamic, Error> {
+    /// Reads a command string and its `USING` clause up to `end`, with an
+    /// `INTO` clause in either order where `into` allows one, as only the
+    /// `EXECUTE` statement does.
+    fn dynamic(&mut self, end: End, into: bool) -> Result<(Dynamic, Option<IntoTargets>), Error> {
         let clause_or_end = move |token: &Token| {
             end.at(token) || is_keyword(token, "INTO") || is_keyword(token, "USING")
         };
         let command = self.expression("the end of the command", |token, _| clause_or_end(token))?;
         let mut arguments = Vec::new();
+        let mut targets = None;
         loop {
-            if self.eat("INTO") {
-                self.index = into_target_end(&self.tokens, self.index)
-                    .ok_or_else(|| self.syntax("an INTO target"))?;
+            if into && targets.is_none() && self.eat("INTO") {
+                targets = Some(self.read_into()?);
             } else if self.eat("USING") {
                 loop {
                     arguments.push(*self.expression("the end of the command", |token, _| {
@@ -1344,7 +1584,49 @@ impl Reader {
                 break;
             }
         }
-        Ok(Dynamic { command, arguments })
+        Ok((Dynamic { command, arguments }, targets))
+    }
+
+    /// Reads `[STRICT] target, ...` after an `INTO`.
+    fn read_into(&mut self) -> Result<IntoTargets, Error> {
+        let strict = self.eat("STRICT");
+        Ok(IntoTargets {
+            strict,
+            targets: self.targets("an INTO target")?,
+        })
+    }
+
+    /// Reads `target, ...`, each a name with any fields, as `INTO`, `FETCH`,
+    /// `FOR` and `FOREACH` write them.
+    fn targets(&mut self, expected: &'static str) -> Result<Vec<Target>, Error> {
+        let mut targets = Vec::from([self.plain_target(expected)?]);
+        while self.peek() == Some(&Token::Comma)
+            && matches!(
+                self.peek_nth(1),
+                Some(Token::Word(_) | Token::Placeholder(_))
+            )
+        {
+            self.index += 1;
+            targets.push(self.plain_target(expected)?);
+        }
+        Ok(targets)
+    }
+
+    /// Reads a target without subscripts.
+    fn plain_target(&mut self, expected: &'static str) -> Result<Target, Error> {
+        Ok(Target {
+            name: self.dotted_name(expected)?,
+            indirection: Vec::new(),
+        })
+    }
+
+    /// Reads the name [`Self::peek_qualified`] finds.
+    fn dotted_name(&mut self, expected: &'static str) -> Result<ObjectName, Error> {
+        let Some((name, length)) = self.peek_qualified() else {
+            return Err(self.syntax(expected));
+        };
+        self.index += length;
+        Ok(name)
     }
 
     fn exit(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
@@ -1361,11 +1643,18 @@ impl Reader {
     fn return_statement(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
         self.index += 1;
         if self.eat("QUERY") {
-            if self.eat("EXECUTE") {
-                nodes.push(Node::Dynamic(self.dynamic(End::Semicolon)?));
+            let node = if self.eat("EXECUTE") {
+                Node::Dynamic {
+                    dynamic: self.dynamic(End::Semicolon, false)?.0,
+                    into: None,
+                }
             } else {
-                nodes.push(Node::Statement(self.statement_until_semicolon()?));
-            }
+                Node::Statement {
+                    statement: self.statement_until_semicolon()?,
+                    into: None,
+                }
+            };
+            nodes.push(node);
             return Ok(());
         }
         self.eat("NEXT");
@@ -1416,28 +1705,30 @@ impl Reader {
         Ok(())
     }
 
-    fn open(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
+    fn open(&mut self) -> Result<Open, Error> {
         self.index += 1;
-        let Some((name, length)) = self.peek_qualified() else {
-            return Err(self.syntax("a cursor name"));
-        };
-        self.index += length;
+        let cursor = self.dotted_name("a cursor name")?;
         if self.eat("NO") {
             self.expect("SCROLL")?;
         } else {
             self.eat("SCROLL");
         }
         if self.eat("FOR") {
-            if self.eat("EXECUTE") {
-                nodes.push(Node::Dynamic(self.dynamic(End::Semicolon)?));
+            return Ok(if self.eat("EXECUTE") {
+                Open::Dynamic {
+                    cursor,
+                    dynamic: self.dynamic(End::Semicolon, false)?.0,
+                }
             } else {
-                nodes.push(Node::Statement(self.statement_until_semicolon()?));
-            }
-            return Ok(());
+                Open::Query {
+                    cursor,
+                    query: self.statement_until_semicolon()?,
+                }
+            });
         }
-        let Some(query) = self.bound_cursor(&name).cloned().map(Box::new) else {
+        let Some(query) = self.bound_cursor(&cursor).cloned().map(Box::new) else {
             return Err(Error::UnboundCursor {
-                name: stored_parts(&name).join("."),
+                name: stored_parts(&cursor).join("."),
             });
         };
         let arguments = if self.eat_token(&Token::LParen) {
@@ -1445,25 +1736,28 @@ impl Reader {
         } else {
             Vec::new()
         };
-        nodes.push(Node::Open(BoundCursor {
-            name,
+        Ok(Open::Bound(BoundCursor {
+            name: cursor,
             arguments,
             query,
-        }));
-        Ok(())
+        }))
     }
 
     /// Reads `FETCH` or `MOVE`, whose direction may count rows with an
-    /// expression.
+    /// expression, and the targets `FETCH` assigns.
     fn fetch(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
         const DIRECTIONS: [&str; 9] = [
             "NEXT", "PRIOR", "FIRST", "LAST", "ABSOLUTE", "RELATIVE", "FORWARD", "BACKWARD", "ALL",
         ];
+        let fetch = self.at("FETCH");
         self.index += 1;
         let direction = self.segment("`;`", |token, _| {
-            *token == Token::SemiColon || is_keyword(token, "FROM") || is_keyword(token, "IN")
+            *token == Token::SemiColon
+                || is_keyword(token, "FROM")
+                || is_keyword(token, "IN")
+                || is_keyword(token, "INTO")
         })?;
-        if self.peek() != Some(&Token::SemiColon) {
+        if self.eat("FROM") || self.eat("IN") {
             let count = &self.tokens[direction];
             let skipped = count
                 .iter()
@@ -1472,14 +1766,58 @@ impl Reader {
             if skipped < count.len() {
                 nodes.push(evaluated(select(&count[skipped..])?));
             }
-            self.segment("`;`", |token, _| *token == Token::SemiColon)?;
+        } else {
+            // Without a direction, the cursor comes first.
+            self.index = direction.start;
+        }
+        let cursor = self.dotted_name("a cursor")?;
+        if fetch {
+            self.expect("INTO")?;
+            let targets = self.targets("an INTO target")?;
+            nodes.push(Node::Fetch(Fetch { cursor, targets }));
         }
         Ok(())
     }
 
-    /// True when the statement starts with an assignment target, a name
-    /// with any fields and subscripts, followed by `:=` or `=`.
+    /// Reads `GET [CURRENT | STACKED] DIAGNOSTICS target = item, ...`.
+    fn diagnostics(&mut self) -> Result<Diagnostics, Error> {
+        self.index += 1;
+        let stacked = self.eat("STACKED");
+        if !stacked {
+            self.eat("CURRENT");
+        }
+        self.expect("DIAGNOSTICS")?;
+        let mut items = Vec::new();
+        loop {
+            let target = self.plain_target("a diagnostics target")?;
+            if !(self.eat_token(&Token::Eq) || self.eat_token(&Token::Assignment)) {
+                return Err(self.syntax("`=`"));
+            }
+            let Some(kind) = self
+                .peek()
+                .and_then(DiagnosticsKind::of)
+                .filter(|kind| kind.allowed(stacked))
+            else {
+                return Err(self.syntax(if stacked {
+                    "an item of GET STACKED DIAGNOSTICS"
+                } else {
+                    "an item of GET CURRENT DIAGNOSTICS"
+                }));
+            };
+            self.index += 1;
+            items.push(DiagnosticsItem { target, kind });
+            if !self.eat_token(&Token::Comma) {
+                return Ok(Diagnostics { stacked, items });
+            }
+        }
+    }
+
+    /// True when the statement starts with an assignment target, a name or
+    /// `$n` with any fields and subscripts, followed by `:=` or `=`.
     fn at_assignment(&self) -> bool {
+        if !matches!(self.peek(), Some(Token::Word(_) | Token::Placeholder(_))) {
+            return false;
+        }
         let mut at = self.index + 1;
         loop {
             match self.tokens.get(at) {
@@ -1508,41 +1846,65 @@ impl Reader {
         }
     }
 
-    /// Reads an assignment, yielding each subscript of its target and then
-    /// its value.
-    fn assignment(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
-        self.index += 1;
+    /// Reads an assignment, which [`Self::at_assignment`] found.
+    fn assignment(&mut self) -> Result<Assignment, Error> {
+        let name = self.dotted_name("a variable")?;
+        let mut indirection = Vec::new();
         loop {
-            match self.peek() {
-                Some(Token::Period) => self.index += 2,
-                Some(Token::LBracket) => {
-                    self.index += 1;
-                    loop {
-                        nodes.push(evaluated(self.expression("`]`", |token, _| {
-                            matches!(token, Token::Colon | Token::RBracket)
-                        })?));
-                        if !self.eat_token(&Token::Colon) {
-                            break;
-                        }
-                    }
-                    self.index += 1;
-                }
-                _ => break,
+            if self.eat_token(&Token::LBracket) {
+                indirection.push(self.subscript()?);
+            } else if self.eat_token(&Token::Period) {
+                let Some(Token::Word(field)) = self.peek() else {
+                    return Err(self.syntax("a field"));
+                };
+                indirection.push(Indirection::Field(field.to_ident(Span::empty())));
+                self.index += 1;
+            } else {
+                break;
             }
         }
+        // Past the `:=` or `=`.
         self.index += 1;
-        nodes.push(evaluated(self.expression_until_semicolon()?));
-        Ok(())
+        Ok(Assignment {
+            target: Target { name, indirection },
+            value: self.expression_until_semicolon()?,
+        })
     }
 
-    /// Reads an SQL statement up to its `;`, dropping its `INTO` target the
-    /// way PostgreSQL does.
+    /// Reads a subscript after its `[`, through the `]`.
+    fn subscript(&mut self) -> Result<Indirection, Error> {
+        let lower = self.subscript_bound()?;
+        let subscript = if self.eat_token(&Token::Colon) {
+            Indirection::Slice {
+                lower,
+                upper: self.subscript_bound()?,
+            }
+        } else {
+            Indirection::Index(lower.ok_or_else(|| self.syntax("a subscript"))?)
+        };
+        self.expect_token(&Token::RBracket, "`]`")?;
+        Ok(subscript)
+    }
+
+    /// Reads the expression of a subscript up to its `:` or `]`, if any.
+    fn subscript_bound(&mut self) -> Result<Option<Box<Query>>, Error> {
+        if matches!(self.peek(), Some(Token::Colon | Token::RBracket)) {
+            return Ok(None);
+        }
+        self.expression("`]`", |token, _| {
+            matches!(token, Token::Colon | Token::RBracket)
+        })
+        .map(Some)
+    }
+
+    /// Reads an SQL statement up to its `;`, taking out its `INTO` clause
+    /// the way PostgreSQL does.
     ///
     /// An `INTO` right after `INSERT` or `MERGE`, or anywhere in `IMPORT`,
     /// belongs to the SQL. A routine defined with `BEGIN ATOMIC` keeps the
     /// `;` inside its body, which PostgreSQL finds by counting `BEGIN` and
     /// `CASE` against `END`.
-    fn sql_statement(&mut self) -> Result<Box<Statement>, Error> {
+    fn sql_statement(&mut self) -> Result<(Box<Statement>, Option<IntoTargets>), Error> {
         let start = self.index;
         let starts = |offset: usize, keyword: &str| {
             self.tokens
@@ -1560,7 +1922,7 @@ impl Reader {
         let imports = starts(0, "IMPORT");
         let mut parens = 0_usize;
         let mut begins = 0_usize;
-        let mut into: Option<Range<usize>> = None;
+        let mut into: Option<(Range<usize>, IntoTargets)> = None;
 
         loop {
             let Some(token) = self.peek() else {
@@ -1589,54 +1951,22 @@ impl Reader {
                 if into.is_some() {
                     return Err(self.syntax("a single INTO"));
                 }
-                let end = into_target_end(&self.tokens, self.index + 1)
-                    .ok_or_else(|| self.syntax("an INTO target"))?;
-                into = Some(self.index..end);
-                self.index = end;
+                let clause = self.index;
+                self.index += 1;
+                let targets = self.read_into()?;
+                into = Some((clause..self.index, targets));
             } else {
                 self.index += 1;
             }
         }
 
-        match into {
-            None => parse(&self.tokens[start..self.index]),
-            Some(into) => {
-                let mut kept = Vec::with_capacity(self.index - start - into.len());
-                kept.extend_from_slice(&self.tokens[start..into.start]);
-                kept.extend_from_slice(&self.tokens[into.end..self.index]);
-                parse(&kept)
-            }
-        }
-    }
-}
-
-/// Where the `INTO` target that starts at `at` ends: an optional `STRICT`,
-/// then names with any fields, separated by commas.
-///
-/// `None` when no name follows.
-fn into_target_end(tokens: &[Token], mut at: usize) -> Option<usize> {
-    if tokens
-        .get(at)
-        .is_some_and(|token| is_keyword(token, "STRICT"))
-    {
-        at += 1;
-    }
-    if !matches!(tokens.get(at), Some(Token::Word(_))) {
-        return None;
-    }
-    loop {
-        at += 1;
-        while matches!(tokens.get(at), Some(Token::Period))
-            && matches!(tokens.get(at + 1), Some(Token::Word(_)))
-        {
-            at += 2;
-        }
-        if !(matches!(tokens.get(at), Some(Token::Comma))
-            && matches!(tokens.get(at + 1), Some(Token::Word(_))))
-        {
-            return Some(at);
-        }
-        at += 1;
+        let Some((range, targets)) = into else {
+            return Ok((parse(&self.tokens[start..self.index])?, None));
+        };
+        let mut kept = Vec::with_capacity(self.index - start - range.len());
+        kept.extend_from_slice(&self.tokens[start..range.start]);
+        kept.extend_from_slice(&self.tokens[range.end..self.index]);
+        Ok((parse(&kept)?, Some(targets)))
     }
 }
 
@@ -1652,7 +1982,10 @@ fn select(tokens: &[Token]) -> Result<Box<Query>, Error> {
 
 /// The step that evaluates `select`, an expression read as its `SELECT`.
 fn evaluated(select: Box<Query>) -> Node {
-    Node::Statement(Box::new(Statement::Query(select)))
+    Node::Statement {
+        statement: Box::new(Statement::Query(select)),
+        into: None,
+    }
 }
 
 /// Reads all of `tokens` with `read`, behind a `SELECT` when `select` holds.
@@ -1742,6 +2075,33 @@ fn is_string_literal(token: &Token) -> bool {
 /// The name an identifier denotes, as PostgreSQL folds it.
 fn identifier(word: &Word) -> String {
     folded(&word.value, word.quote_style.is_some())
+}
+
+/// The position a parameter's `$n` names.
+fn parameter_number(placeholder: &str) -> Option<usize> {
+    placeholder
+        .strip_prefix('$')
+        .and_then(|digits| digits.parse().ok())
+}
+
+/// The one variable a range or cursor `FOR` loop declares, from the
+/// targets written before its `IN`.
+fn loop_variable(targets: &[Target]) -> Result<String, Error> {
+    if let [Target { name, indirection }] = targets
+        && indirection.is_empty()
+        && let [part] = name.0.as_slice()
+        && let Some(ident) = part.as_ident()
+    {
+        return Ok(stored(ident));
+    }
+    let written: Vec<String> = targets
+        .iter()
+        .map(|target| target.name.to_string())
+        .collect();
+    Err(Error::Syntax {
+        expected: "one loop variable",
+        found: written.join(", "),
+    })
 }
 
 /// The name an identifier written as `value` denotes, as PostgreSQL folds

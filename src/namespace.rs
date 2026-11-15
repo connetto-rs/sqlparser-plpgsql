@@ -31,7 +31,7 @@ use sqlparser::ast::{Ident, ObjectName, Query, Statement};
 
 use crate::embedded::{
     AliasTarget, Block, BoundCursor, Branch, Cursor, CursorParameter, Declaration, DeclarationKind,
-    DeclaredType, Dynamic, Loop, LoopControl, Node,
+    DeclaredType, Dynamic, Indirection, Loop, LoopControl, Node, Open, Target,
 };
 
 /// An error refusing a body PostgreSQL does not compile, found while
@@ -333,7 +333,7 @@ pub enum Sql<'body> {
     /// `FOR` loop over rows or the query of a cursor that opens.
     Statement(&'body Statement),
     /// The `SELECT` that evaluates an expression, such as a condition, a
-    /// loop bound, a cursor argument or a default.
+    /// loop bound, a cursor argument, a default or an assigned value.
     Expression(&'body Query),
     /// SQL built at run time, whose `USING` arguments read the same names
     /// as its command.
@@ -349,6 +349,36 @@ pub struct Site<'body> {
     pub namespace: Namespace,
 }
 
+/// A place a body assigns variables, with the names in reach there.
+#[derive(Clone, Debug)]
+pub struct WriteSite<'body> {
+    /// What assigns.
+    pub write: Write<'body>,
+    /// The names the targets of the write reach.
+    ///
+    /// For a declaration, that is the names declared before it. For a loop,
+    /// that is the loop's label alone inside the enclosing names, and the
+    /// variable a range or cursor `FOR` loop declares is [`Self::declared`].
+    pub namespace: Namespace,
+    /// The variable the write declares and assigns, for a declaration and
+    /// for a range or cursor `FOR` loop.
+    pub declared: Option<Name>,
+}
+
+/// What a [`WriteSite`] assigns with, borrowed from the [`Block`].
+#[derive(Clone, Copy, Debug)]
+pub enum Write<'body> {
+    /// A variable or cursor declaration, which on entering its block
+    /// assigns the default, a null, or for a cursor its own name.
+    Declaration(&'body Declaration),
+    /// A step assigning its targets. That is an assignment, a statement or
+    /// `EXECUTE` with `INTO`, `FETCH`, `GET DIAGNOSTICS`, `OPEN`, which
+    /// names a cursor holding null, or a `FOR` or `FOREACH` loop. It is also
+    /// a `CALL`, which assigns the arguments its procedure's `INOUT` and
+    /// `OUT` parameters take, as only the procedure's signature tells.
+    Node(&'body Node),
+}
+
 impl Block {
     /// Every statement and expression of the body this block reads, in body
     /// order, with the names PostgreSQL compiles each with.
@@ -358,7 +388,8 @@ impl Block {
     /// branch yields its condition before its statements, and a `CASE` its
     /// subject before every branch. A loop yields its control, which reads
     /// the names outside the variable the loop declares, before its
-    /// statements. A cursor that opens yields its arguments, then its query,
+    /// statements. An assignment yields its target's subscripts, then its
+    /// value. A cursor that opens yields its arguments, then its query,
     /// which reads the names in reach at the cursor's declaration and the
     /// cursor's parameters.
     ///
@@ -404,21 +435,82 @@ impl Block {
         signature: &Signature,
         holds_row: impl Fn(&Name) -> bool,
     ) -> Result<Vec<Site<'body>>, Error> {
+        Ok(self.walk(signature, &holds_row)?.sites)
+    }
+
+    /// Every place the body this block reads assigns variables, in body
+    /// order, with the names in reach at each.
+    ///
+    /// Each variable a name reaches has one [`Name::id`] in a reading, so the
+    /// targets of two writes name the same variable when their lookups give
+    /// equal names. The values a write assigns and any subscripts of its
+    /// targets are among [`Self::sites`]. `holds_row` answers as for
+    /// [`Self::sites`].
+    ///
+    /// # Errors
+    ///
+    /// Returns the errors [`Self::sites`] returns.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use sqlparser_plpgsql::{
+    ///     embedded::Node,
+    ///     embedded_sql,
+    ///     namespace::{FunctionKind, Signature, Write},
+    /// };
+    ///
+    /// let block = embedded_sql("DECLARE s text; BEGIN s := 'SELECT ' || p; EXECUTE s; END")?;
+    /// let signature = Signature {
+    ///     name: "f".into(),
+    ///     parameters: vec![Some("p".into())],
+    ///     kind: FunctionKind::Plain,
+    /// };
+    /// let writes = block
+    ///     .write_sites(&signature, |_| false)
+    ///     .expect("the body declares no alias and opens no cursor");
+    /// let declared = writes[0].declared.as_ref().expect("s is declared");
+    /// let Write::Node(Node::Assignment(assignment)) = writes[1].write else {
+    ///     unreachable!()
+    /// };
+    /// assert_eq!(assignment.value.to_string(), "SELECT 'SELECT ' || p");
+    /// let (assigned, _) = writes[1]
+    ///     .namespace
+    ///     .lookup(&["s"], |_| false)
+    ///     .expect("s is in reach");
+    /// assert_eq!(assigned, declared);
+    /// # Ok::<(), sqlparser_plpgsql::embedded::Error>(())
+    /// ```
+    pub fn write_sites<'body>(
+        &'body self,
+        signature: &Signature,
+        holds_row: impl Fn(&Name) -> bool,
+    ) -> Result<Vec<WriteSite<'body>>, Error> {
+        Ok(self.walk(signature, &holds_row)?.write_sites)
+    }
+
+    /// Walks the body, numbering its variables and recording every site.
+    fn walk<'body, 'predicate>(
+        &'body self,
+        signature: &Signature,
+        holds_row: &'predicate dyn Fn(&Name) -> bool,
+    ) -> Result<Collector<'body, 'predicate>, Error> {
         let mut collector = Collector {
-            holds_row: &holds_row,
+            holds_row,
             next_id: 0,
             cursors: BTreeMap::new(),
             sites: Vec::new(),
+            write_sites: Vec::new(),
         };
         let function = collector.function_level(signature);
         collector.block(self, &function)?;
-        Ok(collector.sites)
+        Ok(collector)
     }
 }
 
 /// Walks a body in order, numbering its variables and recording each
 /// statement and expression with the names in reach where PostgreSQL reads
-/// it.
+/// it, and each write with the names its targets reach.
 struct Collector<'body, 'predicate> {
     holds_row: &'predicate dyn Fn(&Name) -> bool,
     next_id: usize,
@@ -426,6 +518,7 @@ struct Collector<'body, 'predicate> {
     /// of the cursor.
     cursors: BTreeMap<usize, Names>,
     sites: Vec<Site<'body>>,
+    write_sites: Vec<WriteSite<'body>>,
 }
 
 impl<'body> Collector<'body, '_> {
@@ -470,7 +563,11 @@ impl<'body> Collector<'body, '_> {
         let mut level = Level::new(block.label.clone().map(Cow::Owned), Some(outer));
         for declaration in &block.declarations {
             let name = match &declaration.kind {
-                DeclarationKind::Alias(target) => self.aliased(&level, declaration, target)?,
+                DeclarationKind::Alias(target) => {
+                    let name = self.aliased(&level, declaration, target)?;
+                    level.declare(declaration.name.clone(), name);
+                    continue;
+                }
                 DeclarationKind::Variable(variable) => {
                     if let Some(default) = &variable.default {
                         self.site(Sql::Expression(default), &level);
@@ -491,6 +588,7 @@ impl<'body> Collector<'body, '_> {
                     name
                 }
             };
+            self.write(Write::Declaration(declaration), &level, Some(name.clone()));
             level.declare(declaration.name.clone(), name);
         }
         self.nodes(&block.statements, &level)?;
@@ -569,8 +667,34 @@ impl<'body> Collector<'body, '_> {
     fn nodes(&mut self, nodes: &'body [Node], level: &Names) -> Result<(), Error> {
         for node in nodes {
             match node {
-                Node::Statement(statement) => self.site(Sql::Statement(statement), level),
-                Node::Dynamic(dynamic) => self.site(Sql::Dynamic(dynamic), level),
+                Node::Statement { statement, into } => {
+                    self.site(Sql::Statement(statement), level);
+                    if into.is_some() || matches!(**statement, Statement::Call(_)) {
+                        self.write(Write::Node(node), level, None);
+                    }
+                }
+                Node::Assignment(assignment) => {
+                    self.subscripts(&assignment.target, level);
+                    self.site(Sql::Expression(&assignment.value), level);
+                    self.write(Write::Node(node), level, None);
+                }
+                Node::Dynamic { dynamic, into } => {
+                    self.site(Sql::Dynamic(dynamic), level);
+                    if into.is_some() {
+                        self.write(Write::Node(node), level, None);
+                    }
+                }
+                Node::Fetch(_) | Node::Diagnostics(_) => {
+                    self.write(Write::Node(node), level, None);
+                }
+                Node::Open(open) => {
+                    match open {
+                        Open::Bound(cursor) => self.opened(cursor, level)?,
+                        Open::Query { query, .. } => self.site(Sql::Statement(query), level),
+                        Open::Dynamic { dynamic, .. } => self.site(Sql::Dynamic(dynamic), level),
+                    }
+                    self.write(Write::Node(node), level, None);
+                }
                 Node::Block(block) => self.block(block, level)?,
                 Node::If(conditional) => {
                     self.branches(&conditional.branches, level)?;
@@ -583,11 +707,25 @@ impl<'body> Collector<'body, '_> {
                     self.branches(&case.branches, level)?;
                     self.nodes(&case.otherwise, level)?;
                 }
-                Node::Loop(repeated) => self.looped(repeated, level)?,
-                Node::Open(cursor) => self.opened(cursor, level)?,
+                Node::Loop(repeated) => self.looped(node, repeated, level)?,
             }
         }
         Ok(())
+    }
+
+    /// The subscripts of `target`, in the order written.
+    fn subscripts(&mut self, target: &'body Target, level: &Names) {
+        for step in &target.indirection {
+            match step {
+                Indirection::Field(_) => {}
+                Indirection::Index(index) => self.site(Sql::Expression(index), level),
+                Indirection::Slice { lower, upper } => {
+                    for bound in [lower, upper].into_iter().flatten() {
+                        self.site(Sql::Expression(bound), level);
+                    }
+                }
+            }
+        }
     }
 
     /// Each branch's condition, then its statements.
@@ -601,13 +739,20 @@ impl<'body> Collector<'body, '_> {
 
     /// A loop opens a level, labelled with its label, which holds the
     /// variable a range or cursor `FOR` loop declares once its control is
-    /// read.
-    fn looped(&mut self, repeated: &'body Loop, outer: &Names) -> Result<(), Error> {
+    /// read. The loop's write reaches the level without that variable.
+    fn looped(
+        &mut self,
+        node: &'body Node,
+        repeated: &'body Loop,
+        outer: &Names,
+    ) -> Result<(), Error> {
         let mut level = Level::new(repeated.label.clone().map(Cow::Owned), Some(outer));
         match &repeated.control {
             LoopControl::Unconditional => {}
-            LoopControl::While(expression) | LoopControl::Array(expression) => {
-                self.site(Sql::Expression(expression), &level);
+            LoopControl::While(expression) => self.site(Sql::Expression(expression), &level),
+            LoopControl::Array { array, .. } => {
+                self.site(Sql::Expression(array), &level);
+                self.write(Write::Node(node), &level, None);
             }
             LoopControl::Range {
                 variable,
@@ -624,18 +769,26 @@ impl<'body> Collector<'body, '_> {
                 let index = self.name(NameKind::LoopIndex {
                     variable: variable.clone(),
                 });
+                self.write(Write::Node(node), &level, Some(index.clone()));
                 level.declare(variable.clone(), index);
             }
-            LoopControl::Query(query) => self.site(Sql::Statement(query), &level),
+            LoopControl::Query { query, .. } => {
+                self.site(Sql::Statement(query), &level);
+                self.write(Write::Node(node), &level, None);
+            }
             LoopControl::Cursor { variable, cursor } => {
                 self.opened(cursor, &level)?;
                 let record = self.name(NameKind::LoopRecord {
                     variable: variable.clone(),
                     query: Arc::new((*cursor.query).clone()),
                 });
+                self.write(Write::Node(node), &level, Some(record.clone()));
                 level.declare(variable.clone(), record);
             }
-            LoopControl::Dynamic(dynamic) => self.site(Sql::Dynamic(dynamic), &level),
+            LoopControl::Dynamic { dynamic, .. } => {
+                self.site(Sql::Dynamic(dynamic), &level);
+                self.write(Write::Node(node), &level, None);
+            }
         }
         self.nodes(&repeated.statements, &level)
     }
@@ -667,6 +820,16 @@ impl<'body> Collector<'body, '_> {
             },
         });
     }
+
+    fn write(&mut self, write: Write<'body>, level: &Names, declared: Option<Name>) {
+        self.write_sites.push(WriteSite {
+            write,
+            namespace: Namespace {
+                level: level.clone(),
+            },
+            declared,
+        });
+    }
 }
 
 /// The parts of `name` as PostgreSQL stores them. A part that is no
@@ -679,7 +842,7 @@ pub(crate) fn stored_parts(name: &ObjectName) -> Vec<String> {
 }
 
 /// The name `ident` denotes, as PostgreSQL stores it.
-fn stored(ident: &Ident) -> String {
+pub(crate) fn stored(ident: &Ident) -> String {
     crate::embedded::folded(&ident.value, ident.quote_style.is_some())
 }
 
