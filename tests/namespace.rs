@@ -6,9 +6,12 @@ use std::{collections::HashSet, thread};
 
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use sqlparser_plpgsql::{
-    embedded::{self, Block, Dynamic, Error as ReadError},
+    embedded::{self, Block, Dynamic, Error as ReadError, LoopControl, Node},
     embedded_sql,
-    namespace::{Error, FunctionKind, Name, NameKind, Signature, Site, Sql, TriggerVariable},
+    namespace::{
+        Error, FunctionKind, Name, NameKind, Namespace, Signature, Site, Sql, TriggerVariable,
+        Write, WriteSite,
+    },
 };
 
 fn read(body: &str) -> Block {
@@ -238,7 +241,9 @@ fn a_loop_declares_its_variable_for_its_statements_only() {
     assert_eq!(whole(&sites[0], &["lp", "i"]), index);
     assert_eq!(declared_name(whole(&sites[1], &["i"])), "i");
     match whole(&sites[2], &["r"]).kind() {
-        NameKind::LoopRecord { variable, query } => {
+        NameKind::LoopRecord {
+            variable, query, ..
+        } => {
             assert_eq!(variable, "r");
             assert_eq!(query.to_string(), "SELECT 1 AS v");
         }
@@ -586,7 +591,7 @@ fn every_statement_and_expression_comes_in_body_order() {
         [
             "expression SELECT 1",
             "statement SELECT 2",
-            "statement SELECT 3",
+            "expression SELECT 3",
             "expression SELECT 4",
             "statement SELECT 5",
             "expression SELECT 6",
@@ -618,6 +623,30 @@ fn every_statement_and_expression_comes_in_body_order() {
             "statement SELECT 31",
         ]
     );
+}
+
+#[test]
+fn an_assignment_reads_its_subscripts_then_its_value() {
+    let block = read(
+        "DECLARE a int[]; i int;
+        BEGIN a[i] := 1; a[2:i] := 3; a[:4] := i; END",
+    );
+    let sites = sites(&block, &plain("f", &[]));
+    assert_eq!(
+        outline(&sites),
+        [
+            "expression SELECT i",
+            "expression SELECT 1",
+            "expression SELECT 2",
+            "expression SELECT i",
+            "expression SELECT 3",
+            "expression SELECT 4",
+            "expression SELECT i",
+        ]
+    );
+    let i = whole(&sites[0], &["i"]);
+    assert_eq!(declared_name(i), "i");
+    assert_eq!(whole(&sites[6], &["i"]), i);
 }
 
 #[test]
@@ -758,4 +787,288 @@ fn a_body_declaring_many_names_is_read_shown_and_dropped_without_exhausting_the_
     let latest = shown.find("\"v19999\"").expect("the latest name is shown");
     assert!(latest < shown.find("\"v0\"").expect("the first name is shown"));
     assert!(shown.contains("\"found\""));
+}
+
+/// The write sites of `block`, every variable taken for a scalar.
+fn writes<'body>(block: &'body Block, signature: &Signature) -> Vec<WriteSite<'body>> {
+    block
+        .write_sites(signature, |_| false)
+        .unwrap_or_else(|error| panic!("{error}"))
+}
+
+/// The variable `parts` reaches whole in `namespace`.
+fn whole_in<'namespace>(namespace: &'namespace Namespace, parts: &[&str]) -> &'namespace Name {
+    match namespace.lookup(parts, |_| false) {
+        Some((name, consumed)) if consumed == parts.len() => name,
+        other => panic!("{parts:?} reaches {other:?}"),
+    }
+}
+
+/// The node a write site borrows.
+fn node<'body>(site: &WriteSite<'body>) -> &'body Node {
+    match site.write {
+        Write::Node(node) => node,
+        Write::Declaration(declaration) => panic!("expected a node, found {declaration:?}"),
+    }
+}
+
+#[test]
+fn every_write_comes_in_body_order_borrowing_its_node() {
+    let block = read(
+        "DECLARE s text := 'a'; t text; r record; arr text[]; c CURSOR (k int) FOR SELECT k; cur refcursor; y ALIAS FOR s;
+        BEGIN
+          s := 'b';
+          PERFORM 1;
+          SELECT 'c' INTO t;
+          UPDATE docs SET v = 1;
+          CALL p(t);
+          EXECUTE 'SELECT 1' INTO STRICT t;
+          EXECUTE 'SELECT 2';
+          OPEN cur FOR EXECUTE 'SELECT 3';
+          FETCH cur INTO t;
+          GET DIAGNOSTICS t = ROW_COUNT;
+          FOR r IN SELECT 1 LOOP NULL; END LOOP;
+          FOR r IN EXECUTE 'SELECT 4' LOOP NULL; END LOOP;
+          FOR i IN 1..2 LOOP NULL; END LOOP;
+          FOR r IN c(1) LOOP NULL; END LOOP;
+          FOREACH t IN ARRAY arr LOOP NULL; END LOOP;
+          WHILE false LOOP NULL; END LOOP;
+          OPEN c(2);
+        END",
+    );
+    let writes = writes(&block, &plain("f", &[]));
+    let kinds: Vec<&str> = writes
+        .iter()
+        .map(|site| match site.write {
+            Write::Declaration(declaration) => declaration.name.as_str(),
+            Write::Node(Node::Assignment(_)) => "assignment",
+            Write::Node(Node::Statement { statement, .. }) => match **statement {
+                Statement::Call(_) => "call",
+                _ => "statement",
+            },
+            Write::Node(Node::Dynamic { .. }) => "execute",
+            Write::Node(Node::Open(_)) => "open",
+            Write::Node(Node::Fetch(_)) => "fetch",
+            Write::Node(Node::Diagnostics(_)) => "diagnostics",
+            Write::Node(Node::Loop(looped)) => match looped.control {
+                LoopControl::Query { .. } => "query loop",
+                LoopControl::Dynamic { .. } => "dynamic loop",
+                LoopControl::Range { .. } => "range loop",
+                LoopControl::Cursor { .. } => "cursor loop",
+                LoopControl::Array { .. } => "array loop",
+                LoopControl::Unconditional | LoopControl::While(_) => "plain loop",
+            },
+            Write::Node(other) => panic!("{other:?} writes nothing"),
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            "s",
+            "t",
+            "r",
+            "arr",
+            "c",
+            "cur",
+            "assignment",
+            "statement",
+            "call",
+            "execute",
+            "open",
+            "fetch",
+            "diagnostics",
+            "query loop",
+            "dynamic loop",
+            "range loop",
+            "cursor loop",
+            "array loop",
+            "open",
+        ]
+    );
+    for site in &writes[6..] {
+        assert!(
+            block
+                .statements
+                .iter()
+                .any(|statement| core::ptr::eq(statement, node(site))),
+            "{site:?} borrows a node of the block"
+        );
+    }
+}
+
+#[test]
+fn a_write_in_an_inner_block_reaches_the_variable_it_shadows_or_not() {
+    let block = read(
+        "DECLARE s text;
+        BEGIN
+          s := 'outer';
+          DECLARE s text;
+          BEGIN s := 'inner'; END;
+          s := 'again';
+        END",
+    );
+    let writes = writes(&block, &plain("f", &[]));
+    let assigned: Vec<&Name> = writes
+        .iter()
+        .filter(|site| matches!(site.write, Write::Node(Node::Assignment(assignment)) if assignment.target.name.to_string() == "s"))
+        .map(|site| whole_in(&site.namespace, &["s"]))
+        .collect();
+    let [outer, inner, again] = assigned.as_slice() else {
+        panic!("expected three writes of s, found {assigned:?}");
+    };
+    assert_ne!(outer.id(), inner.id());
+    assert_eq!(outer.id(), again.id());
+    let declared: Vec<usize> = writes
+        .iter()
+        .filter_map(|site| site.declared.as_ref().map(Name::id))
+        .collect();
+    assert_eq!(declared, [outer.id(), inner.id()]);
+}
+
+#[test]
+fn a_query_loop_assigns_the_variables_in_reach_and_declares_none() {
+    let block = read(
+        "<<blk>> DECLARE r record; a int; b int;
+        BEGIN
+          <<lp>> FOR r IN SELECT 1 AS v LOOP EXECUTE 'SELECT ' || r.v; END LOOP;
+          FOR blk.a, b IN EXECUTE 'SELECT 1, 2' LOOP NULL; END LOOP;
+        END",
+    );
+    let signature = plain("f", &[]);
+    let writes = writes(&block, &signature);
+    let declared_r = writes[0].declared.as_ref().expect("r is declared");
+    let query_loop = &writes[3];
+    let Node::Loop(looped) = node(query_loop) else {
+        panic!("expected a loop");
+    };
+    let LoopControl::Query { targets, query } = &looped.control else {
+        panic!("expected a query loop");
+    };
+    assert_eq!(query.to_string(), "SELECT 1 AS v");
+    assert_eq!(targets.len(), 1);
+    assert_eq!(query_loop.declared, None);
+    assert_eq!(whole_in(&query_loop.namespace, &["r"]), declared_r);
+    assert_eq!(whole_in(&query_loop.namespace, &["blk", "r"]), declared_r);
+    // The loop's statements read the same variable, not a record the loop declares.
+    let execute = &dynamic_sites(&block, &signature)[0];
+    assert_eq!(
+        dynamic(execute).command.to_string(),
+        "SELECT 'SELECT ' || r.v"
+    );
+    assert_eq!(whole(execute, &["r"]), declared_r);
+
+    let dynamic_loop = &writes[4];
+    let Node::Loop(looped) = node(dynamic_loop) else {
+        panic!("expected a loop");
+    };
+    let LoopControl::Dynamic { targets, .. } = &looped.control else {
+        panic!("expected a dynamic loop");
+    };
+    let ids: Vec<usize> = targets
+        .iter()
+        .map(|target| {
+            let parts: Vec<String> = target.name.0.iter().map(ToString::to_string).collect();
+            let parts: Vec<&str> = parts.iter().map(String::as_str).collect();
+            whole_in(&dynamic_loop.namespace, &parts).id()
+        })
+        .collect();
+    let declared_ids: Vec<usize> = writes[1..3]
+        .iter()
+        .map(|site| site.declared.as_ref().map(Name::id).unwrap())
+        .collect();
+    assert_eq!(ids, declared_ids);
+}
+
+#[test]
+fn a_cursor_loop_and_an_open_write_where_their_arguments_are_read() {
+    let block = read(
+        "DECLARE k int := 1; c CURSOR (k int) FOR SELECT c.k + k AS v; r record;
+        BEGIN
+          FOR r IN c(5) LOOP EXECUTE 'SELECT ' || r.v; END LOOP;
+          OPEN c(k);
+        END",
+    );
+    let signature = plain("f", &[]);
+    let writes = writes(&block, &signature);
+    let body_k = writes[0].declared.as_ref().expect("k is declared");
+    let cursor = writes[1].declared.as_ref().expect("c is declared");
+    let cursor_loop = &writes[3];
+    let Some(record) = &cursor_loop.declared else {
+        panic!("a cursor loop declares its record");
+    };
+    let NameKind::LoopRecord { query, .. } = record.kind() else {
+        panic!("expected the loop's record, found {record:?}");
+    };
+    assert_eq!(query.to_string(), "SELECT c.k + k AS v");
+    assert_eq!(whole_in(&cursor_loop.namespace, &["k"]), body_k);
+    let [execute] = dynamic_sites(&block, &signature).try_into().unwrap();
+    assert_eq!(whole(&execute, &["r"]), record);
+    let open = &writes[4];
+    assert!(matches!(node(open), Node::Open(_)));
+    assert_eq!(whole_in(&open.namespace, &["k"]), body_k);
+    assert_eq!(whole_in(&open.namespace, &["c"]), cursor);
+}
+
+#[test]
+fn an_open_for_execute_is_a_dynamic_site_and_a_write_in_its_block() {
+    let block = read(
+        "DECLARE s text; cur refcursor;
+        BEGIN
+          DECLARE s text;
+          BEGIN OPEN cur FOR EXECUTE 'SELECT ' || s USING s; END;
+        END",
+    );
+    let signature = plain("f", &[]);
+    let [site] = dynamic_sites(&block, &signature).try_into().unwrap();
+    assert_eq!(dynamic(&site).command.to_string(), "SELECT 'SELECT ' || s");
+    assert_eq!(dynamic(&site).arguments.len(), 1);
+    let writes = writes(&block, &signature);
+    let inner_s = writes[2]
+        .declared
+        .as_ref()
+        .expect("the inner s is declared");
+    assert_eq!(whole(&site, &["s"]).id(), inner_s.id());
+    assert!(matches!(node(&writes[3]), Node::Open(_)));
+    assert_eq!(whole_in(&writes[3].namespace, &["s"]), inner_s);
+}
+
+#[test]
+fn a_declaration_and_a_range_loop_read_their_values_without_their_own_variable() {
+    let block = read(
+        "DECLARE s text := 'a'; i int := 2;
+        BEGIN
+          DECLARE s text := s;
+          BEGIN FOR i IN 1..i LOOP NULL; END LOOP; END;
+        END",
+    );
+    let writes = writes(&block, &plain("f", &[]));
+    let outer_s = writes[0].declared.as_ref().unwrap();
+    let outer_i = writes[1].declared.as_ref().unwrap();
+    let inner = &writes[2];
+    assert_eq!(whole_in(&inner.namespace, &["s"]), outer_s);
+    assert_ne!(inner.declared.as_ref(), Some(outer_s));
+    let range = &writes[3];
+    assert_eq!(whole_in(&range.namespace, &["i"]), outer_i);
+    assert!(matches!(
+        range.declared.as_ref().map(Name::kind),
+        Some(NameKind::LoopIndex { variable }) if variable == "i"
+    ));
+}
+
+#[test]
+fn a_declaration_reaches_the_names_its_block_declares_before_it() {
+    let block = read("DECLARE a int := 1; b int := a; BEGIN NULL; END");
+    let writes = writes(&block, &plain("f", &[]));
+    let a = writes[0].declared.as_ref().unwrap();
+    let b = writes[1].declared.as_ref().unwrap();
+    let reach = |site: &WriteSite<'_>, name: &str| {
+        site.namespace
+            .lookup(&[name], |_| false)
+            .map(|(found, _)| found.clone())
+    };
+    assert_eq!(reach(&writes[0], "a"), None);
+    assert_eq!(reach(&writes[0], "b"), None);
+    assert_eq!(reach(&writes[1], "a").as_ref(), Some(a));
+    assert_eq!(reach(&writes[1], "b"), None);
+    assert_ne!(a, b);
 }
