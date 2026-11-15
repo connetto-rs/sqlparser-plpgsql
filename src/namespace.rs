@@ -5,24 +5,33 @@
 //! labelled with the function's name, and holds its parameters, the variables
 //! a trigger function receives and `FOUND`. Inside it each block opens a
 //! level for its declarations, labelled with the block's label, and each loop
-//! opens one for the variable a `FOR` loop declares. An `EXCEPTION` section
-//! adds `SQLSTATE` and `SQLERRM` to its block's level.
+//! opens one for the variable a `FOR` loop declares. A cursor declared with
+//! its query opens one, labelled with the cursor's name, for the parameters
+//! only that query reads. An `EXCEPTION` section adds `SQLSTATE` and
+//! `SQLERRM` to its block's level.
+//!
+//! PostgreSQL compiles each statement and expression with the names in reach
+//! where it reads that SQL, which [`Block::sites`] answers for every one.
 
 use alloc::{
     borrow::Cow,
     boxed::Box,
+    collections::BTreeMap,
     format,
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
 };
-use core::hash::{Hash, Hasher};
+use core::{
+    fmt,
+    hash::{Hash, Hasher},
+};
 
-use sqlparser::ast::{Ident, ObjectName, Statement};
+use sqlparser::ast::{Ident, ObjectName, Query, Statement};
 
 use crate::embedded::{
-    AliasTarget, Block, Declaration, DeclarationKind, DeclaredType, Dynamic, Loop, LoopControl,
-    Node,
+    AliasTarget, Block, BoundCursor, Branch, Cursor, CursorParameter, Declaration, DeclarationKind,
+    DeclaredType, Dynamic, Loop, LoopControl, Node,
 };
 
 /// An error refusing a body PostgreSQL does not compile, found while
@@ -36,6 +45,14 @@ pub enum Error {
         alias: String,
         /// The name the alias is for, as written.
         target: String,
+    },
+    /// `OPEN` or a cursor `FOR` loop names no cursor declared with a query,
+    /// once `holds_row` decides which variable each name reaches.
+    #[error("'{name}' names no cursor declared with a query")]
+    UnboundCursor {
+        /// The cursor name, each part folded as PostgreSQL folds it and
+        /// joined by periods.
+        name: String,
     },
 }
 
@@ -176,7 +193,7 @@ impl Name {
     /// Whether the variable holds a row, when its kind alone settles it.
     fn fixed_row(&self) -> Option<bool> {
         match &self.kind {
-            NameKind::Parameter { .. } => None,
+            NameKind::Parameter { .. } | NameKind::CursorParameter { .. } => None,
             NameKind::Declared { declaration, .. }
                 if matches!(declaration.kind, DeclarationKind::Variable(_)) =>
             {
@@ -237,6 +254,18 @@ pub enum NameKind {
         /// no variable there, which leaves it to name a column.
         type_of: Option<Box<Name>>,
     },
+    /// A parameter of a cursor declared with its query, which only that
+    /// query reads.
+    CursorParameter {
+        /// The parameter.
+        parameter: Arc<CursorParameter>,
+        /// The variable whose type a `name%TYPE` copies, where the parameter
+        /// is declared.
+        ///
+        /// `None` when the parameter writes no `%TYPE` or its name reaches no
+        /// variable there, which leaves it to name a column.
+        type_of: Option<Box<Name>>,
+    },
     /// The integer a `FOR i IN lower .. upper` loop declares for its
     /// statements.
     LoopIndex {
@@ -264,7 +293,7 @@ pub enum NameKind {
 /// It owns what it holds, so it outlives the [`Block`] it was read from.
 #[derive(Clone, Debug)]
 pub struct Namespace {
-    level: Arc<Names>,
+    level: Names,
 }
 
 impl Namespace {
@@ -279,9 +308,9 @@ impl Namespace {
     /// to read. `None` when nothing answers, and for no parts or more than
     /// three, which PostgreSQL never reads as a variable.
     ///
-    /// `holds_row` answers for a parameter or a declared variable, whose type
-    /// decides. Every other variable holds a row only when it is a loop's
-    /// record, `NEW` or `OLD`.
+    /// `holds_row` answers for a parameter, a declared variable or a cursor
+    /// parameter, whose type decides. Every other variable holds a row only
+    /// when it is a loop's record, `NEW` or `OLD`.
     pub fn lookup<S: AsRef<str>>(
         &self,
         parts: &[S],
@@ -297,47 +326,71 @@ fn row(name: &Name, holds_row: &dyn Fn(&Name) -> bool) -> bool {
     name.fixed_row().unwrap_or_else(|| holds_row(name))
 }
 
-/// A place a body runs SQL it builds at run time, with the names in reach
-/// there.
+/// SQL a body runs, as [`embedded_sql`](crate::embedded_sql) reads it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Sql<'body> {
+    /// A statement or query, such as a [`Node::Statement`], the query of a
+    /// `FOR` loop over rows or the query of a cursor that opens.
+    Statement(&'body Statement),
+    /// The `SELECT` that evaluates an expression, such as a condition, a
+    /// loop bound, a cursor argument or a default.
+    Expression(&'body Query),
+    /// SQL built at run time, whose `USING` arguments read the same names
+    /// as its command.
+    Dynamic(&'body Dynamic),
+}
+
+/// SQL a body runs, with the names in reach where PostgreSQL compiles it.
 #[derive(Clone, Debug)]
-pub struct DynamicSite<'body> {
-    /// The command and its `USING` arguments.
-    pub dynamic: &'body Dynamic,
-    /// The names the command and its arguments reach.
+pub struct Site<'body> {
+    /// The SQL.
+    pub sql: Sql<'body>,
+    /// The names the SQL reaches.
     pub namespace: Namespace,
 }
 
 impl Block {
-    /// Every `EXECUTE`, `RETURN QUERY EXECUTE`, `OPEN ... FOR EXECUTE` and
-    /// `FOR ... IN EXECUTE` of the body this block reads, in body order,
-    /// with the names in reach at each.
+    /// Every statement and expression of the body this block reads, in body
+    /// order, with the names PostgreSQL compiles each with.
     ///
-    /// `holds_row` answers whether a parameter or a declared variable holds
-    /// a row, as for [`Namespace::lookup`], which an alias or a `%TYPE`
-    /// naming a field needs.
+    /// A block yields each declaration's default, which reads the names
+    /// declared before it, then its statements, then each handler's. A
+    /// branch yields its condition before its statements, and a `CASE` its
+    /// subject before every branch. A loop yields its control, which reads
+    /// the names outside the variable the loop declares, before its
+    /// statements. A cursor that opens yields its arguments, then its query,
+    /// which reads the names in reach at the cursor's declaration and the
+    /// cursor's parameters.
+    ///
+    /// `holds_row` answers whether a parameter, a declared variable or a
+    /// cursor parameter holds a row, as for [`Namespace::lookup`], which an
+    /// alias, a `%TYPE` or a cursor naming a field needs.
     ///
     /// # Errors
     ///
     /// Returns [`Error::UnknownAliasTarget`] when `ALIAS FOR` names no
-    /// variable in reach.
+    /// variable in reach, and [`Error::UnboundCursor`] when `OPEN` or a
+    /// cursor `FOR` loop names no cursor declared with a query.
     ///
     /// # Example
     ///
     /// ```
     /// use sqlparser_plpgsql::{
     ///     embedded_sql,
-    ///     namespace::{FunctionKind, NameKind, Signature},
+    ///     namespace::{FunctionKind, NameKind, Signature, Sql},
     /// };
     ///
-    /// let block = embedded_sql("DECLARE p integer; BEGIN EXECUTE 'SELECT ' || f.p; END")?;
+    /// let block = embedded_sql("DECLARE p integer; BEGIN RETURN f.p + p; END")?;
     /// let signature = Signature {
     ///     name: "f".into(),
     ///     parameters: vec![Some("p".into())],
     ///     kind: FunctionKind::Plain,
     /// };
     /// let sites = block
-    ///     .dynamic_sites(&signature, |_| false)
-    ///     .expect("the body declares no alias");
+    ///     .sites(&signature, |_| false)
+    ///     .expect("the body declares no alias and opens no cursor");
+    /// let Sql::Statement(returned) = sites[0].sql else { unreachable!() };
+    /// assert_eq!(returned.to_string(), "SELECT f.p + p");
     /// let (name, consumed) = sites[0]
     ///     .namespace
     ///     .lookup(&["f", "p"], |_| false)
@@ -346,28 +399,33 @@ impl Block {
     /// assert_eq!(consumed, 2);
     /// # Ok::<(), sqlparser_plpgsql::embedded::Error>(())
     /// ```
-    pub fn dynamic_sites<'body>(
+    pub fn sites<'body>(
         &'body self,
         signature: &Signature,
         holds_row: impl Fn(&Name) -> bool,
-    ) -> Result<Vec<DynamicSite<'body>>, Error> {
+    ) -> Result<Vec<Site<'body>>, Error> {
         let mut collector = Collector {
             holds_row: &holds_row,
             next_id: 0,
+            cursors: BTreeMap::new(),
             sites: Vec::new(),
         };
-        let function = Arc::new(collector.function_level(signature));
+        let function = collector.function_level(signature);
         collector.block(self, &function)?;
         Ok(collector.sites)
     }
 }
 
 /// Walks a body in order, numbering its variables and recording each
-/// dynamic site with the level in force there.
+/// statement and expression with the names in reach where PostgreSQL reads
+/// it.
 struct Collector<'body, 'predicate> {
     holds_row: &'predicate dyn Fn(&Name) -> bool,
     next_id: usize,
-    sites: Vec<DynamicSite<'body>>,
+    /// The names the query of each cursor declared with one reads, by the id
+    /// of the cursor.
+    cursors: BTreeMap<usize, Names>,
+    sites: Vec<Site<'body>>,
 }
 
 impl<'body> Collector<'body, '_> {
@@ -408,42 +466,66 @@ impl<'body> Collector<'body, '_> {
         level
     }
 
-    fn block(&mut self, block: &'body Block, parent: &Arc<Names>) -> Result<(), Error> {
-        let mut level = Level::new(
-            block.label.clone().map(Cow::Owned),
-            Some(Arc::clone(parent)),
-        );
+    fn block(&mut self, block: &'body Block, outer: &Names) -> Result<(), Error> {
+        let mut level = Level::new(block.label.clone().map(Cow::Owned), Some(outer));
         for declaration in &block.declarations {
             let name = match &declaration.kind {
                 DeclarationKind::Alias(target) => self.aliased(&level, declaration, target)?,
                 DeclarationKind::Variable(variable) => {
+                    if let Some(default) = &variable.default {
+                        self.site(Sql::Expression(default), &level);
+                    }
                     let type_of = self.type_of(&level, &variable.data_type);
                     self.name(NameKind::Declared {
                         declaration: Arc::new(declaration.clone()),
                         type_of,
                     })
                 }
-                DeclarationKind::Cursor(_) => self.name(NameKind::Declared {
-                    declaration: Arc::new(declaration.clone()),
-                    type_of: None,
-                }),
+                DeclarationKind::Cursor(cursor) => {
+                    let query = self.cursor_parameters(&level, declaration, cursor);
+                    let name = self.name(NameKind::Declared {
+                        declaration: Arc::new(declaration.clone()),
+                        type_of: None,
+                    });
+                    self.cursors.insert(name.id, query);
+                    name
+                }
             };
             level.declare(declaration.name.clone(), name);
         }
-        let level = Arc::new(level);
         self.nodes(&block.statements, &level)?;
         if !block.handlers.is_empty() {
-            let mut section = level.extended();
+            let mut section = level;
             let sqlstate = self.name(NameKind::SqlState);
             section.declare("sqlstate", sqlstate);
             let sqlerrm = self.name(NameKind::SqlErrm);
             section.declare("sqlerrm", sqlerrm);
-            let section = Arc::new(section);
             for handler in &block.handlers {
                 self.nodes(handler, &section)?;
             }
         }
         Ok(())
+    }
+
+    /// The names the query of `cursor` reads: a level inside `level`, where
+    /// the cursor is declared, labelled with the cursor's name and holding
+    /// its parameters.
+    fn cursor_parameters(
+        &mut self,
+        level: &Names,
+        declaration: &Declaration,
+        cursor: &Cursor,
+    ) -> Names {
+        let mut parameters = Level::new(Some(Cow::Owned(declaration.name.clone())), Some(level));
+        for parameter in &cursor.parameters {
+            let type_of = self.type_of(&parameters, &parameter.data_type);
+            let name = self.name(NameKind::CursorParameter {
+                parameter: Arc::new(parameter.clone()),
+                type_of,
+            });
+            parameters.declare(parameter.name.clone(), name);
+        }
+        parameters
     }
 
     /// The variable the alias `declaration` is for, looked up where it
@@ -484,71 +566,104 @@ impl<'body> Collector<'body, '_> {
             .map(|(name, _)| Box::new(name.clone()))
     }
 
-    fn nodes(&mut self, nodes: &'body [Node], level: &Arc<Names>) -> Result<(), Error> {
+    fn nodes(&mut self, nodes: &'body [Node], level: &Names) -> Result<(), Error> {
         for node in nodes {
             match node {
-                Node::Statement(_) => {}
-                Node::Dynamic(dynamic) => self.site(dynamic, level),
+                Node::Statement(statement) => self.site(Sql::Statement(statement), level),
+                Node::Dynamic(dynamic) => self.site(Sql::Dynamic(dynamic), level),
                 Node::Block(block) => self.block(block, level)?,
                 Node::If(conditional) => {
-                    for branch in &conditional.branches {
-                        self.nodes(&branch.statements, level)?;
-                    }
+                    self.branches(&conditional.branches, level)?;
                     self.nodes(&conditional.otherwise, level)?;
                 }
                 Node::Case(case) => {
-                    for branch in &case.branches {
-                        self.nodes(&branch.statements, level)?;
+                    if let Some(subject) = &case.subject {
+                        self.site(Sql::Expression(subject), level);
                     }
+                    self.branches(&case.branches, level)?;
                     self.nodes(&case.otherwise, level)?;
                 }
                 Node::Loop(repeated) => self.looped(repeated, level)?,
+                Node::Open(cursor) => self.opened(cursor, level)?,
             }
         }
         Ok(())
     }
 
+    /// Each branch's condition, then its statements.
+    fn branches(&mut self, branches: &'body [Branch], level: &Names) -> Result<(), Error> {
+        for branch in branches {
+            self.site(Sql::Expression(&branch.condition), level);
+            self.nodes(&branch.statements, level)?;
+        }
+        Ok(())
+    }
+
     /// A loop opens a level, labelled with its label, which holds the
-    /// variable a range or cursor `FOR` loop declares.
-    fn looped(&mut self, repeated: &'body Loop, parent: &Arc<Names>) -> Result<(), Error> {
-        let mut level = Level::new(
-            repeated.label.clone().map(Cow::Owned),
-            Some(Arc::clone(parent)),
-        );
+    /// variable a range or cursor `FOR` loop declares once its control is
+    /// read.
+    fn looped(&mut self, repeated: &'body Loop, outer: &Names) -> Result<(), Error> {
+        let mut level = Level::new(repeated.label.clone().map(Cow::Owned), Some(outer));
         match &repeated.control {
-            LoopControl::Range { variable, .. } => {
+            LoopControl::Unconditional => {}
+            LoopControl::While(expression) | LoopControl::Array(expression) => {
+                self.site(Sql::Expression(expression), &level);
+            }
+            LoopControl::Range {
+                variable,
+                lower,
+                upper,
+                step,
+            } => {
+                for bound in [Some(lower), Some(upper), step.as_ref()]
+                    .into_iter()
+                    .flatten()
+                {
+                    self.site(Sql::Expression(bound), &level);
+                }
                 let index = self.name(NameKind::LoopIndex {
                     variable: variable.clone(),
                 });
                 level.declare(variable.clone(), index);
             }
-            LoopControl::Cursor {
-                variable, query, ..
-            } => {
+            LoopControl::Query(query) => self.site(Sql::Statement(query), &level),
+            LoopControl::Cursor { variable, cursor } => {
+                self.opened(cursor, &level)?;
                 let record = self.name(NameKind::LoopRecord {
                     variable: variable.clone(),
-                    query: Arc::new((**query).clone()),
+                    query: Arc::new((*cursor.query).clone()),
                 });
                 level.declare(variable.clone(), record);
             }
-            LoopControl::Unconditional
-            | LoopControl::While(_)
-            | LoopControl::Query(_)
-            | LoopControl::Dynamic(_)
-            | LoopControl::Array(_) => {}
-        }
-        let level = Arc::new(level);
-        if let LoopControl::Dynamic(dynamic) = &repeated.control {
-            self.site(dynamic, &level);
+            LoopControl::Dynamic(dynamic) => self.site(Sql::Dynamic(dynamic), &level),
         }
         self.nodes(&repeated.statements, &level)
     }
 
-    fn site(&mut self, dynamic: &'body Dynamic, level: &Arc<Names>) {
-        self.sites.push(DynamicSite {
-            dynamic,
+    /// The arguments of `cursor`, read in `level`, then its query, which
+    /// reads the names in reach where the cursor is declared.
+    fn opened(&mut self, cursor: &'body BoundCursor, level: &Names) -> Result<(), Error> {
+        for argument in &cursor.arguments {
+            self.site(Sql::Expression(argument), level);
+        }
+        let parts = stored_parts(&cursor.name);
+        let query = level
+            .lookup(&parts, &|name| row(name, self.holds_row))
+            .filter(|&(_, consumed)| consumed == parts.len())
+            .and_then(|(name, _)| self.cursors.get(&name.id))
+            .cloned()
+            .ok_or_else(|| Error::UnboundCursor {
+                name: parts.join("."),
+            })?;
+        self.site(Sql::Statement(&cursor.query), &query);
+        Ok(())
+    }
+
+    fn site(&mut self, sql: Sql<'body>, level: &Names) {
+        self.sites.push(Site {
+            sql,
             namespace: Namespace {
-                level: Arc::clone(level),
+                level: level.clone(),
             },
         });
     }
@@ -568,50 +683,54 @@ fn stored(ident: &Ident) -> String {
     crate::embedded::folded(&ident.value, ident.quote_style.is_some())
 }
 
-/// The levels of names [`Block::dynamic_sites`] keeps, which own their names
-/// so that a [`Namespace`] outlives the body.
+/// The levels of names [`Block::sites`] keeps, which own their names so that
+/// a [`Namespace`] outlives the body.
 type Names = Level<'static, Name>;
 
-/// One level of names, inside the level enclosing it.
+/// The names in reach at one point of a body, as PostgreSQL's namespace
+/// stack holds them. Each level starts with its label and holds the names
+/// declared in it since, inside the levels enclosing it.
 ///
-/// Both the reader of a body and [`Block::dynamic_sites`] keep their levels
-/// as these, each with its own `T`, so both follow one lookup.
-#[derive(Debug)]
+/// A point shares its entries with the points before it, so keeping the
+/// names in reach at each point copies nothing. Both the reader of a body
+/// and [`Block::sites`] keep their names as these, each with its own `T`, so
+/// both follow one lookup.
 pub(crate) struct Level<'name, T> {
-    label: Option<Cow<'name, str>>,
-    names: Vec<(Cow<'name, str>, T)>,
-    parent: Option<Arc<Level<'name, T>>>,
+    top: Arc<Entry<'name, T>>,
+}
+
+/// One entry of the namespace stack, above the entries before it.
+struct Entry<'name, T> {
+    item: Item<'name, T>,
+    below: Option<Arc<Self>>,
+}
+
+/// What an entry of the namespace stack holds.
+#[derive(Debug)]
+enum Item<'name, T> {
+    /// The start of a level, with the level's label when it has one.
+    Label(Option<Cow<'name, str>>),
+    /// A name the level declares.
+    Name(Cow<'name, str>, T),
 }
 
 impl<'name, T> Level<'name, T> {
-    pub(crate) const fn new(label: Option<Cow<'name, str>>, parent: Option<Arc<Self>>) -> Self {
+    /// A level labelled `label`, inside `outer` when another encloses it.
+    pub(crate) fn new(label: Option<Cow<'name, str>>, outer: Option<&Self>) -> Self {
         Self {
-            label,
-            names: Vec::new(),
-            parent,
+            top: Arc::new(Entry {
+                item: Item::Label(label),
+                below: outer.map(|outer| Arc::clone(&outer.top)),
+            }),
         }
     }
 
     pub(crate) fn declare(&mut self, name: impl Into<Cow<'name, str>>, item: T) {
-        self.names.push((name.into(), item));
-    }
-
-    /// Whether this level itself declares `name`.
-    pub(crate) fn declares(&self, name: &str) -> bool {
-        self.names.iter().any(|(held, _)| held == name)
-    }
-
-    /// A copy of this level to declare more names in, for the handlers of an
-    /// `EXCEPTION` section.
-    pub(crate) fn extended(&self) -> Self
-    where
-        T: Clone,
-    {
-        Self {
-            label: self.label.clone(),
-            names: self.names.clone(),
-            parent: self.parent.clone(),
-        }
+        let below = Arc::clone(&self.top);
+        self.top = Arc::new(Entry {
+            item: Item::Name(name.into(), item),
+            below: Some(below),
+        });
     }
 
     /// What `plpgsql_ns_lookup` answers for `parts`, as
@@ -627,29 +746,82 @@ impl<'name, T> Level<'name, T> {
             [first, second, _] => (first.as_ref(), Some(second.as_ref()), true),
             _ => return None,
         };
-        let mut level = Some(self);
-        while let Some(current) = level {
-            if let Some(item) = current.named(first, second.is_some(), holds_row) {
+        let mut level = Some(&*self.top);
+        while let Some(top) = level {
+            if let Some(item) = top.named(first, second.is_some(), holds_row) {
                 return Some((item, 1));
             }
+            let start = top.start();
             if let Some(second) = second
-                && current.label.as_deref() == Some(first)
-                && let Some(item) = current.named(second, third, holds_row)
+                && let Some(Entry {
+                    item: Item::Label(Some(label)),
+                    ..
+                }) = start
+                && **label == *first
+                && let Some(item) = top.named(second, third, holds_row)
             {
                 return Some((item, 2));
             }
-            level = current.parent.as_deref();
+            level = start.and_then(|start| start.below.as_deref());
         }
         None
     }
+}
 
-    /// The latest item this level declares under `name`, passing over one
-    /// that holds no row when `field` says a field of it is read.
+impl<T> Clone for Level<'_, T> {
+    fn clone(&self) -> Self {
+        Self {
+            top: Arc::clone(&self.top),
+        }
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for Level<'_, T> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_list()
+            .entries(self.top.entries().map(|entry| &entry.item))
+            .finish()
+    }
+}
+
+impl<T> Entry<'_, T> {
+    /// This entry and every entry below it, innermost first.
+    fn entries(&self) -> impl Iterator<Item = &Self> {
+        core::iter::successors(Some(self), |entry| entry.below.as_deref())
+    }
+
+    /// The names the level of this entry declares up to it, latest first.
+    fn names(&self) -> impl Iterator<Item = (&str, &T)> {
+        self.entries().map_while(|entry| match &entry.item {
+            Item::Name(name, item) => Some((&**name, item)),
+            Item::Label(_) => None,
+        })
+    }
+
+    /// The entry that starts the level of this entry.
+    fn start(&self) -> Option<&Self> {
+        self.entries()
+            .find(|entry| matches!(entry.item, Item::Label(_)))
+    }
+
+    /// The latest item the level of this entry declares under `name` up to
+    /// it, passing over one that holds no row when `field` says a field of
+    /// it is read.
     fn named(&self, name: &str, field: bool, holds_row: &dyn Fn(&T) -> bool) -> Option<&T> {
-        self.names
-            .iter()
-            .rev()
-            .find(|(held, item)| held == name && (!field || holds_row(item)))
+        self.names()
+            .find(|&(held, item)| held == name && (!field || holds_row(item)))
             .map(|(_, item)| item)
+    }
+}
+
+impl<T> Drop for Entry<'_, T> {
+    /// Unlinks the entries below one at a time, so that dropping a long
+    /// stack takes no stack frame per entry.
+    fn drop(&mut self) {
+        let mut below = self.below.take();
+        while let Some(entry) = below {
+            below = Arc::into_inner(entry).and_then(|mut entry| entry.below.take());
+        }
     }
 }

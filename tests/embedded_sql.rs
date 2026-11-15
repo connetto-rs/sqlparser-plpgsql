@@ -5,8 +5,8 @@ use core::fmt::Write as _;
 
 use sqlparser_plpgsql::{
     embedded::{
-        AliasTarget, Block, Branch, DeclarationKind, DeclaredType, Dynamic, Error, LoopControl,
-        Node,
+        AliasTarget, Block, BoundCursor, Branch, DeclarationKind, DeclaredType, Dynamic, Error,
+        LoopControl, Node,
     },
     embedded_sql,
 };
@@ -101,6 +101,18 @@ fn write_dynamic(out: &mut String, dynamic: &Dynamic, depth: usize) {
     }
 }
 
+/// The cursor `opened` opens, then its arguments a level deeper.
+fn write_bound_cursor(out: &mut String, opened: &str, cursor: &BoundCursor, depth: usize) {
+    line(
+        out,
+        depth,
+        &format!("{opened} {}: {}", cursor.name, cursor.query),
+    );
+    for argument in &cursor.arguments {
+        line(out, depth + 1, &format!("argument {argument}"));
+    }
+}
+
 fn write_branches(out: &mut String, branches: &[Branch], otherwise: &[Node], depth: usize) {
     for branch in branches {
         line(out, depth, &format!("when {}", branch.condition));
@@ -118,6 +130,7 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
             Node::Statement(statement) => line(out, depth, &statement.to_string()),
             Node::Dynamic(dynamic) => write_dynamic(out, dynamic, depth),
             Node::Block(block) => write_block(out, block, depth),
+            Node::Open(cursor) => write_bound_cursor(out, "open", cursor, depth),
             Node::If(conditional) => {
                 line(out, depth, "if");
                 write_branches(
@@ -156,16 +169,9 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                     LoopControl::Query(query) => {
                         line(out, depth, &labelled(label, &format!("query {query}")));
                     }
-                    LoopControl::Cursor {
-                        variable,
-                        arguments,
-                        query,
-                    } => {
-                        let text = format!("cursor {variable} in {query}");
-                        line(out, depth, &labelled(label, &text));
-                        for argument in arguments {
-                            line(out, depth + 1, &format!("argument {argument}"));
-                        }
+                    LoopControl::Cursor { variable, cursor } => {
+                        let opened = labelled(label, &format!("cursor {variable} in"));
+                        write_bound_cursor(out, &opened, cursor, depth);
                     }
                     LoopControl::Dynamic(dynamic) => {
                         line(out, depth, &labelled(label, "loop over"));
@@ -220,7 +226,7 @@ fn every_statement_postgresql_ran_is_read_in_place() {
               SELECT 1 FROM pp_docs
               query SELECT id FROM pp_docs
                 INSERT INTO pp_log VALUES (r.id)
-              SELECT id FROM pp_docs
+              open c: SELECT id FROM pp_docs
               block
                 UPDATE pp_docs SET id = id
                 handler
@@ -424,14 +430,14 @@ fn every_loop_keeps_its_control_apart_from_its_body() {
                 SELECT i = 2
               range i in SELECT (SELECT max(id) FROM docs) .. SELECT lo
                 by SELECT 2
-              cursor r in SELECT id FROM docs WHERE id = key
+              cursor r in c: SELECT id FROM docs WHERE id = key
                 argument SELECT 7
-              cursor r in SELECT id FROM docs WHERE id = key
+              cursor r in c: SELECT id FROM docs WHERE id = key
                 argument SELECT v
-              cursor r in SELECT id FROM docs WHERE id BETWEEN first_id AND last_id
+              cursor r in pair: SELECT id FROM docs WHERE id BETWEEN first_id AND last_id
                 argument SELECT 1
                 argument SELECT (SELECT 2 FROM bounds)
-              cursor r in SELECT id FROM plain_docs
+              cursor r in plain: SELECT id FROM plain_docs
               array SELECT x
               array SELECT (SELECT array_agg(id) FROM docs)
               query WITH w AS (SELECT 1, 2) SELECT * FROM w
@@ -472,15 +478,15 @@ fn a_cursor_query_runs_where_the_cursor_opens() {
               declare n INT
               if
                 when SELECT flag
-                  SELECT id FROM outer_docs
+                  open c: SELECT id FROM outer_docs
               block
                 declare c cursor
-                SELECT id FROM inner_docs
-              SELECT (SELECT 1 FROM keys)
-              SELECT id FROM keyed WHERE id = k
+                open c: SELECT id FROM inner_docs
+              open d: SELECT id FROM keyed WHERE id = k
+                argument SELECT (SELECT 1 FROM keys)
               SELECT id FROM loose
               SELECT (SELECT 2 FROM steps)
-              SELECT id FROM outer_docs
+              open c: SELECT id FROM outer_docs
             "
         )
     );
@@ -799,10 +805,10 @@ fn a_cursor_is_reached_through_an_alias_and_through_its_block_label() {
               declare d alias for c
               block
                 declare c cursor
-                SELECT 1 FROM outer_docs
-                SELECT 1 FROM outer_docs
-                cursor r in SELECT 1 FROM outer_docs
-                cursor r in SELECT 1 FROM outer_docs
+                open outer.c: SELECT 1 FROM outer_docs
+                open d: SELECT 1 FROM outer_docs
+                cursor r in outer.c: SELECT 1 FROM outer_docs
+                cursor r in d: SELECT 1 FROM outer_docs
             "
         )
     );
@@ -819,13 +825,13 @@ fn a_cursor_name_matches_by_postgresql_identifier_rules() {
     assert_eq!(
         outline(body),
         expected(
-            "
+            r#"
             block
               declare Mixed cursor
               declare plain cursor
-              SELECT 1 FROM quoted
-              SELECT 2 FROM folded
-            "
+              open "Mixed": SELECT 1 FROM quoted
+              open PLAIN: SELECT 2 FROM folded
+            "#
         )
     );
     assert!(matches!(
