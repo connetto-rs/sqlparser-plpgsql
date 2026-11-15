@@ -676,6 +676,7 @@ fn every_declaration_keeps_its_name_type_and_default() {
 fn a_type_the_parser_cannot_read_is_an_error_naming_it() {
     for (body, sql) in [
         ("DECLARE x %TYPE; BEGIN NULL; END", "% TYPE"),
+        ("DECLARE x t.name%SIZE; BEGIN NULL; END", "t . name % SIZE"),
         (
             "DECLARE x integer integer; BEGIN NULL; END",
             "integer integer",
