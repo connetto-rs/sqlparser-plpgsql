@@ -720,7 +720,8 @@ impl<'body> Collector<'body, '_> {
                     }
                 }
                 Node::Raise(raise) => {
-                    for value in raise.arguments.iter().chain(&raise.options) {
+                    let options = raise.options.iter().map(|option| &option.value);
+                    for value in raise.arguments.iter().chain(options) {
                         self.site(Sql::Expression(value), level);
                     }
                 }
