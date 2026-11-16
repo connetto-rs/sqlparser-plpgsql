@@ -8,7 +8,7 @@ use sqlparser_plpgsql::{
     embedded::{
         AliasTarget, Block, BoundCursor, Branch, Condition, DeclarationKind, DeclaredType, Dynamic,
         Error, ExitKind, Fetch, FetchCount, FetchDirection, FetchPosition, Indirection,
-        IntoTargets, Loop, LoopControl, Node, Open, Raise, Scrolling, Target,
+        IntoTargets, Loop, LoopControl, Node, Open, Raise, ReturnQuery, Scrolling, Target,
     },
     embedded_sql,
 };
@@ -202,6 +202,7 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                 line(out, depth, &statement.to_string());
                 write_into(out, into.as_ref(), depth + 1);
             }
+            Node::Perform { query } => line(out, depth, &format!("perform {query}")),
             Node::Assignment(assignment) => line(
                 out,
                 depth,
@@ -265,6 +266,17 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
             }
             Node::Return { value: None } => line(out, depth, "return"),
             Node::Return { value: Some(value) } => line(out, depth, &format!("return {value}")),
+            Node::ReturnNext { value: None } => line(out, depth, "return next"),
+            Node::ReturnNext { value: Some(value) } => {
+                line(out, depth, &format!("return next {value}"));
+            }
+            Node::ReturnQuery(ReturnQuery::Query(query)) => {
+                line(out, depth, &format!("return query {query}"));
+            }
+            Node::ReturnQuery(ReturnQuery::Dynamic(dynamic)) => {
+                line(out, depth, "return query");
+                write_dynamic(out, dynamic, depth + 1);
+            }
             Node::Raise(raise) => write_raise(out, raise, depth),
             Node::Assert(assert) => {
                 line(out, depth, &format!("assert {}", assert.condition));
@@ -451,7 +463,7 @@ fn every_statement_postgresql_ran_is_read_in_place() {
               declare r RECORD
               declare c cursor
               declare n INT
-              SELECT 1 FROM pp_docs
+              perform SELECT 1 FROM pp_docs
               query r in SELECT id FROM pp_docs
                 INSERT INTO pp_log VALUES (r.id)
               open c: SELECT id FROM pp_docs
@@ -461,7 +473,7 @@ fn every_statement_postgresql_ran_is_read_in_place() {
                 UPDATE pp_docs SET id = id
                 handler condition others
                   DELETE FROM pp_log
-              SELECT id FROM pp_docs
+              return query SELECT id FROM pp_docs
             "
         )
     );
@@ -621,7 +633,7 @@ fn every_expression_is_read_as_the_select_postgresql_evaluates() {
               assert SELECT total > 0
                 message SELECT (SELECT 'bad' FROM messages)
               assert SELECT (SELECT true FROM checks)
-              SELECT (SELECT 2 FROM docs)
+              return next SELECT (SELECT 2 FROM docs)
               return
             "
         )
@@ -899,13 +911,50 @@ fn sql_built_at_run_time_is_reported_with_the_expressions_that_build_it() {
               dynamic SELECT format('SELECT %I', c)
                 using SELECT d
                 into strict n
-              dynamic SELECT 'SELECT 1'
+              return query
+                dynamic SELECT 'SELECT 1'
               open cur no scroll for
                 dynamic SELECT 'SELECT 2'
                   using SELECT e
               loop over r
                 dynamic SELECT 'SELECT 3'
                   using SELECT f
+            "
+        )
+    );
+}
+
+#[test]
+fn each_command_that_runs_a_query_keeps_what_it_does_with_the_rows() {
+    let body = "DECLARE n INT;
+    BEGIN
+        PERFORM 1;
+        SELECT 1;
+        SELECT 1 INTO n;
+        RETURN NEXT 1;
+        RETURN NEXT;
+        RETURN QUERY SELECT 1;
+        RETURN QUERY EXECUTE 'SELECT 1';
+        EXECUTE 'SELECT 1';
+        RETURN 1;
+    END";
+    assert_eq!(
+        outline(body),
+        expected(
+            "
+            block
+              declare n INT
+              perform SELECT 1
+              SELECT 1
+              SELECT 1
+                into n
+              return next SELECT 1
+              return next
+              return query SELECT 1
+              return query
+                dynamic SELECT 'SELECT 1'
+              dynamic SELECT 'SELECT 1'
+              return SELECT 1
             "
         )
     );
