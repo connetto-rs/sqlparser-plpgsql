@@ -8,7 +8,7 @@ use sqlparser_plpgsql::{
     embedded::{
         AliasTarget, Block, BoundCursor, Branch, Condition, DeclarationKind, DeclaredType, Dynamic,
         Error, ExitKind, Fetch, FetchCount, FetchDirection, FetchPosition, Indirection,
-        IntoTargets, Loop, LoopControl, Node, Open, Raise, Target,
+        IntoTargets, Loop, LoopControl, Node, Open, Raise, Scrolling, Target,
     },
     embedded_sql,
 };
@@ -87,14 +87,20 @@ fn describe(kind: &DeclarationKind) -> String {
             format!("alias for ${position}")
         }
         DeclarationKind::Alias(AliasTarget::Name(name)) => format!("alias for {name}"),
-        DeclarationKind::Cursor(cursor) if cursor.parameters.is_empty() => "cursor".into(),
+        DeclarationKind::Cursor(cursor) if cursor.parameters.is_empty() => {
+            format!("{}cursor", scrolling_text(cursor.scrolling))
+        }
         DeclarationKind::Cursor(cursor) => {
             let parameters: Vec<String> = cursor
                 .parameters
                 .iter()
                 .map(|parameter| format!("{} {}", parameter.name, type_text(&parameter.data_type)))
                 .collect();
-            format!("cursor ({})", parameters.join(", "))
+            format!(
+                "{}cursor ({})",
+                scrolling_text(cursor.scrolling),
+                parameters.join(", ")
+            )
         }
     }
 }
@@ -105,6 +111,14 @@ fn type_text(data_type: &DeclaredType) -> String {
         DeclaredType::Data(data_type) => data_type.to_string(),
         DeclaredType::ColumnType { of, array } => format!("{of}%TYPE{}", brackets(*array)),
         DeclaredType::RowType { of, array } => format!("{of}%ROWTYPE{}", brackets(*array)),
+    }
+}
+
+fn scrolling_text(scrolling: Scrolling) -> &'static str {
+    match scrolling {
+        Scrolling::Unspecified => "",
+        Scrolling::Scroll => "scroll ",
+        Scrolling::NoScroll => "no scroll ",
     }
 }
 
@@ -120,7 +134,12 @@ fn write_bound_cursor(out: &mut String, opened: &str, cursor: &BoundCursor, dept
     line(
         out,
         depth,
-        &format!("{opened} {}: {}", cursor.name, cursor.query),
+        &format!(
+            "{opened} {}{}: {}",
+            scrolling_text(cursor.scrolling),
+            cursor.name,
+            cursor.query
+        ),
     );
     for argument in &cursor.arguments {
         line(out, depth + 1, &format!("argument {argument}"));
@@ -317,11 +336,27 @@ fn write_fetch(out: &mut String, fetch: &Fetch, depth: usize) {
 fn write_open(out: &mut String, open: &Open, depth: usize) {
     match open {
         Open::Bound(cursor) => write_bound_cursor(out, "open", cursor, depth),
-        Open::Query { cursor, query } => {
-            line(out, depth, &format!("open {cursor} for {query}"));
+        Open::Query {
+            cursor,
+            query,
+            scrolling,
+        } => {
+            line(
+                out,
+                depth,
+                &format!("open {cursor} {}for {query}", scrolling_text(*scrolling)),
+            );
         }
-        Open::Dynamic { cursor, dynamic } => {
-            line(out, depth, &format!("open {cursor} for"));
+        Open::Dynamic {
+            cursor,
+            dynamic,
+            scrolling,
+        } => {
+            line(
+                out,
+                depth,
+                &format!("open {cursor} {}for", scrolling_text(*scrolling)),
+            );
             write_dynamic(out, dynamic, depth + 1);
         }
     }
@@ -680,8 +715,8 @@ fn a_cursor_query_runs_where_the_cursor_opens() {
             "
             block
               declare c cursor
-              declare never cursor
-              declare d cursor (k INT)
+              declare never no scroll cursor
+              declare d scroll cursor (k INT)
               declare free refcursor
               declare n INT
               if
@@ -690,9 +725,9 @@ fn a_cursor_query_runs_where_the_cursor_opens() {
               block
                 declare c cursor
                 open c: SELECT id FROM inner_docs
-              open d: SELECT id FROM keyed WHERE id = k
+              open scroll d: SELECT id FROM keyed WHERE id = k
                 argument SELECT (SELECT 1 FROM keys)
-              open free for SELECT id FROM loose
+              open free scroll for SELECT id FROM loose
               fetch relative SELECT (SELECT 2 FROM steps) d into n
               move forward all d
               fetch forward one d into n
@@ -752,6 +787,47 @@ fn fetch_and_move_keep_every_direction() {
 }
 
 #[test]
+fn cursor_scrolling_survives_declaration_open_and_iteration() {
+    let body = "
+        DECLARE
+          forwards SCROLL CURSOR FOR SELECT 1;
+          one_way NO SCROLL CURSOR FOR SELECT 1;
+          automatic CURSOR FOR SELECT 1;
+          free refcursor;
+        BEGIN
+          OPEN forwards;
+          OPEN one_way;
+          OPEN automatic;
+          FOR r IN forwards LOOP NULL; END LOOP;
+          FOR r IN one_way LOOP NULL; END LOOP;
+          FOR r IN automatic LOOP NULL; END LOOP;
+          OPEN free SCROLL FOR SELECT 1;
+          OPEN free NO SCROLL FOR EXECUTE 'SELECT 1';
+        END";
+    assert_eq!(
+        outline(body),
+        expected(
+            "
+            block
+              declare forwards scroll cursor
+              declare one_way no scroll cursor
+              declare automatic cursor
+              declare free refcursor
+              open scroll forwards: SELECT 1
+              open no scroll one_way: SELECT 1
+              open automatic: SELECT 1
+              cursor r in scroll forwards: SELECT 1
+              cursor r in no scroll one_way: SELECT 1
+              cursor r in automatic: SELECT 1
+              open free scroll for SELECT 1
+              open free no scroll for
+                dynamic SELECT 'SELECT 1'
+            "
+        )
+    );
+}
+
+#[test]
 fn sql_built_at_run_time_is_reported_with_the_expressions_that_build_it() {
     let body = "DECLARE n INT; cur refcursor; r RECORD;
     BEGIN
@@ -777,7 +853,7 @@ fn sql_built_at_run_time_is_reported_with_the_expressions_that_build_it() {
                 using SELECT d
                 into strict n
               dynamic SELECT 'SELECT 1'
-              open cur for
+              open cur no scroll for
                 dynamic SELECT 'SELECT 2'
                   using SELECT e
               loop over r
@@ -1125,7 +1201,7 @@ fn every_declaration_keeps_its_name_type_and_default() {
               declare by_position alias for $2
               declare by_name alias for f.p
               declare free refcursor
-              declare bound cursor (k t.name%TYPE, n INT)
+              declare bound no scroll cursor (k t.name%TYPE, n INT)
               dynamic SELECT 'SELECT ' || plain
             "#
         )
@@ -1215,6 +1291,9 @@ fn a_malformed_body_is_a_syntax_error() {
         "DECLARE c CURSOR FOR SELECT 1; BEGIN FOR a, b IN c LOOP NULL; END LOOP; END",
         "BEGIN FOR r IN EXECUTE 'SELECT 1' INTO n LOOP NULL; END LOOP; END",
         "BEGIN OPEN c FOR EXECUTE 'SELECT 1' INTO n; END",
+        "DECLARE c CURSOR FOR SELECT 1; BEGIN OPEN c SCROLL; END",
+        "DECLARE c CURSOR FOR SELECT 1; BEGIN OPEN c NO SCROLL; END",
+        "DECLARE c refcursor; BEGIN OPEN c NO FOR SELECT 1; END",
         "BEGIN RETURN QUERY EXECUTE 'SELECT 1' INTO n; END",
         "BEGIN EXECUTE 'SELECT 1' INTO a INTO b; END",
         "BEGIN FETCH NEXT c INTO s; END",
