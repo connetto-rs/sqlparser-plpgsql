@@ -600,7 +600,7 @@ impl<'body> Collector<'body, '_> {
             let sqlerrm = self.name(NameKind::SqlErrm);
             section.declare("sqlerrm", sqlerrm);
             for handler in &block.handlers {
-                self.nodes(handler, &section)?;
+                self.nodes(&handler.statements, &section)?;
             }
         }
         Ok(())
