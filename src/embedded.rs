@@ -123,11 +123,39 @@ pub struct Block {
     pub declarations: Vec<Declaration>,
     /// The block's statements.
     pub statements: Vec<Node>,
-    /// The statements of each `EXCEPTION WHEN ... THEN` handler.
+    /// Every `WHEN ... THEN` of the `EXCEPTION` section, in the order
+    /// written.
     ///
     /// A handler runs once a statement raises, after PostgreSQL has rolled back
     /// everything the block's statements did, `SET` included.
-    pub handlers: Vec<Vec<Node>>,
+    pub handlers: Vec<Handler>,
+}
+
+/// One `WHEN condition [OR condition ...] THEN statements` of an `EXCEPTION`
+/// section.
+///
+/// An error runs the first handler with a condition it matches. A condition
+/// whose code names a class, ending in `000`, matches every error of the
+/// class.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Handler {
+    /// The conditions the handler catches, in the order written.
+    pub conditions: Vec<Condition>,
+    /// The statements the handler runs.
+    pub statements: Vec<Node>,
+}
+
+/// An error condition, as a [`Handler`] catches it or a [`Raise`] raises it.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Condition {
+    /// A condition name such as `unique_violation`, folded as PostgreSQL
+    /// folds an identifier.
+    ///
+    /// A handler's `others` catches every error except `query_canceled` and
+    /// `assert_failure`.
+    Name(String),
+    /// `SQLSTATE 'code'`, five digits or upper-case ASCII letters.
+    Sqlstate(String),
 }
 
 /// A name a `DECLARE` section binds.
@@ -643,7 +671,7 @@ pub struct Raise {
     /// The level, `EXCEPTION` when none is written.
     pub level: RaiseLevel,
     /// The condition written in place of the format.
-    pub condition: Option<RaiseCondition>,
+    pub condition: Option<Condition>,
     /// The format string's text, in which each `%` stands for the next
     /// argument.
     pub format: Option<String>,
@@ -651,16 +679,6 @@ pub struct Raise {
     pub arguments: Vec<Query>,
     /// Each `USING` option, in the order written.
     pub options: Vec<RaiseOption>,
-}
-
-/// The condition a [`Raise`] names in place of its format.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum RaiseCondition {
-    /// A condition name such as `unique_violation`, folded as PostgreSQL
-    /// folds an identifier.
-    Name(String),
-    /// `SQLSTATE 'code'`, five digits or upper-case ASCII letters.
-    Sqlstate(String),
 }
 
 /// One `option = value` after the `USING` of a [`Raise`].
@@ -1291,9 +1309,15 @@ impl Reader {
                 let mut handlers = Vec::new();
                 loop {
                     reader.expect("WHEN")?;
-                    reader.segment("THEN", |token, _| is_keyword(token, "THEN"))?;
-                    reader.index += 1;
-                    handlers.push(reader.statements(&["WHEN", "END"])?);
+                    let mut conditions = Vec::from([reader.handler_condition()?]);
+                    while reader.eat("OR") {
+                        conditions.push(reader.handler_condition()?);
+                    }
+                    reader.expect("THEN")?;
+                    handlers.push(Handler {
+                        conditions,
+                        statements: reader.statements(&["WHEN", "END"])?,
+                    });
                     if !reader.at("WHEN") {
                         return Ok(handlers);
                     }
@@ -1881,6 +1905,39 @@ impl Reader {
         })
     }
 
+    /// Reads the condition of a handler. A name PostgreSQL folds to
+    /// `sqlstate`, quoted or not, introduces an SQLSTATE code.
+    fn handler_condition(&mut self) -> Result<Condition, Error> {
+        let Some(Token::Word(word)) = self.peek() else {
+            return Err(self.syntax("an exception condition"));
+        };
+        if self.at_any(&["OR", "THEN"]) {
+            return Err(self.syntax("an exception condition"));
+        }
+        let name = identifier(word);
+        self.index += 1;
+        Ok(if name == "sqlstate" {
+            Condition::Sqlstate(self.sqlstate_code()?)
+        } else {
+            Condition::Name(name)
+        })
+    }
+
+    /// Reads the string constant after `SQLSTATE`, which PostgreSQL accepts
+    /// only as five digits or upper-case ASCII letters.
+    fn sqlstate_code(&mut self) -> Result<String, Error> {
+        let Some(code) = self
+            .peek()
+            .and_then(string_literal)
+            .filter(|code| is_sqlstate(code))
+            .map(String::from)
+        else {
+            return Err(self.syntax("an SQLSTATE code"));
+        };
+        self.index += 1;
+        Ok(code)
+    }
+
     fn raise(&mut self) -> Result<Raise, Error> {
         const LEVELS: [(&str, RaiseLevel); 6] = [
             ("DEBUG", RaiseLevel::Debug),
@@ -1914,20 +1971,11 @@ impl Reader {
                 })?);
             }
         } else if self.eat("SQLSTATE") {
-            let Some(code) = self
-                .peek()
-                .and_then(string_literal)
-                .filter(|code| is_sqlstate(code))
-                .map(String::from)
-            else {
-                return Err(self.syntax("an SQLSTATE code"));
-            };
-            raise.condition = Some(RaiseCondition::Sqlstate(code));
-            self.index += 1;
+            raise.condition = Some(Condition::Sqlstate(self.sqlstate_code()?));
         } else if !self.at("USING")
             && let Some(Token::Word(word)) = self.peek()
         {
-            raise.condition = Some(RaiseCondition::Name(identifier(word)));
+            raise.condition = Some(Condition::Name(identifier(word)));
             self.index += 1;
         }
         if self.eat("USING") {

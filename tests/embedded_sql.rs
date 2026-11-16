@@ -6,9 +6,8 @@ use core::fmt::Write as _;
 use sqlparser::ast::{FunctionArguments, Statement};
 use sqlparser_plpgsql::{
     embedded::{
-        AliasTarget, Block, BoundCursor, Branch, DeclarationKind, DeclaredType, Dynamic, Error,
-        ExitKind, Indirection, IntoTargets, Loop, LoopControl, Node, Open, Raise, RaiseCondition,
-        Target,
+        AliasTarget, Block, BoundCursor, Branch, Condition, DeclarationKind, DeclaredType, Dynamic,
+        Error, ExitKind, Indirection, IntoTargets, Loop, LoopControl, Node, Open, Raise, Target,
     },
     embedded_sql,
 };
@@ -40,8 +39,20 @@ fn write_block(out: &mut String, block: &Block, depth: usize) {
     }
     write_nodes(out, &block.statements, depth + 1);
     for handler in &block.handlers {
-        line(out, depth + 1, "handler");
-        write_nodes(out, handler, depth + 2);
+        let conditions: Vec<String> = handler.conditions.iter().map(condition_text).collect();
+        line(
+            out,
+            depth + 1,
+            &format!("handler {}", conditions.join(" or ")),
+        );
+        write_nodes(out, &handler.statements, depth + 2);
+    }
+}
+
+fn condition_text(condition: &Condition) -> String {
+    match condition {
+        Condition::Name(name) => format!("condition {name}"),
+        Condition::Sqlstate(code) => format!("sqlstate {code}"),
     }
 }
 
@@ -251,14 +262,8 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
 
 fn write_raise(out: &mut String, raise: &Raise, depth: usize) {
     let mut text = format!("raise {:?}", raise.level);
-    match &raise.condition {
-        Some(RaiseCondition::Name(name)) => {
-            write!(text, " condition {name}").expect("writing to a string");
-        }
-        Some(RaiseCondition::Sqlstate(code)) => {
-            write!(text, " sqlstate {code}").expect("writing to a string");
-        }
-        None => {}
+    if let Some(condition) = &raise.condition {
+        write!(text, " {}", condition_text(condition)).expect("writing to a string");
     }
     if let Some(format) = &raise.format {
         write!(text, " format {format:?}").expect("writing to a string");
@@ -372,7 +377,7 @@ fn every_statement_postgresql_ran_is_read_in_place() {
               fetch c into n
               block
                 UPDATE pp_docs SET id = id
-                handler
+                handler condition others
                   DELETE FROM pp_log
               SELECT id FROM pp_docs
             "
@@ -728,17 +733,48 @@ fn each_handler_belongs_to_the_block_that_owns_it() {
               <<inner>> block
                 declare m INT default SELECT (SELECT 2 FROM defaults)
                 SET search_path = a
-                handler
+                handler condition unique_violation or sqlstate 22012
                   INSERT INTO errors VALUES (1)
-                handler
+                handler condition others
                   block
                     raise Exception
-                    handler
+                    handler condition others
               UPDATE docs SET v = 1
-              handler
+              handler condition others
                 diagnostics stacked
                   msg = MessageText
                 DELETE FROM docs
+            "
+        )
+    );
+}
+
+#[test]
+fn each_handler_keeps_the_conditions_it_catches() {
+    let body = r#"BEGIN
+        NULL;
+      EXCEPTION
+        WHEN Insufficient_Privilege THEN RETURN 1;
+        WHEN SQLSTATE '42501' OR "Quoted" THEN RETURN 2;
+        WHEN unique_violation OR division_by_zero OR sqlstate $$P0001$$ THEN RETURN 3;
+        WHEN "sqlstate" '22012' THEN RETURN 4;
+        WHEN OTHERS THEN RETURN 5;
+    END"#;
+    assert_eq!(
+        outline(body),
+        expected(
+            "
+            block
+              handler condition insufficient_privilege
+                return SELECT 1
+              handler sqlstate 42501 or condition Quoted
+                return SELECT 2
+              handler condition unique_violation or condition division_by_zero or sqlstate P0001
+                return SELECT 3
+              handler sqlstate 22012
+                return SELECT 4
+              handler condition others
+                return SELECT 5
             "
         )
     );
@@ -884,7 +920,7 @@ fn every_control_transfer_stays_where_it_is_written() {
                 dynamic SELECT s
                   into result
                 return SELECT 'fell through: ' || result
-                handler
+                handler condition raise_exception
                   return SELECT 'handler: ' || s
             "
         )
@@ -1073,6 +1109,13 @@ fn a_malformed_body_is_a_syntax_error() {
         "BEGIN RAISE USING \"MESSAGE\" = 'm'; END",
         "BEGIN RAISE SQLSTATE '2201'; END",
         "BEGIN RAISE SQLSTATE '22o12'; END",
+        "BEGIN NULL; EXCEPTION WHEN THEN NULL; END",
+        "BEGIN NULL; EXCEPTION WHEN others OR THEN NULL; END",
+        "BEGIN NULL; EXCEPTION WHEN a b THEN NULL; END",
+        "BEGIN NULL; EXCEPTION WHEN a.b THEN NULL; END",
+        "BEGIN NULL; EXCEPTION WHEN SQLSTATE 22012 THEN NULL; END",
+        "BEGIN NULL; EXCEPTION WHEN SQLSTATE '2201' THEN NULL; END",
+        "BEGIN NULL; EXCEPTION WHEN 'P0001' THEN NULL; END",
         "BEGIN SELECT 1 INTO a INTO b; END",
         "BEGIN SELECT 1 INTO; END",
         "DECLARE x; BEGIN NULL; END",
@@ -1214,7 +1257,7 @@ fn every_diagnostics_item_is_kept_with_its_target() {
                 outer_block.c = Context
               diagnostics
                 d = RowCount
-              handler
+              handler condition others
                 diagnostics stacked
                   e = ReturnedSqlstate
                   f = ColumnName
