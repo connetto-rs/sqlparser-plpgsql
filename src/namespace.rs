@@ -392,7 +392,8 @@ impl Block {
     /// value. `RAISE` yields its arguments, then its options, and `ASSERT`
     /// its condition, then its message. A cursor that opens yields its
     /// arguments, then its query, which reads the names in reach at the
-    /// cursor's declaration and the cursor's parameters.
+    /// cursor's declaration and the cursor's parameters. `FETCH` and `MOVE`
+    /// yield their direction's expression before any `FETCH` write.
     ///
     /// `holds_row` answers whether a parameter, a declared variable or a
     /// cursor parameter holds a row, as for [`Namespace::lookup`], which an
@@ -685,7 +686,18 @@ impl<'body> Collector<'body, '_> {
                         self.write(Write::Node(node), level, None);
                     }
                 }
-                Node::Fetch(_) | Node::Diagnostics(_) => {
+                Node::Fetch(fetch) => {
+                    if let Some(count) = fetch.direction.expression() {
+                        self.site(Sql::Expression(count), level);
+                    }
+                    self.write(Write::Node(node), level, None);
+                }
+                Node::Move { direction, .. } => {
+                    if let Some(count) = direction.expression() {
+                        self.site(Sql::Expression(count), level);
+                    }
+                }
+                Node::Diagnostics(_) => {
                     self.write(Write::Node(node), level, None);
                 }
                 Node::Open(open) => {

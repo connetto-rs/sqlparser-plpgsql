@@ -825,6 +825,57 @@ fn node<'body>(site: &WriteSite<'body>) -> &'body Node {
 }
 
 #[test]
+fn fetch_and_move_yield_direction_expressions_in_body_order() {
+    let block = read(
+        "BEGIN
+          PERFORM 0;
+          FETCH ABSOLUTE position FROM cur INTO target;
+          MOVE FORWARD amount FROM cur;
+          FETCH RELATIVE distance IN cur INTO target;
+          MOVE BACKWARD remaining IN cur;
+          MOVE ABSOLUTE ending FROM cur;
+          MOVE RELATIVE offset_value FROM cur;
+          MOVE 2 FROM cur;
+          FETCH FIRST FROM cur INTO target;
+          MOVE ALL FROM cur;
+          MOVE BACKWARD ALL FROM cur;
+          MOVE NEXT FROM cur;
+          PERFORM 9;
+        END",
+    );
+    let signature = plain("f", &[Some("position"), Some("amount"), Some("distance")]);
+    let sites = sites(&block, &signature);
+    assert_eq!(
+        outline(&sites),
+        [
+            "statement SELECT 0",
+            "expression SELECT position",
+            "expression SELECT amount",
+            "expression SELECT distance",
+            "expression SELECT remaining",
+            "expression SELECT ending",
+            "expression SELECT offset_value",
+            "expression SELECT 2",
+            "statement SELECT 9",
+        ]
+    );
+    for (index, name) in [(1, "position"), (2, "amount"), (3, "distance")] {
+        assert_eq!(
+            whole(&sites[index], &[name]).kind(),
+            &NameKind::Parameter { position: index }
+        );
+    }
+    let writes = writes(&block, &signature);
+    assert_eq!(writes.len(), 3);
+    for (site, index) in writes.iter().zip([1, 3, 8]) {
+        assert!(core::ptr::eq(
+            node(site),
+            &raw const block.statements[index]
+        ));
+    }
+}
+
+#[test]
 fn every_write_comes_in_body_order_borrowing_its_node() {
     let block = read(
         "DECLARE s text := 'a'; t text; r record; arr text[]; c CURSOR (k int) FOR SELECT k; cur refcursor; y ALIAS FOR s;
