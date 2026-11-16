@@ -1297,6 +1297,18 @@ fn a_malformed_body_is_a_syntax_error() {
         "BEGIN FOREACH x SLICE (1) IN ARRAY a LOOP NULL; END LOOP; END",
         "BEGIN x.* := 2; END",
         "BEGIN x[] := 2; END",
+    ] {
+        assert!(
+            matches!(embedded_sql(body), Err(Error::Syntax { .. })),
+            "{body}: {:?}",
+            embedded_sql(body)
+        );
+    }
+}
+
+#[test]
+fn a_malformed_close_commit_or_rollback_is_a_syntax_error() {
+    for body in [
         "BEGIN CLOSE; END",
         "BEGIN CLOSE 1; END",
         "BEGIN CLOSE c extra; END",
