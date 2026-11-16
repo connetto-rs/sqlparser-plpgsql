@@ -25,7 +25,7 @@ use sqlstate::{SqlState, pg};
 /// A condition name PL/pgSQL knows, such as `unique_violation`.
 ///
 /// A handler's `others` is not one, since it stands for no SQLSTATE.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ConditionName(&'static (&'static str, SqlState));
 
 impl ConditionName {
@@ -67,15 +67,6 @@ impl FromStr for ConditionName {
             .find(|(known, _)| *known == name)
             .map(Self)
             .ok_or_else(|| UnknownCondition { name: name.into() })
-    }
-}
-
-impl fmt::Debug for ConditionName {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_tuple("ConditionName")
-            .field(&self.as_str())
-            .finish()
     }
 }
 
