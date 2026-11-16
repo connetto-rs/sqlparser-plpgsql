@@ -782,6 +782,7 @@ impl<'body> Collector<'body, '_> {
                 lower,
                 upper,
                 step,
+                ..
             } => {
                 for bound in [Some(lower), Some(upper), step.as_ref()]
                     .into_iter()

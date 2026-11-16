@@ -574,9 +574,12 @@ pub enum LoopControl {
         /// The integer variable the loop declares for its statements, which
         /// hides any other variable of that name.
         variable: String,
-        /// The first bound written.
+        /// Whether `REVERSE` counts down from the first bound to the second
+        /// by the step, instead of up.
+        reverse: bool,
+        /// The first bound written, where the count starts.
         lower: Box<Query>,
-        /// The second bound written.
+        /// The second bound written, past which the count stops.
         upper: Box<Query>,
         /// The `BY` step.
         step: Option<Box<Query>>,
@@ -1743,6 +1746,7 @@ impl Reader {
         };
         Ok(LoopControl::Range {
             variable: loop_variable(&targets)?,
+            reverse,
             lower,
             upper,
             step,

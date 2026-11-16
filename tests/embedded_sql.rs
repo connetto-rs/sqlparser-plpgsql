@@ -300,11 +300,13 @@ fn write_loop_control(out: &mut String, looped: &Loop, depth: usize) {
         }
         LoopControl::Range {
             variable,
+            reverse,
             lower,
             upper,
             step,
         } => {
-            let text = format!("range {variable} in {lower} .. {upper}");
+            let direction = if *reverse { " reverse" } else { "" };
+            let text = format!("range {variable} in{direction} {lower} .. {upper}");
             line(out, depth, &labelled(label, &text));
             if let Some(step) = step {
                 line(out, depth + 1, &format!("by {step}"));
@@ -593,7 +595,7 @@ fn every_loop_keeps_its_control_apart_from_its_body() {
                 DELETE FROM queue
               range i in SELECT 1 .. SELECT 10
                 continue when SELECT i = 2
-              range i in SELECT (SELECT max(id) FROM docs) .. SELECT lo
+              range i in reverse SELECT (SELECT max(id) FROM docs) .. SELECT lo
                 by SELECT 2
               cursor r in c: SELECT id FROM docs WHERE id = key
                 argument SELECT 7
