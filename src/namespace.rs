@@ -708,6 +708,7 @@ impl<'body> Collector<'body, '_> {
                     }
                     self.write(Write::Node(node), level, None);
                 }
+                Node::Close { .. } | Node::Commit { .. } | Node::Rollback { .. } => {}
                 Node::Block(block) => self.block(block, level)?,
                 Node::If(conditional) => {
                     self.branches(&conditional.branches, level)?;

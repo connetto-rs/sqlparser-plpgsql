@@ -207,6 +207,9 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                 }
             }
             Node::Open(open) => write_open(out, open, depth),
+            Node::Close { cursor } => line(out, depth, &format!("close {cursor}")),
+            Node::Commit { chain } => write_transaction(out, "commit", *chain, depth),
+            Node::Rollback { chain } => write_transaction(out, "rollback", *chain, depth),
             Node::Block(block) => write_block(out, block, depth),
             Node::If(conditional) => {
                 line(out, depth, "if");
@@ -314,6 +317,11 @@ fn write_fetch(out: &mut String, fetch: &Fetch, depth: usize) {
     );
 }
 
+fn write_transaction(out: &mut String, command: &str, chain: bool, depth: usize) {
+    let suffix = if chain { " and chain" } else { "" };
+    line(out, depth, &format!("{command}{suffix}"));
+}
+
 fn write_open(out: &mut String, open: &Open, depth: usize) {
     match open {
         Open::Bound(cursor) => write_bound_cursor(out, "open", cursor, depth),
@@ -413,12 +421,51 @@ fn every_statement_postgresql_ran_is_read_in_place() {
                 INSERT INTO pp_log VALUES (r.id)
               open c: SELECT id FROM pp_docs
               fetch forward one c into n
+              close c
               block
                 UPDATE pp_docs SET id = id
                 handler condition others
                   DELETE FROM pp_log
               SELECT id FROM pp_docs
             "
+        )
+    );
+}
+
+#[test]
+fn close_and_transactions_keep_the_cursor_and_chain() {
+    let body = r#"
+        <<outer>> DECLARE c refcursor; "Quoted" refcursor;
+        BEGIN
+          NULL;
+          CLOSE c;
+          CLOSE outer.c;
+          CLOSE "Quoted";
+          COMMIT;
+          COMMIT AND CHAIN;
+          COMMIT AND NO CHAIN;
+          ROLLBACK;
+          ROLLBACK AND NO CHAIN;
+          ROLLBACK AND CHAIN;
+          NULL;
+        END"#;
+    assert_eq!(
+        outline(body),
+        expected(
+            r#"
+            <<outer>> block
+              declare c refcursor
+              declare Quoted refcursor
+              close c
+              close outer.c
+              close "Quoted"
+              commit
+              commit and chain
+              commit
+              rollback
+              rollback
+              rollback and chain
+            "#
         )
     );
 }
@@ -886,6 +933,7 @@ fn a_routine_defined_inside_the_body_is_one_statement() {
               CREATE PROCEDURE p () LANGUAGE sql BEGIN ATOMIC SELECT 1; END
               CREATE RULE r AS ON INSERT TO t DO ALSO (INSERT INTO a VALUES (1); INSERT INTO b VALUES (2))
               CALL p((SELECT 1 FROM docs))
+              commit
             "
         )
     );
@@ -1249,6 +1297,32 @@ fn a_malformed_body_is_a_syntax_error() {
         "BEGIN FOREACH x SLICE (1) IN ARRAY a LOOP NULL; END LOOP; END",
         "BEGIN x.* := 2; END",
         "BEGIN x[] := 2; END",
+    ] {
+        assert!(
+            matches!(embedded_sql(body), Err(Error::Syntax { .. })),
+            "{body}: {:?}",
+            embedded_sql(body)
+        );
+    }
+}
+
+#[test]
+fn a_malformed_close_commit_or_rollback_is_a_syntax_error() {
+    for body in [
+        "BEGIN CLOSE; END",
+        "BEGIN CLOSE 1; END",
+        "BEGIN CLOSE c extra; END",
+        "BEGIN CLOSE c[1]; END",
+        "BEGIN COMMIT AND; END",
+        "BEGIN COMMIT CHAIN; END",
+        "BEGIN COMMIT AND NO; END",
+        "BEGIN COMMIT AND CHAIN extra; END",
+        "BEGIN COMMIT AND NO CHAIN extra; END",
+        "BEGIN ROLLBACK AND; END",
+        "BEGIN ROLLBACK CHAIN; END",
+        "BEGIN ROLLBACK AND NO; END",
+        "BEGIN ROLLBACK AND CHAIN extra; END",
+        "BEGIN ROLLBACK AND NO CHAIN extra; END",
     ] {
         assert!(
             matches!(embedded_sql(body), Err(Error::Syntax { .. })),

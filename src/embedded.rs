@@ -281,6 +281,23 @@ pub enum Node {
     /// `OPEN`, which assigns the cursor variable a generated portal name
     /// when it holds null.
     Open(Open),
+    /// `CLOSE`, which closes the cursor's portal.
+    Close {
+        /// The cursor, as written.
+        cursor: ObjectName,
+    },
+    /// `COMMIT [AND [NO] CHAIN]`.
+    Commit {
+        /// Whether `AND CHAIN` starts the next transaction with the
+        /// characteristics of the one it ends.
+        chain: bool,
+    },
+    /// `ROLLBACK [AND [NO] CHAIN]`.
+    Rollback {
+        /// Whether `AND CHAIN` starts the next transaction with the
+        /// characteristics of the one it ends.
+        chain: bool,
+    },
     /// A nested block.
     Block(Block),
     /// An `IF` statement.
@@ -1021,6 +1038,9 @@ enum Command {
     Execute,
     Perform,
     Open,
+    Close,
+    Commit,
+    Rollback,
     Fetch,
     Diagnostics,
     Silent,
@@ -1050,10 +1070,10 @@ impl Command {
             ("FETCH", Command::Fetch),
             ("MOVE", Command::Fetch),
             ("GET", Command::Diagnostics),
-            ("CLOSE", Command::Silent),
+            ("CLOSE", Command::Close),
             ("NULL", Command::Silent),
-            ("COMMIT", Command::Silent),
-            ("ROLLBACK", Command::Silent),
+            ("COMMIT", Command::Commit),
+            ("ROLLBACK", Command::Rollback),
         ];
         if word.quote_style.is_some() {
             return None;
@@ -1620,6 +1640,17 @@ impl Reader {
                 nodes.push(evaluated(self.expression_until_semicolon()?));
             }
             Some(Command::Open) => nodes.push(Node::Open(self.open()?)),
+            Some(Command::Close) => {
+                self.index += 1;
+                let cursor = self.dotted_name("a cursor")?;
+                nodes.push(Node::Close { cursor });
+            }
+            Some(Command::Commit) => nodes.push(Node::Commit {
+                chain: self.transaction_chain()?,
+            }),
+            Some(Command::Rollback) => nodes.push(Node::Rollback {
+                chain: self.transaction_chain()?,
+            }),
             Some(Command::Fetch) => self.fetch(nodes)?,
             Some(Command::Diagnostics) => nodes.push(Node::Diagnostics(self.diagnostics()?)),
             Some(Command::Silent) => {
@@ -1631,6 +1662,17 @@ impl Reader {
             }
         }
         self.expect_semicolon()
+    }
+
+    /// Reads the optional `AND [NO] CHAIN` of a transaction statement.
+    fn transaction_chain(&mut self) -> Result<bool, Error> {
+        self.index += 1;
+        if !self.eat("AND") {
+            return Ok(false);
+        }
+        let chain = !self.eat("NO");
+        self.expect("CHAIN")?;
+        Ok(chain)
     }
 
     fn if_statement(&mut self) -> Result<If, Error> {
