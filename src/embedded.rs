@@ -415,14 +415,6 @@ impl DiagnosticsKind {
         ("PG_EXCEPTION_CONTEXT", Self::ExceptionContext),
     ];
 
-    /// The item `token` names.
-    fn of(token: &Token) -> Option<Self> {
-        Self::KEYWORDS
-            .iter()
-            .find(|(keyword, _)| is_keyword(token, keyword))
-            .map(|&(_, kind)| kind)
-    }
-
     /// Whether PostgreSQL accepts the item with `STACKED` when `stacked`
     /// holds, and without it otherwise.
     const fn allowed(self, stacked: bool) -> bool {
@@ -643,15 +635,78 @@ impl ExitKind {
 
 /// `RAISE [level] [format [, argument ...]] [USING option = value, ...]`,
 /// with a condition name or `SQLSTATE` in place of the format, or bare.
+///
+/// One without a condition, a format or an option raises again the error a
+/// handler caught, whatever its level.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Raise {
-    /// The level, `EXCEPTION` when none is written and for the bare `RAISE`
-    /// that raises again the error a handler caught.
+    /// The level, `EXCEPTION` when none is written.
     pub level: RaiseLevel,
+    /// The condition written in place of the format.
+    pub condition: Option<RaiseCondition>,
+    /// The format string's text, in which each `%` stands for the next
+    /// argument.
+    pub format: Option<String>,
     /// The `SELECT` that evaluates each argument the format string reads.
     pub arguments: Vec<Query>,
-    /// The `SELECT` that evaluates each `USING` option's value.
-    pub options: Vec<Query>,
+    /// Each `USING` option, in the order written.
+    pub options: Vec<RaiseOption>,
+}
+
+/// The condition a [`Raise`] names in place of its format.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum RaiseCondition {
+    /// A condition name such as `unique_violation`, folded as PostgreSQL
+    /// folds an identifier.
+    Name(String),
+    /// `SQLSTATE 'code'`, five digits or upper-case ASCII letters.
+    Sqlstate(String),
+}
+
+/// One `option = value` after the `USING` of a [`Raise`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct RaiseOption {
+    /// The option.
+    pub kind: RaiseOptionKind,
+    /// The `SELECT` that evaluates its value.
+    pub value: Query,
+}
+
+/// What a [`RaiseOption`] sets.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum RaiseOptionKind {
+    /// `ERRCODE`, a condition name or an SQLSTATE code.
+    Errcode,
+    /// `MESSAGE`.
+    Message,
+    /// `DETAIL`.
+    Detail,
+    /// `HINT`.
+    Hint,
+    /// `COLUMN`.
+    Column,
+    /// `CONSTRAINT`.
+    Constraint,
+    /// `DATATYPE`.
+    Datatype,
+    /// `TABLE`.
+    Table,
+    /// `SCHEMA`.
+    Schema,
+}
+
+impl RaiseOptionKind {
+    const KEYWORDS: [(&str, Self); 9] = [
+        ("ERRCODE", Self::Errcode),
+        ("MESSAGE", Self::Message),
+        ("DETAIL", Self::Detail),
+        ("HINT", Self::Hint),
+        ("COLUMN", Self::Column),
+        ("CONSTRAINT", Self::Constraint),
+        ("DATATYPE", Self::Datatype),
+        ("TABLE", Self::Table),
+        ("SCHEMA", Self::Schema),
+    ];
 }
 
 /// The level of a [`Raise`].
@@ -1838,17 +1893,20 @@ impl Reader {
         self.index += 1;
         let mut raise = Raise {
             level: RaiseLevel::Exception,
+            condition: None,
+            format: None,
             arguments: Vec::new(),
             options: Vec::new(),
         };
         if self.peek() == Some(&Token::SemiColon) {
             return Ok(raise);
         }
-        if let Some(&(_, level)) = LEVELS.iter().find(|(keyword, _)| self.at(keyword)) {
+        if let Some(level) = self.peek().and_then(|token| keyword_in(&LEVELS, token)) {
             raise.level = level;
             self.index += 1;
         }
-        if self.peek().is_some_and(is_string_literal) {
+        if let Some(format) = self.peek().and_then(string_literal).map(String::from) {
+            raise.format = Some(format);
             self.index += 1;
             while self.eat_token(&Token::Comma) {
                 raise.arguments.push(*self.expression("`;`", |token, _| {
@@ -1856,22 +1914,38 @@ impl Reader {
                 })?);
             }
         } else if self.eat("SQLSTATE") {
-            if !self.peek().is_some_and(is_string_literal) {
+            let Some(code) = self
+                .peek()
+                .and_then(string_literal)
+                .filter(|code| is_sqlstate(code))
+                .map(String::from)
+            else {
                 return Err(self.syntax("an SQLSTATE code"));
-            }
+            };
+            raise.condition = Some(RaiseCondition::Sqlstate(code));
             self.index += 1;
-        } else if matches!(self.peek(), Some(Token::Word(_))) && !self.at("USING") {
+        } else if !self.at("USING")
+            && let Some(Token::Word(word)) = self.peek()
+        {
+            raise.condition = Some(RaiseCondition::Name(identifier(word)));
             self.index += 1;
         }
         if self.eat("USING") {
             loop {
-                self.name("a RAISE option")?;
+                let Some(kind) = self
+                    .peek()
+                    .and_then(|token| keyword_in(&RaiseOptionKind::KEYWORDS, token))
+                else {
+                    return Err(self.syntax("a RAISE option"));
+                };
+                self.index += 1;
                 if !(self.eat_token(&Token::Eq) || self.eat_token(&Token::Assignment)) {
                     return Err(self.syntax("`=`"));
                 }
-                raise.options.push(*self.expression("`;`", |token, _| {
+                let value = *self.expression("`;`", |token, _| {
                     matches!(token, Token::Comma | Token::SemiColon)
-                })?);
+                })?;
+                raise.options.push(RaiseOption { kind, value });
                 if !self.eat_token(&Token::Comma) {
                     break;
                 }
@@ -1983,7 +2057,7 @@ impl Reader {
             }
             let Some(kind) = self
                 .peek()
-                .and_then(DiagnosticsKind::of)
+                .and_then(|token| keyword_in(&DiagnosticsKind::KEYWORDS, token))
                 .filter(|kind| kind.allowed(stacked))
             else {
                 return Err(self.syntax(if stacked {
@@ -2249,15 +2323,33 @@ fn is_range_dots(token: &Token, next: Option<&Token>) -> bool {
     *token == Token::Period && next == Some(&Token::Period)
 }
 
-fn is_string_literal(token: &Token) -> bool {
-    matches!(
-        token,
-        Token::SingleQuotedString(_)
-            | Token::EscapedStringLiteral(_)
-            | Token::DollarQuotedString(_)
-            | Token::UnicodeStringLiteral(_)
-            | Token::NationalStringLiteral(_)
-    )
+/// The value `keywords` pairs with `token`, a keyword written unquoted.
+fn keyword_in<T: Copy>(keywords: &[(&str, T)], token: &Token) -> Option<T> {
+    keywords
+        .iter()
+        .find(|(keyword, _)| is_keyword(token, keyword))
+        .map(|&(_, value)| value)
+}
+
+/// The text of a string constant.
+fn string_literal(token: &Token) -> Option<&str> {
+    match token {
+        Token::SingleQuotedString(text)
+        | Token::EscapedStringLiteral(text)
+        | Token::UnicodeStringLiteral(text)
+        | Token::NationalStringLiteral(text) => Some(text),
+        Token::DollarQuotedString(quoted) => Some(&quoted.value),
+        _ => None,
+    }
+}
+
+/// Whether `code` is an SQLSTATE code as PostgreSQL accepts one, five digits
+/// or upper-case ASCII letters.
+fn is_sqlstate(code: &str) -> bool {
+    code.len() == 5
+        && code
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || byte.is_ascii_uppercase())
 }
 
 /// The name an identifier denotes, as PostgreSQL folds it.

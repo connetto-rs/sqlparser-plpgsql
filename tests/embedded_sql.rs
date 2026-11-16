@@ -7,7 +7,8 @@ use sqlparser::ast::{FunctionArguments, Statement};
 use sqlparser_plpgsql::{
     embedded::{
         AliasTarget, Block, BoundCursor, Branch, DeclarationKind, DeclaredType, Dynamic, Error,
-        ExitKind, Indirection, IntoTargets, Loop, LoopControl, Node, Open, Target,
+        ExitKind, Indirection, IntoTargets, Loop, LoopControl, Node, Open, Raise, RaiseCondition,
+        Target,
     },
     embedded_sql,
 };
@@ -237,15 +238,7 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
             }
             Node::Return { value: None } => line(out, depth, "return"),
             Node::Return { value: Some(value) } => line(out, depth, &format!("return {value}")),
-            Node::Raise(raise) => {
-                line(out, depth, &format!("raise {:?}", raise.level));
-                for argument in &raise.arguments {
-                    line(out, depth + 1, &format!("argument {argument}"));
-                }
-                for option in &raise.options {
-                    line(out, depth + 1, &format!("option {option}"));
-                }
-            }
+            Node::Raise(raise) => write_raise(out, raise, depth),
             Node::Assert(assert) => {
                 line(out, depth, &format!("assert {}", assert.condition));
                 if let Some(message) = &assert.message {
@@ -253,6 +246,30 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                 }
             }
         }
+    }
+}
+
+fn write_raise(out: &mut String, raise: &Raise, depth: usize) {
+    let mut text = format!("raise {:?}", raise.level);
+    match &raise.condition {
+        Some(RaiseCondition::Name(name)) => {
+            write!(text, " condition {name}").expect("writing to a string");
+        }
+        Some(RaiseCondition::Sqlstate(code)) => {
+            write!(text, " sqlstate {code}").expect("writing to a string");
+        }
+        None => {}
+    }
+    if let Some(format) = &raise.format {
+        write!(text, " format {format:?}").expect("writing to a string");
+    }
+    line(out, depth, &text);
+    for argument in &raise.arguments {
+        line(out, depth + 1, &format!("argument {argument}"));
+    }
+    for option in &raise.options {
+        let text = format!("option {:?} = {}", option.kind, option.value);
+        line(out, depth + 1, &text);
     }
 }
 
@@ -472,10 +489,10 @@ fn every_expression_is_read_as_the_select_postgresql_evaluates() {
               arr[:SELECT 2] := SELECT ARRAY[5]
               arr[SELECT 3:] := SELECT ARRAY[6]
               pairs[SELECT 1].first.inner := SELECT 7
-              raise Notice
+              raise Notice format \"count % of %\"
                 argument SELECT total
                 argument SELECT (SELECT 1 FROM logs)
-                option SELECT (SELECT 'h' FROM hints)
+                option Hint = SELECT (SELECT 'h' FROM hints)
               assert SELECT total > 0
                 message SELECT (SELECT 'bad' FROM messages)
               assert SELECT (SELECT true FROM checks)
@@ -754,7 +771,7 @@ fn a_routine_defined_inside_the_body_is_one_statement() {
 }
 
 #[test]
-fn every_raise_form_keeps_its_level_and_the_expressions_it_evaluates() {
+fn every_raise_form_keeps_its_level_condition_format_and_named_options() {
     let body = "BEGIN
         RAISE 'plain %', (SELECT 1 FROM a);
         RAISE SQLSTATE '22012' USING MESSAGE = (SELECT 'm' FROM b);
@@ -763,33 +780,48 @@ fn every_raise_form_keeps_its_level_and_the_expressions_it_evaluates() {
         RAISE USING MESSAGE = (SELECT 'u' FROM d);
         RAISE DEBUG 'debug';
         raise log 'log %', (SELECT 2 FROM e);
-        RAISE INFO 'info';
-        RAISE WARNING unique_violation;
+        RAISE INFO $$info$$;
+        RAISE WARNING Unique_Violation;
         RAISE NOTICE USING MESSAGE = 'notice';
+        RAISE \"raise_exception\" USING hint = 'h', column = 'c', constraint = 'k',
+          datatype = 'd', table = 't', schema = 's';
+        RAISE EXCEPTION 'denied' USING ERRCODE = 'insufficient_privilege';
+        RAISE EXCEPTION 'denied' USING HINT = 'insufficient_privilege';
     END";
     assert_eq!(
         outline(body),
         expected(
-            "
+            r#"
             block
-              raise Exception
+              raise Exception format "plain %"
                 argument SELECT (SELECT 1 FROM a)
+              raise Exception sqlstate 22012
+                option Message = SELECT (SELECT 'm' FROM b)
+              raise Exception condition division_by_zero
               raise Exception
-                option SELECT (SELECT 'm' FROM b)
+                option Errcode = SELECT 'P0001'
+                option Detail = SELECT (SELECT 'd' FROM c)
               raise Exception
-              raise Exception
-                option SELECT 'P0001'
-                option SELECT (SELECT 'd' FROM c)
-              raise Exception
-                option SELECT (SELECT 'u' FROM d)
-              raise Debug
-              raise Log
+                option Message = SELECT (SELECT 'u' FROM d)
+              raise Debug format "debug"
+              raise Log format "log %"
                 argument SELECT (SELECT 2 FROM e)
-              raise Info
-              raise Warning
+              raise Info format "info"
+              raise Warning condition unique_violation
               raise Notice
-                option SELECT 'notice'
-            "
+                option Message = SELECT 'notice'
+              raise Exception condition raise_exception
+                option Hint = SELECT 'h'
+                option Column = SELECT 'c'
+                option Constraint = SELECT 'k'
+                option Datatype = SELECT 'd'
+                option Table = SELECT 't'
+                option Schema = SELECT 's'
+              raise Exception format "denied"
+                option Errcode = SELECT 'insufficient_privilege'
+              raise Exception format "denied"
+                option Hint = SELECT 'insufficient_privilege'
+            "#
         )
     );
 }
@@ -845,9 +877,9 @@ fn every_control_transfer_stays_where_it_is_written() {
               block
                 if
                   when SELECT level = 'exception'
-                    raise Exception
+                    raise Exception format \"stop\"
                   else
-                    raise Notice
+                    raise Notice format \"go on\"
                 assert SELECT false
                 dynamic SELECT s
                   into result
@@ -1037,6 +1069,10 @@ fn a_malformed_body_is_a_syntax_error() {
         "BEGIN FOR i IN REVERSE SELECT 1 LOOP NULL; END LOOP; END",
         "BEGIN EXECUTE 'SELECT 1' INTO; END",
         "BEGIN RAISE USING MESSAGE 'm'; END",
+        "BEGIN RAISE USING ERRCOD = 'P0001'; END",
+        "BEGIN RAISE USING \"MESSAGE\" = 'm'; END",
+        "BEGIN RAISE SQLSTATE '2201'; END",
+        "BEGIN RAISE SQLSTATE '22o12'; END",
         "BEGIN SELECT 1 INTO a INTO b; END",
         "BEGIN SELECT 1 INTO; END",
         "DECLARE x; BEGIN NULL; END",
