@@ -638,6 +638,27 @@ fn every_statement_and_expression_comes_in_body_order() {
 }
 
 #[test]
+fn rows_a_body_returns_or_discards_are_read_as_postgresql_compiles_them() {
+    let block = read(
+        "BEGIN
+          PERFORM 1;
+          RETURN NEXT 2;
+          RETURN QUERY SELECT 3;
+          RETURN QUERY EXECUTE 'four';
+        END",
+    );
+    assert_eq!(
+        outline(&sites(&block, &plain("f", &[]))),
+        [
+            "statement SELECT 1",
+            "expression SELECT 2",
+            "statement SELECT 3",
+            "dynamic SELECT 'four'",
+        ]
+    );
+}
+
+#[test]
 fn an_assignment_reads_its_subscripts_then_its_value() {
     let block = read(
         "DECLARE a int[]; p pair[]; i int;

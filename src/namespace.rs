@@ -31,7 +31,7 @@ use sqlparser::ast::{Ident, ObjectName, Query, Statement};
 
 use crate::embedded::{
     AliasTarget, Block, BoundCursor, Branch, Cursor, CursorParameter, Declaration, DeclarationKind,
-    DeclaredType, Dynamic, Indirection, Loop, LoopControl, Node, Open, Target,
+    DeclaredType, Dynamic, Indirection, Loop, LoopControl, Node, Open, ReturnQuery, Target,
 };
 
 /// An error refusing a body PostgreSQL does not compile, found while
@@ -329,8 +329,9 @@ fn row(name: &Name, holds_row: &dyn Fn(&Name) -> bool) -> bool {
 /// SQL a body runs, as [`embedded_sql`](crate::embedded_sql) reads it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Sql<'body> {
-    /// A statement or query, such as a [`Node::Statement`], the query of a
-    /// `FOR` loop over rows or the query of a cursor that opens.
+    /// A statement or query, such as a [`Node::Statement`], the query of
+    /// `PERFORM` or `RETURN QUERY`, the query of a `FOR` loop over rows or
+    /// the query of a cursor that opens.
     Statement(&'body Statement),
     /// The `SELECT` that evaluates an expression, such as a condition, a
     /// loop bound, a cursor argument, a default or an assigned value.
@@ -675,6 +676,7 @@ impl<'body> Collector<'body, '_> {
                         self.write(Write::Node(node), level, None);
                     }
                 }
+                Node::Perform { query } => self.site(Sql::Statement(query), level),
                 Node::Assignment(assignment) => {
                     self.subscripts(&assignment.target, level);
                     self.site(Sql::Expression(&assignment.value), level);
@@ -727,10 +729,16 @@ impl<'body> Collector<'body, '_> {
                         self.site(Sql::Expression(condition), level);
                     }
                 }
-                Node::Return { value } => {
+                Node::Return { value } | Node::ReturnNext { value } => {
                     if let Some(value) = value {
                         self.site(Sql::Expression(value), level);
                     }
+                }
+                Node::ReturnQuery(ReturnQuery::Query(query)) => {
+                    self.site(Sql::Statement(query), level);
+                }
+                Node::ReturnQuery(ReturnQuery::Dynamic(dynamic)) => {
+                    self.site(Sql::Dynamic(dynamic), level);
                 }
                 Node::Raise(raise) => {
                     let options = raise.options.iter().map(|option| &option.value);

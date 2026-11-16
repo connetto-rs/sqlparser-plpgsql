@@ -270,6 +270,12 @@ pub enum Node {
         /// The `INTO` clause, which assigns the statement's first row.
         into: Option<IntoTargets>,
     },
+    /// `PERFORM`, which runs a query and discards its rows.
+    Perform {
+        /// The query, with the `SELECT` PostgreSQL writes in place of
+        /// `PERFORM`.
+        query: Box<Statement>,
+    },
     /// `target := value`.
     Assignment(Assignment),
     /// SQL text the body builds at run time and executes.
@@ -322,15 +328,22 @@ pub enum Node {
     /// `EXIT` or `CONTINUE`.
     Exit(Exit),
     /// `RETURN`, which leaves the function.
-    ///
-    /// `RETURN NEXT` and `RETURN QUERY` add rows to the result and carry on,
-    /// so they are a [`Node::Statement`] or a [`Node::Dynamic`].
     Return {
         /// The `SELECT` that evaluates the returned value, absent from the
         /// bare `RETURN` of a procedure or of a function returning `void`,
         /// a set or output parameters.
         value: Option<Box<Query>>,
     },
+    /// `RETURN NEXT`, which adds one row to the result of a function
+    /// returning a set and carries on.
+    ReturnNext {
+        /// The `SELECT` that evaluates the row, absent when the function's
+        /// output parameters hold it.
+        value: Option<Box<Query>>,
+    },
+    /// `RETURN QUERY`, which adds the rows of a query to the result of a
+    /// function returning a set and carries on.
+    ReturnQuery(ReturnQuery),
     /// `RAISE`, which reports a message or raises an error.
     Raise(Raise),
     /// `ASSERT`, which raises an error when its condition fails.
@@ -583,6 +596,16 @@ impl Open {
             Self::Query { cursor, .. } | Self::Dynamic { cursor, .. } => cursor,
         }
     }
+}
+
+/// The rows `RETURN QUERY` adds, by where the query that reads them comes
+/// from.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ReturnQuery {
+    /// `RETURN QUERY query`.
+    Query(Box<Statement>),
+    /// `RETURN QUERY EXECUTE command [USING ...]`.
+    Dynamic(Dynamic),
 }
 
 /// SQL built at run time by `EXECUTE`, `RETURN QUERY EXECUTE`,
@@ -883,8 +906,8 @@ pub struct Assert {
 /// let block = embedded_sql(
 ///     "BEGIN PERFORM 1 FROM docs; s := 'DELETE FROM ' || t; EXECUTE s; END",
 /// )?;
-/// let Node::Statement { statement, .. } = &block.statements[0] else { unreachable!() };
-/// assert_eq!(statement.to_string(), "SELECT 1 FROM docs");
+/// let Node::Perform { query } = &block.statements[0] else { unreachable!() };
+/// assert_eq!(query.to_string(), "SELECT 1 FROM docs");
 /// let Node::Assignment(assignment) = &block.statements[1] else { unreachable!() };
 /// assert_eq!(assignment.target.name.to_string(), "s");
 /// assert_eq!(assignment.value.to_string(), "SELECT 'DELETE FROM ' || t");
@@ -1650,7 +1673,7 @@ impl Reader {
                 nodes.push(Node::Loop(looped));
             }
             Some(Command::Exit(kind)) => nodes.push(Node::Exit(self.exit(kind)?)),
-            Some(Command::Return) => nodes.extend(self.return_statement()?),
+            Some(Command::Return) => nodes.push(self.return_statement()?),
             Some(Command::Raise) => nodes.push(Node::Raise(self.raise()?)),
             Some(Command::Assert) => nodes.push(Node::Assert(self.assert()?)),
             Some(Command::Execute) => {
@@ -1660,7 +1683,8 @@ impl Reader {
             }
             Some(Command::Perform) => {
                 self.index += 1;
-                nodes.push(evaluated(self.expression_until_semicolon()?));
+                let query = Box::new(Statement::Query(self.expression_until_semicolon()?));
+                nodes.push(Node::Perform { query });
             }
             Some(Command::Open) => nodes.push(Node::Open(self.open()?)),
             Some(Command::Close) => {
@@ -2008,21 +2032,14 @@ impl Reader {
         })
     }
 
-    /// Reads `RETURN`, `RETURN NEXT` or `RETURN QUERY`. A `RETURN NEXT`
-    /// without an expression takes no step.
-    fn return_statement(&mut self) -> Result<Option<Node>, Error> {
+    /// Reads `RETURN`, `RETURN NEXT` or `RETURN QUERY`.
+    fn return_statement(&mut self) -> Result<Node, Error> {
         self.index += 1;
         if self.eat("QUERY") {
-            return Ok(Some(if self.eat("EXECUTE") {
-                Node::Dynamic {
-                    dynamic: self.dynamic(End::Semicolon, false)?.0,
-                    into: None,
-                }
+            return Ok(Node::ReturnQuery(if self.eat("EXECUTE") {
+                ReturnQuery::Dynamic(self.dynamic(End::Semicolon, false)?.0)
             } else {
-                Node::Statement {
-                    statement: self.statement_until_semicolon()?,
-                    into: None,
-                }
+                ReturnQuery::Query(self.statement_until_semicolon()?)
             }));
         }
         let next = self.eat("NEXT");
@@ -2032,9 +2049,9 @@ impl Reader {
             Some(self.expression_until_semicolon()?)
         };
         Ok(if next {
-            value.map(evaluated)
+            Node::ReturnNext { value }
         } else {
-            Some(Node::Return { value })
+            Node::Return { value }
         })
     }
 
@@ -2497,14 +2514,6 @@ fn parse(tokens: &[Token]) -> Result<Box<Statement>, Error> {
 /// Parses `tokens`, an expression, as the `SELECT` that evaluates it.
 fn select(tokens: &[Token]) -> Result<Box<Query>, Error> {
     parse_all(tokens, true, Parser::parse_query)
-}
-
-/// The step that evaluates `select`, an expression read as its `SELECT`.
-fn evaluated(select: Box<Query>) -> Node {
-    Node::Statement {
-        statement: Box::new(Statement::Query(select)),
-        into: None,
-    }
 }
 
 /// Reads all of `tokens` with `read`, behind a `SELECT` when `select` holds.
