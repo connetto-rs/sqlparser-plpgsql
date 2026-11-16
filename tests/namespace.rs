@@ -102,6 +102,9 @@ fn every_site_comes_in_body_order_through_every_construct() {
           FOR r IN EXECUTE 'eight' LOOP EXECUTE 'nine'; END LOOP;
           WHILE a LOOP RETURN QUERY EXECUTE 'ten'; END LOOP;
           OPEN c FOR EXECUTE 'eleven';
+          CLOSE c;
+          COMMIT;
+          ROLLBACK AND CHAIN;
           FOR i IN 1..2 LOOP EXECUTE 'twelve'; END LOOP;
         EXCEPTION
           WHEN division_by_zero THEN EXECUTE 'thirteen';
