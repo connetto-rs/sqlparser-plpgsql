@@ -268,9 +268,14 @@ pub enum Node {
         into: Option<IntoTargets>,
     },
     /// `FETCH`, which assigns the row it reads.
-    ///
-    /// Any count its direction evaluates is the step before it.
     Fetch(Fetch),
+    /// `MOVE`, which repositions a cursor.
+    Move {
+        /// The cursor variable, as written.
+        cursor: ObjectName,
+        /// The direction and distance to move.
+        direction: FetchDirection,
+    },
     /// `GET [CURRENT | STACKED] DIAGNOSTICS`.
     Diagnostics(Diagnostics),
     /// `OPEN`, which assigns the cursor variable a generated portal name
@@ -371,9 +376,67 @@ pub struct IntoTargets {
 pub struct Fetch {
     /// The cursor variable, as written.
     pub cursor: ObjectName,
+    /// The row it reads, which PostgreSQL limits to one.
+    pub direction: FetchDirection,
     /// One row or record variable, or the variables receiving the columns
     /// in order.
     pub targets: Vec<Target>,
+}
+
+/// Where `FETCH` or `MOVE` takes a cursor, as PostgreSQL compiles the
+/// direction written before `FROM` or `IN`.
+#[derive(Clone, Debug, PartialEq)]
+pub enum FetchDirection {
+    /// Rows after the current position, from `NEXT`, `FORWARD`, `ALL` or a
+    /// bare count, and when no direction is written.
+    Forward(FetchCount),
+    /// Rows before the current position, from `PRIOR` or `BACKWARD`.
+    Backward(FetchCount),
+    /// A position counted from the start, or from the end when negative,
+    /// from `FIRST`, `LAST` or `ABSOLUTE`.
+    Absolute(FetchPosition),
+    /// `RELATIVE offset`, as the `SELECT` that evaluates the offset from the
+    /// current position.
+    Relative(Box<Query>),
+}
+
+impl FetchDirection {
+    /// The `SELECT` that evaluates the count, position or offset, when one
+    /// is written.
+    #[must_use]
+    pub fn expression(&self) -> Option<&Query> {
+        match self {
+            Self::Forward(FetchCount::Rows(query))
+            | Self::Backward(FetchCount::Rows(query))
+            | Self::Absolute(FetchPosition::Row(query))
+            | Self::Relative(query) => Some(query),
+            Self::Forward(FetchCount::One | FetchCount::All)
+            | Self::Backward(FetchCount::One | FetchCount::All)
+            | Self::Absolute(FetchPosition::First | FetchPosition::Last) => None,
+        }
+    }
+}
+
+/// How many rows a [`FetchDirection`] passes.
+#[derive(Clone, Debug, PartialEq)]
+pub enum FetchCount {
+    /// One row.
+    One,
+    /// `ALL`, every row left in the direction.
+    All,
+    /// The `SELECT` that evaluates the number of rows.
+    Rows(Box<Query>),
+}
+
+/// The row an absolute [`FetchDirection`] reaches.
+#[derive(Clone, Debug, PartialEq)]
+pub enum FetchPosition {
+    /// `FIRST`.
+    First,
+    /// `LAST`.
+    Last,
+    /// `ABSOLUTE position`, as the `SELECT` that evaluates the position.
+    Row(Box<Query>),
 }
 
 /// `GET [CURRENT | STACKED] DIAGNOSTICS target = item, ...`.
@@ -2057,40 +2120,102 @@ impl Reader {
         }))
     }
 
-    /// Reads `FETCH` or `MOVE`, whose direction may count rows with an
-    /// expression, and the targets `FETCH` assigns.
+    /// Reads `FETCH` or `MOVE` with its direction and any targets.
     fn fetch(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
-        const DIRECTIONS: [&str; 9] = [
-            "NEXT", "PRIOR", "FIRST", "LAST", "ABSOLUTE", "RELATIVE", "FORWARD", "BACKWARD", "ALL",
-        ];
         let fetch = self.at("FETCH");
         self.index += 1;
-        let direction = self.segment("`;`", |token, _| {
+        let segment = self.segment("`;`", |token, _| {
             *token == Token::SemiColon
                 || is_keyword(token, "FROM")
                 || is_keyword(token, "IN")
                 || is_keyword(token, "INTO")
         })?;
-        if self.eat("FROM") || self.eat("IN") {
-            let count = &self.tokens[direction];
-            let skipped = count
-                .iter()
-                .take_while(|token| DIRECTIONS.iter().any(|word| is_keyword(token, word)))
-                .count();
-            if skipped < count.len() {
-                nodes.push(evaluated(select(&count[skipped..])?));
-            }
+        let direction = if self.at("FROM") || self.at("IN") {
+            let direction = self.fetch_direction(&self.tokens[segment.start..segment.end])?;
+            self.index += 1;
+            direction
         } else {
-            // Without a direction, the cursor comes first.
-            self.index = direction.start;
+            self.index = segment.start;
+            FetchDirection::Forward(FetchCount::One)
+        };
+        if fetch
+            && matches!(
+                direction,
+                FetchDirection::Forward(FetchCount::All | FetchCount::Rows(_))
+                    | FetchDirection::Backward(FetchCount::All | FetchCount::Rows(_))
+            )
+        {
+            return Err(Error::Syntax {
+                expected: "a direction FETCH reads one row with",
+                found: render(&self.tokens[segment], false),
+            });
         }
         let cursor = self.dotted_name("a cursor")?;
         if fetch {
             self.expect("INTO")?;
             let targets = self.targets("an INTO target")?;
-            nodes.push(Node::Fetch(Fetch { cursor, targets }));
+            nodes.push(Node::Fetch(Fetch {
+                cursor,
+                direction,
+                targets,
+            }));
+        } else {
+            nodes.push(Node::Move { cursor, direction });
         }
         Ok(())
+    }
+
+    /// Reads the direction written before `FROM` or `IN`.
+    fn fetch_direction(&self, tokens: &[Token]) -> Result<FetchDirection, Error> {
+        let Some((first, rest)) = tokens.split_first() else {
+            return Ok(FetchDirection::Forward(FetchCount::One));
+        };
+        let fixed = if is_keyword(first, "NEXT") {
+            Some(FetchDirection::Forward(FetchCount::One))
+        } else if is_keyword(first, "PRIOR") {
+            Some(FetchDirection::Backward(FetchCount::One))
+        } else if is_keyword(first, "FIRST") {
+            Some(FetchDirection::Absolute(FetchPosition::First))
+        } else if is_keyword(first, "LAST") {
+            Some(FetchDirection::Absolute(FetchPosition::Last))
+        } else if is_keyword(first, "ALL") {
+            Some(FetchDirection::Forward(FetchCount::All))
+        } else {
+            None
+        };
+        if let Some(direction) = fixed {
+            return match rest.first() {
+                None => Ok(direction),
+                Some(extra) => Err(unexpected("`FROM` or `IN`", extra)),
+            };
+        }
+        if is_keyword(first, "ABSOLUTE") || is_keyword(first, "RELATIVE") {
+            if rest.is_empty() {
+                return Err(self.syntax("a position"));
+            }
+            let expression = select(rest)?;
+            return Ok(if is_keyword(first, "ABSOLUTE") {
+                FetchDirection::Absolute(FetchPosition::Row(expression))
+            } else {
+                FetchDirection::Relative(expression)
+            });
+        }
+        if is_keyword(first, "FORWARD") || is_keyword(first, "BACKWARD") {
+            let count = match rest {
+                [] => FetchCount::One,
+                [all] if is_keyword(all, "ALL") => FetchCount::All,
+                [all, extra, ..] if is_keyword(all, "ALL") => {
+                    return Err(unexpected("`FROM` or `IN`", extra));
+                }
+                _ => FetchCount::Rows(select(rest)?),
+            };
+            return Ok(if is_keyword(first, "FORWARD") {
+                FetchDirection::Forward(count)
+            } else {
+                FetchDirection::Backward(count)
+            });
+        }
+        Ok(FetchDirection::Forward(FetchCount::Rows(select(tokens)?)))
     }
 
     /// Reads `GET [CURRENT | STACKED] DIAGNOSTICS target = item, ...`.
@@ -2362,6 +2487,14 @@ fn render(tokens: &[Token], select: bool) -> String {
         text.push_str(&token.to_string());
     }
     text
+}
+
+/// The syntax error for `found` where `expected` belongs.
+fn unexpected(expected: &'static str, found: &Token) -> Error {
+    Error::Syntax {
+        expected,
+        found: found.to_string(),
+    }
 }
 
 /// True for `keyword` written unquoted, in any case.

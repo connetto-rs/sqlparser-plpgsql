@@ -3,11 +3,12 @@
 
 use core::fmt::Write as _;
 
-use sqlparser::ast::{FunctionArguments, Statement};
+use sqlparser::ast::{FunctionArguments, ObjectName, Statement};
 use sqlparser_plpgsql::{
     embedded::{
         AliasTarget, Block, BoundCursor, Branch, Condition, DeclarationKind, DeclaredType, Dynamic,
-        Error, ExitKind, Indirection, IntoTargets, Loop, LoopControl, Node, Open, Raise, Target,
+        Error, ExitKind, Fetch, FetchCount, FetchDirection, FetchPosition, Indirection,
+        IntoTargets, Loop, LoopControl, Node, Open, Raise, Target,
     },
     embedded_sql,
 };
@@ -195,15 +196,8 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                 write_dynamic(out, dynamic, depth);
                 write_into(out, into.as_ref(), depth + 1);
             }
-            Node::Fetch(fetch) => line(
-                out,
-                depth,
-                &format!(
-                    "fetch {} into {}",
-                    fetch.cursor,
-                    targets_text(&fetch.targets)
-                ),
-            ),
+            Node::Fetch(fetch) => write_fetch(out, fetch, depth),
+            Node::Move { cursor, direction } => write_move(out, cursor, direction, depth),
             Node::Diagnostics(diagnostics) => {
                 let stacked = if diagnostics.stacked { " stacked" } else { "" };
                 line(out, depth, &format!("diagnostics{stacked}"));
@@ -276,6 +270,48 @@ fn write_raise(out: &mut String, raise: &Raise, depth: usize) {
         let text = format!("option {:?} = {}", option.kind, option.value);
         line(out, depth + 1, &text);
     }
+}
+
+fn write_move(out: &mut String, cursor: &ObjectName, direction: &FetchDirection, depth: usize) {
+    line(
+        out,
+        depth,
+        &format!("move {} {cursor}", direction_text(direction)),
+    );
+}
+
+fn direction_text(direction: &FetchDirection) -> String {
+    match direction {
+        FetchDirection::Forward(count) => format!("forward {}", count_text(count)),
+        FetchDirection::Backward(count) => format!("backward {}", count_text(count)),
+        FetchDirection::Absolute(position) => match position {
+            FetchPosition::First => String::from("first"),
+            FetchPosition::Last => String::from("last"),
+            FetchPosition::Row(query) => format!("absolute {query}"),
+        },
+        FetchDirection::Relative(query) => format!("relative {query}"),
+    }
+}
+
+fn count_text(count: &FetchCount) -> String {
+    match count {
+        FetchCount::One => String::from("one"),
+        FetchCount::All => String::from("all"),
+        FetchCount::Rows(query) => query.to_string(),
+    }
+}
+
+fn write_fetch(out: &mut String, fetch: &Fetch, depth: usize) {
+    line(
+        out,
+        depth,
+        &format!(
+            "fetch {} {} into {}",
+            direction_text(&fetch.direction),
+            fetch.cursor,
+            targets_text(&fetch.targets)
+        ),
+    );
 }
 
 fn write_open(out: &mut String, open: &Open, depth: usize) {
@@ -376,7 +412,7 @@ fn every_statement_postgresql_ran_is_read_in_place() {
               query r in SELECT id FROM pp_docs
                 INSERT INTO pp_log VALUES (r.id)
               open c: SELECT id FROM pp_docs
-              fetch c into n
+              fetch forward one c into n
               block
                 UPDATE pp_docs SET id = id
                 handler condition others
@@ -657,15 +693,62 @@ fn a_cursor_query_runs_where_the_cursor_opens() {
               open d: SELECT id FROM keyed WHERE id = k
                 argument SELECT (SELECT 1 FROM keys)
               open free for SELECT id FROM loose
-              SELECT (SELECT 2 FROM steps)
-              fetch d into n
-              fetch d into n
-              fetch d into n, r.field
-              fetch d into n
+              fetch relative SELECT (SELECT 2 FROM steps) d into n
+              move forward all d
+              fetch forward one d into n
+              fetch forward one d into n, r.field
+              fetch forward one d into n
               open c: SELECT id FROM outer_docs
             "
         )
     );
+}
+
+#[test]
+fn fetch_and_move_keep_every_direction() {
+    for (clause, direction) in [
+        ("", "forward one"),
+        ("FROM ", "forward one"),
+        ("IN ", "forward one"),
+        ("NEXT FROM ", "forward one"),
+        ("PRIOR IN ", "backward one"),
+        ("FIRST FROM ", "first"),
+        ("LAST IN ", "last"),
+        ("FORWARD FROM ", "forward one"),
+        ("BACKWARD IN ", "backward one"),
+        ("ABSOLUTE 3 FROM ", "absolute SELECT 3"),
+        ("RELATIVE -2 IN ", "relative SELECT -2"),
+        (
+            "ABSOLUTE (SELECT position FROM positions) FROM ",
+            "absolute SELECT (SELECT position FROM positions)",
+        ),
+    ] {
+        assert_eq!(
+            outline(&format!(
+                "BEGIN FETCH {clause}c INTO r; MOVE {clause}c; END"
+            )),
+            expected(&format!(
+                "block\n  fetch {direction} c into r\n  move {direction} c"
+            ))
+        );
+    }
+    for (clause, direction) in [
+        ("ALL FROM ", "forward all"),
+        ("FORWARD ALL IN ", "forward all"),
+        ("BACKWARD ALL FROM ", "backward all"),
+        ("FORWARD amount FROM ", "forward SELECT amount"),
+        ("BACKWARD amount IN ", "backward SELECT amount"),
+        ("2 FROM ", "forward SELECT 2"),
+        (
+            "(SELECT amount FROM steps) IN ",
+            "forward SELECT (SELECT amount FROM steps)",
+        ),
+    ] {
+        assert_eq!(
+            outline(&format!("BEGIN MOVE {clause}c; END")),
+            expected(&format!("block\n  move {direction} c"))
+        );
+    }
 }
 
 #[test]
@@ -1137,6 +1220,27 @@ fn a_malformed_body_is_a_syntax_error() {
         "BEGIN FETCH NEXT c INTO s; END",
         "BEGIN FETCH c; END",
         "BEGIN FETCH c INTO STRICT s; END",
+        "BEGIN FETCH NEXT 2 FROM c INTO r; END",
+        "BEGIN FETCH PRIOR 2 FROM c INTO r; END",
+        "BEGIN FETCH FIRST 2 FROM c INTO r; END",
+        "BEGIN FETCH LAST 2 FROM c INTO r; END",
+        "BEGIN MOVE NEXT 2 FROM c; END",
+        "BEGIN MOVE PRIOR 2 FROM c; END",
+        "BEGIN MOVE FIRST 2 FROM c; END",
+        "BEGIN MOVE LAST 2 FROM c; END",
+        "BEGIN MOVE ALL 2 FROM c; END",
+        "BEGIN MOVE FORWARD ALL 2 FROM c; END",
+        "BEGIN MOVE BACKWARD ALL 2 FROM c; END",
+        "BEGIN FETCH ABSOLUTE FROM c INTO r; END",
+        "BEGIN FETCH RELATIVE IN c INTO r; END",
+        "BEGIN MOVE ABSOLUTE IN c; END",
+        "BEGIN MOVE RELATIVE FROM c; END",
+        "BEGIN FETCH ALL FROM c INTO r; END",
+        "BEGIN FETCH FORWARD ALL FROM c INTO r; END",
+        "BEGIN FETCH BACKWARD ALL IN c INTO r; END",
+        "BEGIN FETCH FORWARD 1 FROM c INTO r; END",
+        "BEGIN FETCH BACKWARD 1 FROM c INTO r; END",
+        "BEGIN FETCH 1 FROM c INTO r; END",
         "BEGIN GET CURRENT DIAGNOSTICS t = MESSAGE_TEXT; END",
         "BEGIN GET STACKED DIAGNOSTICS n = ROW_COUNT; END",
         "BEGIN GET DIAGNOSTICS n = ROW_COUNT n; END",
@@ -1318,7 +1422,7 @@ fn a_parameter_written_as_its_number_is_a_target() {
               SELECT 1, 2
                 into a, $2
               open c: SELECT 1
-              fetch c into $2
+              fetch forward one c into $2
               diagnostics
                 $1 = RowCount
               query $1 in SELECT 3
