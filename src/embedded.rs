@@ -229,6 +229,17 @@ pub enum AliasTarget {
     Name(ObjectName),
 }
 
+/// Whether a cursor allows backward fetches.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Scrolling {
+    /// Allows backward fetches where the plan supports them without extra work.
+    Unspecified,
+    /// Allows backward fetches.
+    Scroll,
+    /// Refuses backward fetches.
+    NoScroll,
+}
+
 /// A cursor declared with its query.
 ///
 /// The query itself appears in each [`BoundCursor`] that opens the cursor.
@@ -236,6 +247,8 @@ pub enum AliasTarget {
 pub struct Cursor {
     /// The parameters the query reads, bound when the cursor opens.
     pub parameters: Vec<CursorParameter>,
+    /// Whether `[NO] SCROLL` allows backward fetches.
+    pub scrolling: Scrolling,
 }
 
 /// A parameter of a cursor.
@@ -337,6 +350,8 @@ pub struct BoundCursor {
     /// It reads the names in reach where the cursor is declared and the
     /// cursor's parameters, which [`crate::namespace`] answers.
     pub query: Box<Statement>,
+    /// Whether the declaration's `[NO] SCROLL` allows backward fetches.
+    pub scrolling: Scrolling,
 }
 
 /// A variable, or a part of one, that a statement assigns.
@@ -543,6 +558,8 @@ pub enum Open {
     Query {
         /// The cursor variable, as written.
         cursor: ObjectName,
+        /// Whether `[NO] SCROLL` allows backward fetches.
+        scrolling: Scrolling,
         /// The query.
         query: Box<Statement>,
     },
@@ -550,6 +567,8 @@ pub enum Open {
     Dynamic {
         /// The cursor variable, as written.
         cursor: ObjectName,
+        /// Whether `[NO] SCROLL` allows backward fetches.
+        scrolling: Scrolling,
         /// The command and its arguments.
         dynamic: Dynamic,
     },
@@ -1101,9 +1120,8 @@ impl End {
     }
 }
 
-/// The query a name binds when it is a cursor declared with one, as the
-/// reader's levels hold it.
-type Bound = Option<Arc<Statement>>;
+/// The query and backward-fetch policy a declared cursor binds.
+type Bound = Option<Arc<(Statement, Scrolling)>>;
 
 /// A recursive-descent walk over the body's tokens.
 struct Reader {
@@ -1333,16 +1351,17 @@ impl Reader {
         Some((ObjectName::from(parts), length))
     }
 
-    /// The query of the cursor `name` reaches.
+    /// The query and backward-fetch policy of the cursor `name` reaches.
     ///
     /// Every variable counts as holding no row, which answers as PostgreSQL
     /// does for every body it compiles. Where PostgreSQL stops at a row
     /// instead, the name reaches no cursor and the body does not compile.
-    fn bound_cursor(&self, name: &ObjectName) -> Option<&Statement> {
+    fn bound_cursor(&self, name: &ObjectName) -> Option<(Box<Statement>, Scrolling)> {
         self.level
             .as_ref()?
             .lookup(&stored_parts(name), &|_| false)
             .and_then(|(bound, _)| bound.as_deref())
+            .map(|(query, scrolling)| (Box::new(query.clone()), *scrolling))
     }
 
     /// A level inside the current one, labelled `label`.
@@ -1459,8 +1478,9 @@ impl Reader {
                     .and_then(|(bound, _)| bound.clone()),
             };
             (DeclarationKind::Alias(target), bound)
-        } else if let Some(words) = cursor_words {
-            self.index += words.len();
+        } else if cursor_words.is_some() {
+            let scrolling = self.scrolling()?;
+            self.index += 1;
             let parameters = if self.eat_token(&Token::LParen) {
                 self.cursor_parameters()?
             } else {
@@ -1471,8 +1491,11 @@ impl Reader {
             }
             let query = self.statement_until_semicolon()?;
             (
-                DeclarationKind::Cursor(Cursor { parameters }),
-                Some(Arc::from(query)),
+                DeclarationKind::Cursor(Cursor {
+                    parameters,
+                    scrolling,
+                }),
+                Some(Arc::new((*query, scrolling))),
             )
         } else {
             (DeclarationKind::Variable(self.variable()?), None)
@@ -1809,7 +1832,7 @@ impl Reader {
                 || self
                     .peek_nth(length)
                     .is_some_and(|token| is_keyword(token, "LOOP")))
-            && let Some(query) = self.bound_cursor(&name).cloned().map(Box::new)
+            && let Some((query, scrolling)) = self.bound_cursor(&name)
         {
             self.index += length;
             let arguments = if self.eat_token(&Token::LParen) {
@@ -1823,6 +1846,7 @@ impl Reader {
                     name,
                     arguments,
                     query,
+                    scrolling,
                 },
             });
         }
@@ -2124,28 +2148,41 @@ impl Reader {
         Ok(Assert { condition, message })
     }
 
+    /// Reads an optional `[NO] SCROLL`.
+    fn scrolling(&mut self) -> Result<Scrolling, Error> {
+        if self.eat("NO") {
+            self.expect("SCROLL")?;
+            Ok(Scrolling::NoScroll)
+        } else if self.eat("SCROLL") {
+            Ok(Scrolling::Scroll)
+        } else {
+            Ok(Scrolling::Unspecified)
+        }
+    }
+
     fn open(&mut self) -> Result<Open, Error> {
         self.index += 1;
         let cursor = self.dotted_name("a cursor name")?;
-        if self.eat("NO") {
-            self.expect("SCROLL")?;
-        } else {
-            self.eat("SCROLL");
-        }
+        let scrolling = self.scrolling()?;
         if self.eat("FOR") {
             return Ok(if self.eat("EXECUTE") {
                 Open::Dynamic {
                     cursor,
+                    scrolling,
                     dynamic: self.dynamic(End::Semicolon, false)?.0,
                 }
             } else {
                 Open::Query {
                     cursor,
+                    scrolling,
                     query: self.statement_until_semicolon()?,
                 }
             });
         }
-        let Some(query) = self.bound_cursor(&cursor).cloned().map(Box::new) else {
+        if scrolling != Scrolling::Unspecified {
+            return Err(self.syntax("FOR"));
+        }
+        let Some((query, scrolling)) = self.bound_cursor(&cursor) else {
             return Err(Error::UnboundCursor {
                 name: stored_parts(&cursor).join("."),
             });
@@ -2159,6 +2196,7 @@ impl Reader {
             name: cursor,
             arguments,
             query,
+            scrolling,
         }))
     }
 
