@@ -28,7 +28,7 @@ use sqlparser::{
     dialect::PostgreSqlDialect,
     keywords::Keyword,
     parser::{Parser, ParserError},
-    tokenizer::{Span, Token, Tokenizer, Word},
+    tokenizer::{Location, Span, Token, TokenWithSpan, Tokenizer, Word},
 };
 
 use sqlstate::SqlState;
@@ -284,9 +284,31 @@ pub struct CursorParameter {
     pub data_type: DeclaredType,
 }
 
-/// One step of a body.
+/// One step of a body and where the body writes it.
+#[derive(Clone, Debug)]
+pub struct Node {
+    /// What the step does.
+    pub kind: NodeKind,
+    /// The text of the step in the body passed to [`embedded_sql`], from its
+    /// first token, a `<<label>>` included, through the `;` that ends it.
+    ///
+    /// Lines and columns count from 1 as `sqlparser` counts them, and the
+    /// SQL a step embeds carries spans in the same body, which
+    /// [`sqlparser::ast::Spanned`] reads.
+    pub span: Span,
+}
+
+/// Two steps are equal when they do the same, wherever the body writes them,
+/// as `sqlparser` compares the identifiers and tokens it reads.
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
+/// What one step of a body does.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Node {
+pub enum NodeKind {
     /// An SQL statement or query PostgreSQL runs at this point.
     Statement {
         /// The statement, without the `INTO` clause PL/pgSQL reads out of it.
@@ -927,26 +949,39 @@ pub struct Assert {
 /// # Example
 ///
 /// ```
-/// use sqlparser_plpgsql::{embedded::Node, embedded_sql};
+/// use sqlparser_plpgsql::{embedded::NodeKind, embedded_sql};
 ///
 /// let block = embedded_sql(
 ///     "BEGIN PERFORM 1 FROM docs; s := 'DELETE FROM ' || t; EXECUTE s; END",
 /// )?;
-/// let Node::Perform { query } = &block.statements[0] else { unreachable!() };
+/// let NodeKind::Perform { query } = &block.statements[0].kind else { unreachable!() };
 /// assert_eq!(query.to_string(), "SELECT 1 FROM docs");
-/// let Node::Assignment(assignment) = &block.statements[1] else { unreachable!() };
+/// let NodeKind::Assignment(assignment) = &block.statements[1].kind else { unreachable!() };
 /// assert_eq!(assignment.target.name.to_string(), "s");
 /// assert_eq!(assignment.value.to_string(), "SELECT 'DELETE FROM ' || t");
-/// assert!(matches!(block.statements[2], Node::Dynamic { .. }));
+/// assert!(matches!(block.statements[2].kind, NodeKind::Dynamic { .. }));
+/// // `EXECUTE s;` starts at column 54 of the body's line and ends before 64.
+/// let span = block.statements[2].span;
+/// assert_eq!((span.start.column, span.end.column), (54, 64));
 /// # Ok::<(), sqlparser_plpgsql::embedded::Error>(())
 /// ```
 pub fn embedded_sql(body: &str) -> Result<Block, Error> {
-    let text = spaced_ranges(body);
-    let tokens = Tokenizer::new(&PostgreSqlDialect {}, &text)
-        .tokenize()
-        .map_err(|source| Error::UntokenizableBody { source })?
+    let spaced = spaced_ranges(body);
+    let tokens = Tokenizer::new(&PostgreSqlDialect {}, &spaced.text)
+        .tokenize_with_location()
+        .map_err(|mut source| {
+            source.location = spaced.original(source.location);
+            Error::UntokenizableBody { source }
+        })?
         .into_iter()
-        .filter(|token| !matches!(token, Token::Whitespace(_)))
+        .filter(|token| !matches!(token.token, Token::Whitespace(_)))
+        .map(|mut token| {
+            token.span = Span::new(
+                spaced.original(token.span.start),
+                spaced.original(token.span.end),
+            );
+            token
+        })
         .collect();
     let mut reader = Reader {
         tokens,
@@ -974,14 +1009,14 @@ pub fn embedded_sql(body: &str) -> Result<Block, Error> {
 /// # Example
 ///
 /// ```
-/// use sqlparser_plpgsql::{embedded::{self, Node}, embedded_sql};
+/// use sqlparser_plpgsql::{embedded::{self, NodeKind}, embedded_sql};
 ///
 /// let block = embedded_sql(
 ///     "BEGIN EXECUTE 'SELECT ' || t; EXECUTE c FROM commands() AS c; END",
 /// )?;
-/// let Node::Dynamic { dynamic: built, .. } = &block.statements[0] else { unreachable!() };
+/// let NodeKind::Dynamic { dynamic: built, .. } = &block.statements[0].kind else { unreachable!() };
 /// assert_eq!(embedded::expression(&built.command).to_string(), "'SELECT ' || t");
-/// let Node::Dynamic { dynamic: read, .. } = &block.statements[1] else { unreachable!() };
+/// let NodeKind::Dynamic { dynamic: read, .. } = &block.statements[1].kind else { unreachable!() };
 /// assert_eq!(
 ///     embedded::expression(&read.command).to_string(),
 ///     "(SELECT c FROM commands() AS c)",
@@ -1061,20 +1096,48 @@ fn lone_expression(select: &Query) -> Option<&Expr> {
     alone.then_some(expression)
 }
 
+/// A body with every `..` of live code set apart from its neighbours.
+struct Spaced<'body> {
+    /// The body with a space before and after every such `..`.
+    text: Cow<'body, str>,
+    /// Where `text` holds each space set before or after a `..`, in order.
+    spaces: Vec<Location>,
+}
+
+impl Spaced<'_> {
+    /// Where the body holds what `text` holds at `location`, which is no
+    /// space set around a `..`.
+    fn original(&self, location: Location) -> Location {
+        let line = self
+            .spaces
+            .partition_point(|space| space.line < location.line);
+        let before = self.spaces[line..]
+            .iter()
+            .take_while(|space| space.line == location.line && space.column < location.column);
+        let mut original = location;
+        for _ in before {
+            original.column -= 1;
+        }
+        original
+    }
+}
+
 /// Sets every `..` of live code apart from its neighbours.
 ///
 /// The tokenizer reads `1..10` as the numbers `1.` and `.10`, which would
 /// hide the range of an integer `FOR` loop.
-fn spaced_ranges(body: &str) -> Cow<'_, str> {
+fn spaced_ranges(body: &str) -> Spaced<'_> {
     let regions = Scanner::new(body).regions();
     let bytes = body.as_bytes();
     let live = |index: usize| regions.get(index) == Some(&Region::Code);
     let mut spaced = String::new();
+    let mut inserted = Vec::new();
     let mut copied = 0;
     let mut index = 0;
     while index + 1 < bytes.len() {
         if bytes[index] == b'.' && bytes[index + 1] == b'.' && live(index) {
             spaced.push_str(&body[copied..index]);
+            inserted.extend([spaced.len(), spaced.len() + 3]);
             spaced.push_str(" .. ");
             index += 2;
             copied = index;
@@ -1083,10 +1146,32 @@ fn spaced_ranges(body: &str) -> Cow<'_, str> {
         }
     }
     if copied == 0 {
-        return Cow::Borrowed(body);
+        return Spaced {
+            text: Cow::Borrowed(body),
+            spaces: Vec::new(),
+        };
     }
     spaced.push_str(&body[copied..]);
-    Cow::Owned(spaced)
+
+    // Lines and columns as the tokenizer counts them.
+    let mut located = Vec::with_capacity(inserted.len());
+    let mut inserted = inserted.into_iter().peekable();
+    let mut location = Location::new(1, 1);
+    for (at, character) in spaced.char_indices() {
+        if inserted.next_if_eq(&at).is_some() {
+            located.push(location);
+        }
+        if character == '\n' {
+            location.line += 1;
+            location.column = 1;
+        } else {
+            location.column += 1;
+        }
+    }
+    Spaced {
+        text: Cow::Owned(spaced),
+        spaces: located,
+    }
 }
 
 /// The PL/pgSQL statements recognised by their first word.
@@ -1174,7 +1259,7 @@ type Bound = Option<Arc<(Statement, Scrolling)>>;
 
 /// A recursive-descent walk over the body's tokens.
 struct Reader {
-    tokens: Vec<Token>,
+    tokens: Vec<TokenWithSpan>,
     index: usize,
     depth: usize,
     /// The innermost level of names, where `OPEN` and `FOR` find a cursor.
@@ -1193,12 +1278,24 @@ struct Enclosing {
 }
 
 impl Reader {
+    /// The token at `at`, without its span.
+    fn token(&self, at: usize) -> Option<&Token> {
+        self.tokens.get(at).map(|token| &token.token)
+    }
+
     fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.index)
+        self.token(self.index)
     }
 
     fn peek_nth(&self, offset: usize) -> Option<&Token> {
-        self.tokens.get(self.index + offset)
+        self.token(self.index + offset)
+    }
+
+    /// The span from the token at `start` through the last token read.
+    fn span_since(&self, start: usize) -> Span {
+        self.tokens[start]
+            .span
+            .union(&self.tokens[self.index - 1].span)
     }
 
     fn at(&self, keyword: &str) -> bool {
@@ -1382,19 +1479,22 @@ impl Reader {
     /// The name starting at the next token, or a parameter's `$n`, as
     /// written with any fields after periods, with how many tokens it spans.
     fn peek_qualified(&self) -> Option<(ObjectName, usize)> {
-        let first = match self.peek()? {
-            Token::Word(first) => first.to_ident(Span::empty()),
+        let TokenWithSpan { token, span } = self.tokens.get(self.index)?;
+        let first = match token {
+            Token::Word(first) => first.to_ident(*span),
             Token::Placeholder(placeholder) if parameter_number(placeholder).is_some() => {
-                Ident::new(placeholder.clone())
+                Ident::with_span(*span, placeholder.clone())
             }
             _ => return None,
         };
         let mut parts = Vec::from([first]);
         let mut length = 1;
-        while let (Some(Token::Period), Some(Token::Word(word))) =
-            (self.peek_nth(length), self.peek_nth(length + 1))
+        while let (Some(Token::Period), Some(word)) = (
+            self.peek_nth(length),
+            self.tokens.get(self.index + length + 1),
+        ) && let Token::Word(name) = &word.token
         {
-            parts.push(word.to_ident(Span::empty()));
+            parts.push(name.to_ident(word.span));
             length += 2;
         }
         Some((ObjectName::from(parts), length))
@@ -1649,18 +1749,27 @@ impl Reader {
     fn statements(&mut self, until: &[&str]) -> Result<Vec<Node>, Error> {
         let mut nodes = Vec::new();
         while !self.at_any(until) {
-            self.statement(&mut nodes)?;
+            let start = self.index;
+            let kind = self.statement()?;
+            self.expect_semicolon()?;
+            if let Some(kind) = kind {
+                nodes.push(Node {
+                    kind,
+                    span: self.span_since(start),
+                });
+            }
         }
         Ok(nodes)
     }
 
-    fn statement(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
+    /// Reads one statement up to its `;`, or `None` for `NULL`, which does
+    /// nothing.
+    fn statement(&mut self) -> Result<Option<NodeKind>, Error> {
         let label = self.label()?;
         // PostgreSQL takes a statement's first word for a variable when an
         // assignment follows it, even an unreserved keyword such as `get`.
         if label.is_none() && self.at_assignment() {
-            nodes.push(Node::Assignment(self.assignment()?));
-            return self.expect_semicolon();
+            return Ok(Some(NodeKind::Assignment(self.assignment()?)));
         }
         let Some(Token::Word(word)) = self.peek() else {
             return Err(self.syntax("a statement"));
@@ -1681,60 +1790,51 @@ impl Reader {
             return Err(self.syntax("a block or a loop after the label"));
         }
 
-        match command {
-            Some(Command::Block) => {
-                let block = self.nested(|reader| reader.block(label))?;
-                nodes.push(Node::Block(block));
-            }
-            Some(Command::If) => {
-                let conditional = self.nested(Self::if_statement)?;
-                nodes.push(Node::If(conditional));
-            }
-            Some(Command::Case) => {
-                let case = self.nested(Self::case_statement)?;
-                nodes.push(Node::Case(case));
-            }
+        Ok(Some(match command {
+            Some(Command::Block) => NodeKind::Block(self.nested(|reader| reader.block(label))?),
+            Some(Command::If) => NodeKind::If(self.nested(Self::if_statement)?),
+            Some(Command::Case) => NodeKind::Case(self.nested(Self::case_statement)?),
             Some(Command::Loop | Command::While | Command::For | Command::Foreach) => {
-                let looped = self.nested(|reader| reader.loop_statement(label))?;
-                nodes.push(Node::Loop(looped));
+                NodeKind::Loop(self.nested(|reader| reader.loop_statement(label))?)
             }
-            Some(Command::Exit(kind)) => nodes.push(Node::Exit(self.exit(kind)?)),
-            Some(Command::Return) => nodes.push(self.return_statement()?),
-            Some(Command::Raise) => nodes.push(Node::Raise(self.raise()?)),
-            Some(Command::Assert) => nodes.push(Node::Assert(self.assert()?)),
+            Some(Command::Exit(kind)) => NodeKind::Exit(self.exit(kind)?),
+            Some(Command::Return) => self.return_statement()?,
+            Some(Command::Raise) => NodeKind::Raise(self.raise()?),
+            Some(Command::Assert) => NodeKind::Assert(self.assert()?),
             Some(Command::Execute) => {
                 self.index += 1;
                 let (dynamic, into) = self.dynamic(End::Semicolon, true)?;
-                nodes.push(Node::Dynamic { dynamic, into });
+                NodeKind::Dynamic { dynamic, into }
             }
             Some(Command::Perform) => {
                 self.index += 1;
                 let query = Box::new(Statement::Query(self.expression_until_semicolon()?));
-                nodes.push(Node::Perform { query });
+                NodeKind::Perform { query }
             }
-            Some(Command::Open) => nodes.push(Node::Open(self.open()?)),
+            Some(Command::Open) => NodeKind::Open(self.open()?),
             Some(Command::Close) => {
                 self.index += 1;
-                let cursor = self.dotted_name("a cursor")?;
-                nodes.push(Node::Close { cursor });
+                NodeKind::Close {
+                    cursor: self.dotted_name("a cursor")?,
+                }
             }
-            Some(Command::Commit) => nodes.push(Node::Commit {
+            Some(Command::Commit) => NodeKind::Commit {
                 chain: self.transaction_chain()?,
-            }),
-            Some(Command::Rollback) => nodes.push(Node::Rollback {
+            },
+            Some(Command::Rollback) => NodeKind::Rollback {
                 chain: self.transaction_chain()?,
-            }),
-            Some(Command::Fetch) => self.fetch(nodes)?,
-            Some(Command::Diagnostics) => nodes.push(Node::Diagnostics(self.diagnostics()?)),
+            },
+            Some(Command::Fetch) => self.fetch()?,
+            Some(Command::Diagnostics) => NodeKind::Diagnostics(self.diagnostics()?),
             Some(Command::Silent) => {
                 self.segment("`;`", |token, _| *token == Token::SemiColon)?;
+                return Ok(None);
             }
             None => {
                 let (statement, into) = self.sql_statement()?;
-                nodes.push(Node::Statement { statement, into });
+                NodeKind::Statement { statement, into }
             }
-        }
-        self.expect_semicolon()
+        }))
     }
 
     /// Reads the optional `AND [NO] CHAIN` of a transaction statement.
@@ -2059,10 +2159,10 @@ impl Reader {
     }
 
     /// Reads `RETURN`, `RETURN NEXT` or `RETURN QUERY`.
-    fn return_statement(&mut self) -> Result<Node, Error> {
+    fn return_statement(&mut self) -> Result<NodeKind, Error> {
         self.index += 1;
         if self.eat("QUERY") {
-            return Ok(Node::ReturnQuery(if self.eat("EXECUTE") {
+            return Ok(NodeKind::ReturnQuery(if self.eat("EXECUTE") {
                 ReturnQuery::Dynamic(self.dynamic(End::Semicolon, false)?.0)
             } else {
                 ReturnQuery::Query(self.statement_until_semicolon()?)
@@ -2075,9 +2175,9 @@ impl Reader {
             Some(self.expression_until_semicolon()?)
         };
         Ok(if next {
-            Node::ReturnNext { value }
+            NodeKind::ReturnNext { value }
         } else {
-            Node::Return { value }
+            NodeKind::Return { value }
         })
     }
 
@@ -2244,7 +2344,7 @@ impl Reader {
     }
 
     /// Reads `FETCH` or `MOVE` with its direction and any targets.
-    fn fetch(&mut self, nodes: &mut Vec<Node>) -> Result<(), Error> {
+    fn fetch(&mut self) -> Result<NodeKind, Error> {
         let fetch = self.at("FETCH");
         self.index += 1;
         let segment = self.segment("`;`", |token, _| {
@@ -2274,23 +2374,21 @@ impl Reader {
             });
         }
         let cursor = self.dotted_name("a cursor")?;
-        if fetch {
+        Ok(if fetch {
             self.expect("INTO")?;
-            let targets = self.targets("an INTO target")?;
-            nodes.push(Node::Fetch(Fetch {
+            NodeKind::Fetch(Fetch {
                 cursor,
                 direction,
-                targets,
-            }));
+                targets: self.targets("an INTO target")?,
+            })
         } else {
-            nodes.push(Node::Move { cursor, direction });
-        }
-        Ok(())
+            NodeKind::Move { cursor, direction }
+        })
     }
 
     /// Reads the direction written before `FROM` or `IN`.
-    fn fetch_direction(&self, tokens: &[Token]) -> Result<FetchDirection, Error> {
-        let Some((first, rest)) = tokens.split_first() else {
+    fn fetch_direction(&self, tokens: &[TokenWithSpan]) -> Result<FetchDirection, Error> {
+        let Some((TokenWithSpan { token: first, .. }, rest)) = tokens.split_first() else {
             return Ok(FetchDirection::Forward(FetchCount::One));
         };
         let fixed = if is_keyword(first, "NEXT") {
@@ -2309,7 +2407,7 @@ impl Reader {
         if let Some(direction) = fixed {
             return match rest.first() {
                 None => Ok(direction),
-                Some(extra) => Err(unexpected("`FROM` or `IN`", extra)),
+                Some(extra) => Err(unexpected("`FROM` or `IN`", &extra.token)),
             };
         }
         if is_keyword(first, "ABSOLUTE") || is_keyword(first, "RELATIVE") {
@@ -2326,9 +2424,9 @@ impl Reader {
         if is_keyword(first, "FORWARD") || is_keyword(first, "BACKWARD") {
             let count = match rest {
                 [] => FetchCount::One,
-                [all] if is_keyword(all, "ALL") => FetchCount::All,
-                [all, extra, ..] if is_keyword(all, "ALL") => {
-                    return Err(unexpected("`FROM` or `IN`", extra));
+                [all] if is_keyword(&all.token, "ALL") => FetchCount::All,
+                [all, extra, ..] if is_keyword(&all.token, "ALL") => {
+                    return Err(unexpected("`FROM` or `IN`", &extra.token));
                 }
                 _ => FetchCount::Rows(select(rest)?),
             };
@@ -2382,12 +2480,12 @@ impl Reader {
         }
         let mut at = self.index + 1;
         loop {
-            match self.tokens.get(at) {
+            match self.token(at) {
                 Some(Token::Period) => at += 2,
                 Some(Token::LBracket) => {
                     let mut depth = 0_usize;
                     loop {
-                        match self.tokens.get(at) {
+                        match self.token(at) {
                             Some(Token::LBracket) => depth += 1,
                             Some(Token::RBracket) => {
                                 depth -= 1;
@@ -2416,10 +2514,14 @@ impl Reader {
             if self.eat_token(&Token::LBracket) {
                 indirection.push(self.subscript()?);
             } else if self.eat_token(&Token::Period) {
-                let Some(Token::Word(field)) = self.peek() else {
+                let Some(TokenWithSpan {
+                    token: Token::Word(field),
+                    span,
+                }) = self.tokens.get(self.index)
+                else {
                     return Err(self.syntax("a field"));
                 };
-                indirection.push(Indirection::Field(field.to_ident(Span::empty())));
+                indirection.push(Indirection::Field(field.to_ident(*span)));
                 self.index += 1;
             } else {
                 break;
@@ -2469,8 +2571,7 @@ impl Reader {
     fn sql_statement(&mut self) -> Result<(Box<Statement>, Option<IntoTargets>), Error> {
         let start = self.index;
         let starts = |offset: usize, keyword: &str| {
-            self.tokens
-                .get(start + offset)
+            self.token(start + offset)
                 .is_some_and(|token| is_keyword(token, keyword))
         };
         let defines_routine = starts(0, "CREATE") && {
@@ -2506,8 +2607,8 @@ impl Reader {
             let into_target = is_keyword(token, "INTO")
                 && !imports
                 && !self.index.checked_sub(1).is_some_and(|before| {
-                    is_keyword(&self.tokens[before], "INSERT")
-                        || is_keyword(&self.tokens[before], "MERGE")
+                    is_keyword(&self.tokens[before].token, "INSERT")
+                        || is_keyword(&self.tokens[before].token, "MERGE")
                 });
             if into_target {
                 if into.is_some() {
@@ -2533,31 +2634,32 @@ impl Reader {
 }
 
 /// Parses `tokens` as one SQL statement.
-fn parse(tokens: &[Token]) -> Result<Box<Statement>, Error> {
+fn parse(tokens: &[TokenWithSpan]) -> Result<Box<Statement>, Error> {
     parse_all(tokens, false, Parser::parse_statement).map(Box::new)
 }
 
 /// Parses `tokens`, an expression, as the `SELECT` that evaluates it.
-fn select(tokens: &[Token]) -> Result<Box<Query>, Error> {
+fn select(tokens: &[TokenWithSpan]) -> Result<Box<Query>, Error> {
     parse_all(tokens, true, Parser::parse_query)
 }
 
-/// Reads all of `tokens` with `read`, behind a `SELECT` when `select` holds.
+/// Reads all of `tokens` with `read`, behind a `SELECT` when `select` holds,
+/// keeping where the body writes each token.
 fn parse_all<T>(
-    tokens: &[Token],
+    tokens: &[TokenWithSpan],
     select: bool,
     read: impl FnOnce(&mut Parser<'static>) -> Result<T, ParserError>,
 ) -> Result<T, Error> {
     let mut owned = Vec::with_capacity(tokens.len() + 1);
     if select {
-        owned.push(Token::Word(Word {
+        owned.push(TokenWithSpan::wrap(Token::Word(Word {
             value: "SELECT".into(),
             quote_style: None,
             keyword: Keyword::SELECT,
-        }));
+        })));
     }
     owned.extend_from_slice(tokens);
-    let mut parser = Parser::new(&PostgreSqlDialect {}).with_tokens(owned);
+    let mut parser = Parser::new(&PostgreSqlDialect {}).with_tokens_with_locations(owned);
     read(&mut parser)
         .and_then(|read| parser.expect_token(&Token::EOF).map(|_| read))
         .map_err(|source| Error::EmbeddedSql {
@@ -2568,17 +2670,49 @@ fn parse_all<T>(
 
 /// Reads the type a declaration writes: `name%TYPE` or `name%ROWTYPE`, each
 /// with any `[]` after it, or else a type named directly.
-fn declared_type(tokens: &[Token]) -> Result<DeclaredType, Error> {
+fn declared_type(tokens: &[TokenWithSpan]) -> Result<DeclaredType, Error> {
     let mut end = tokens.len();
     loop {
         match &tokens[..end] {
-            [.., Token::LBracket, Token::RBracket] => end -= 2,
-            [.., Token::LBracket, Token::Number(..), Token::RBracket] => end -= 3,
+            [
+                ..,
+                TokenWithSpan {
+                    token: Token::LBracket,
+                    ..
+                },
+                TokenWithSpan {
+                    token: Token::RBracket,
+                    ..
+                },
+            ] => end -= 2,
+            [
+                ..,
+                TokenWithSpan {
+                    token: Token::LBracket,
+                    ..
+                },
+                TokenWithSpan {
+                    token: Token::Number(..),
+                    ..
+                },
+                TokenWithSpan {
+                    token: Token::RBracket,
+                    ..
+                },
+            ] => end -= 3,
             _ => break,
         }
     }
     let array = end < tokens.len();
-    if let [of @ .., Token::Mod, reference] = &tokens[..end]
+    if let [
+        of @ ..,
+        TokenWithSpan {
+            token: Token::Mod, ..
+        },
+        TokenWithSpan {
+            token: reference, ..
+        },
+    ] = &tokens[..end]
         && !of.is_empty()
     {
         let of = || parse_all(of, false, |parser| parser.parse_object_name(false));
@@ -2593,13 +2727,13 @@ fn declared_type(tokens: &[Token]) -> Result<DeclaredType, Error> {
 }
 
 /// The text of `tokens`, one space apart, for an error message.
-fn render(tokens: &[Token], select: bool) -> String {
+fn render(tokens: &[TokenWithSpan], select: bool) -> String {
     let mut text = String::from(if select { "SELECT" } else { "" });
     for token in tokens {
         if !text.is_empty() {
             text.push(' ');
         }
-        text.push_str(&token.to_string());
+        text.push_str(&token.token.to_string());
     }
     text
 }

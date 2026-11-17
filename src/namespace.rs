@@ -31,7 +31,8 @@ use sqlparser::ast::{Ident, ObjectName, Query, Statement};
 
 use crate::embedded::{
     AliasTarget, Block, BoundCursor, Branch, Cursor, CursorParameter, Declaration, DeclarationKind,
-    DeclaredType, Dynamic, Indirection, Loop, LoopControl, Node, Open, ReturnQuery, Target,
+    DeclaredType, Dynamic, Indirection, Loop, LoopControl, Node, NodeKind, Open, ReturnQuery,
+    Target,
 };
 
 /// An error refusing a body PostgreSQL does not compile, found while
@@ -320,10 +321,10 @@ impl Namespace {
     }
 
     /// The names in reach in the statements of `block`, the body of the
-    /// function `signature` describes, when the block declares nothing and
-    /// handles no error.
+    /// function `signature` describes, when the block declares nothing. The
+    /// names an `EXCEPTION` section declares reach only its handlers.
     pub(crate) fn body(block: &Block, signature: &Signature) -> Self {
-        debug_assert!(block.declarations.is_empty() && block.handlers.is_empty());
+        debug_assert_eq!(block.declarations, []);
         let function = Collector::new(&|_| false).function_level(signature);
         Self {
             level: Level::new(block.label.clone().map(Cow::Owned), Some(&function)),
@@ -340,7 +341,7 @@ fn row(name: &Name, holds_row: &dyn Fn(&Name) -> bool) -> bool {
 /// SQL a body runs, as [`embedded_sql`](crate::embedded_sql) reads it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Sql<'body> {
-    /// A statement or query, such as a [`Node::Statement`], the query of
+    /// A statement or query, such as a [`NodeKind::Statement`], the query of
     /// `PERFORM` or `RETURN QUERY`, the query of a `FOR` loop over rows or
     /// the query of a cursor that opens.
     Statement(&'body Statement),
@@ -469,7 +470,7 @@ impl Block {
     ///
     /// ```
     /// use sqlparser_plpgsql::{
-    ///     embedded::Node,
+    ///     embedded::{Node, NodeKind},
     ///     embedded_sql,
     ///     namespace::{FunctionKind, Signature, Write},
     /// };
@@ -484,7 +485,7 @@ impl Block {
     ///     .write_sites(&signature, |_| false)
     ///     .expect("the body declares no alias and opens no cursor");
     /// let declared = writes[0].declared.as_ref().expect("s is declared");
-    /// let Write::Node(Node::Assignment(assignment)) = writes[1].write else {
+    /// let Write::Node(Node { kind: NodeKind::Assignment(assignment), .. }) = writes[1].write else {
     ///     unreachable!()
     /// };
     /// assert_eq!(assignment.value.to_string(), "SELECT 'SELECT ' || p");
@@ -685,40 +686,40 @@ impl<'body, 'predicate> Collector<'body, 'predicate> {
 
     fn nodes(&mut self, nodes: &'body [Node], level: &Names) -> Result<(), Error> {
         for node in nodes {
-            match node {
-                Node::Statement { statement, into } => {
+            match &node.kind {
+                NodeKind::Statement { statement, into } => {
                     self.site(Sql::Statement(statement), level);
                     if into.is_some() || matches!(**statement, Statement::Call(_)) {
                         self.write(Write::Node(node), level, None);
                     }
                 }
-                Node::Perform { query } => self.site(Sql::Statement(query), level),
-                Node::Assignment(assignment) => {
+                NodeKind::Perform { query } => self.site(Sql::Statement(query), level),
+                NodeKind::Assignment(assignment) => {
                     self.subscripts(&assignment.target, level);
                     self.site(Sql::Expression(&assignment.value), level);
                     self.write(Write::Node(node), level, None);
                 }
-                Node::Dynamic { dynamic, into } => {
+                NodeKind::Dynamic { dynamic, into } => {
                     self.site(Sql::Dynamic(dynamic), level);
                     if into.is_some() {
                         self.write(Write::Node(node), level, None);
                     }
                 }
-                Node::Fetch(fetch) => {
+                NodeKind::Fetch(fetch) => {
                     if let Some(count) = fetch.direction.expression() {
                         self.site(Sql::Expression(count), level);
                     }
                     self.write(Write::Node(node), level, None);
                 }
-                Node::Move { direction, .. } => {
+                NodeKind::Move { direction, .. } => {
                     if let Some(count) = direction.expression() {
                         self.site(Sql::Expression(count), level);
                     }
                 }
-                Node::Diagnostics(_) => {
+                NodeKind::Diagnostics(_) => {
                     self.write(Write::Node(node), level, None);
                 }
-                Node::Open(open) => {
+                NodeKind::Open(open) => {
                     match open {
                         Open::Bound(cursor) => self.opened(cursor, level)?,
                         Open::Query { query, .. } => self.site(Sql::Statement(query), level),
@@ -726,43 +727,43 @@ impl<'body, 'predicate> Collector<'body, 'predicate> {
                     }
                     self.write(Write::Node(node), level, None);
                 }
-                Node::Close { .. } | Node::Commit { .. } | Node::Rollback { .. } => {}
-                Node::Block(block) => self.block(block, level)?,
-                Node::If(conditional) => {
+                NodeKind::Close { .. } | NodeKind::Commit { .. } | NodeKind::Rollback { .. } => {}
+                NodeKind::Block(block) => self.block(block, level)?,
+                NodeKind::If(conditional) => {
                     self.branches(&conditional.branches, level)?;
                     self.nodes(&conditional.otherwise, level)?;
                 }
-                Node::Case(case) => {
+                NodeKind::Case(case) => {
                     if let Some(subject) = &case.subject {
                         self.site(Sql::Expression(subject), level);
                     }
                     self.branches(&case.branches, level)?;
                     self.nodes(&case.otherwise, level)?;
                 }
-                Node::Loop(repeated) => self.looped(node, repeated, level)?,
-                Node::Exit(exit) => {
+                NodeKind::Loop(repeated) => self.looped(node, repeated, level)?,
+                NodeKind::Exit(exit) => {
                     if let Some(condition) = &exit.condition {
                         self.site(Sql::Expression(condition), level);
                     }
                 }
-                Node::Return { value } | Node::ReturnNext { value } => {
+                NodeKind::Return { value } | NodeKind::ReturnNext { value } => {
                     if let Some(value) = value {
                         self.site(Sql::Expression(value), level);
                     }
                 }
-                Node::ReturnQuery(ReturnQuery::Query(query)) => {
+                NodeKind::ReturnQuery(ReturnQuery::Query(query)) => {
                     self.site(Sql::Statement(query), level);
                 }
-                Node::ReturnQuery(ReturnQuery::Dynamic(dynamic)) => {
+                NodeKind::ReturnQuery(ReturnQuery::Dynamic(dynamic)) => {
                     self.site(Sql::Dynamic(dynamic), level);
                 }
-                Node::Raise(raise) => {
+                NodeKind::Raise(raise) => {
                     let options = raise.options.iter().map(|option| &option.value);
                     for value in raise.arguments.iter().chain(options) {
                         self.site(Sql::Expression(value), level);
                     }
                 }
-                Node::Assert(assert) => {
+                NodeKind::Assert(assert) => {
                     self.site(Sql::Expression(&assert.condition), level);
                     if let Some(message) = &assert.message {
                         self.site(Sql::Expression(message), level);
