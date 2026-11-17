@@ -115,6 +115,10 @@ fn a_read_after_an_assignment_reads_the_assigned_value() {
             ("b", "(SELECT x FROM t WHERE t.id = 1)")
         ]))
     );
+    assert_eq!(
+        fields("NEW.a := 1; NEW.b := CURRENT_TIMESTAMP;"),
+        Some(pairs(&[("a", "1"), ("b", "CURRENT_TIMESTAMP")]))
+    );
 }
 
 #[test]
@@ -168,6 +172,9 @@ fn the_whole_row_is_read_only_before_any_assignment() {
     let expands_a = "NEW.b := ROW(NEW.a.*); NEW.a := ROW(1);";
     assert!(fields(expands_a).is_some(), "{expands_a}");
     assert_eq!(fields(&format!("{expands_a} NEW.c := ROW(NEW.a.*);")), None);
+    let reads_a_field = "NEW.b := NEW.a.f1; NEW.a := ROW(1);";
+    assert!(fields(reads_a_field).is_some(), "{reads_a_field}");
+    assert_eq!(fields(&format!("{reads_a_field} NEW.c := NEW.a.f1;")), None);
 }
 
 #[test]
