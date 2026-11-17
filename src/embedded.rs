@@ -31,8 +31,11 @@ use sqlparser::{
     tokenizer::{Span, Token, Tokenizer, Word},
 };
 
+use sqlstate::SqlState;
+
 use crate::{
     Region, Scanner,
+    condition::{ConditionName, UnknownCondition, reported},
     namespace::{Level, stored, stored_parts},
 };
 
@@ -100,6 +103,11 @@ pub enum Error {
         label: Option<String>,
     },
 
+    /// A `RAISE` or a handler names a condition PL/pgSQL does not know,
+    /// which PostgreSQL refuses.
+    #[error(transparent)]
+    UnknownCondition(#[from] UnknownCondition),
+
     /// The body nests blocks and control structures deeper than the reader
     /// follows.
     #[error("PL/pgSQL body nests blocks and control structures deeper than {limit}")]
@@ -146,16 +154,32 @@ pub struct Handler {
 }
 
 /// An error condition, as a [`Handler`] catches it or a [`Raise`] raises it.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Condition {
-    /// A condition name such as `unique_violation`, folded as PostgreSQL
-    /// folds an identifier.
+    /// A condition name such as `unique_violation`, which a handler catches
+    /// under each SQLSTATE the name stands for.
+    Name(ConditionName),
+    /// `SQLSTATE 'code'`.
+    Sqlstate(SqlState),
+    /// A handler's `others`, which catches every error except
+    /// `query_canceled` and `assert_failure`.
+    Others,
+}
+
+impl Condition {
+    /// The SQLSTATE a `RAISE` of the condition reports, the first a name
+    /// stands for.
     ///
-    /// A handler's `others` catches every error except `query_canceled` and
-    /// `assert_failure`.
-    Name(String),
-    /// `SQLSTATE 'code'`, five digits or upper-case ASCII letters.
-    Sqlstate(String),
+    /// None for `SQLSTATE '00000'`, which a `RAISE EXCEPTION` reports as
+    /// `P0001`, and for `others`, which no `RAISE` names.
+    #[must_use]
+    pub fn sqlstate(self) -> Option<SqlState> {
+        match self {
+            Self::Name(name) => Some(name.sqlstate()),
+            Self::Sqlstate(code) => reported(code),
+            Self::Others => None,
+        }
+    }
 }
 
 /// A name a `DECLARE` section binds.
@@ -818,7 +842,8 @@ pub struct RaiseOption {
 /// What a [`RaiseOption`] sets.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum RaiseOptionKind {
-    /// `ERRCODE`, a condition name or an SQLSTATE code.
+    /// `ERRCODE`, a condition name or an SQLSTATE code, read when the `RAISE`
+    /// runs as [`crate::condition::errcode`] reads it.
     Errcode,
     /// `MESSAGE`.
     Message,
@@ -895,8 +920,9 @@ pub struct Assert {
 ///
 /// Returns an [`Error`] when the body is not PL/pgSQL, when an SQL statement
 /// or expression in it does not parse, when a `DECLARE` section declares a
-/// name twice, when `OPEN` names a cursor no enclosing block binds, or when
-/// it nests deeper than the reader follows.
+/// name twice, when `OPEN` names a cursor no enclosing block binds, when a
+/// `RAISE` or a handler names a condition PL/pgSQL does not know, or when it
+/// nests deeper than the reader follows.
 ///
 /// # Example
 ///
@@ -2056,7 +2082,8 @@ impl Reader {
     }
 
     /// Reads the condition of a handler. A name PostgreSQL folds to
-    /// `sqlstate`, quoted or not, introduces an SQLSTATE code.
+    /// `sqlstate`, quoted or not, introduces an SQLSTATE code, and one it
+    /// folds to `others` catches every error.
     fn handler_condition(&mut self) -> Result<Condition, Error> {
         let Some(Token::Word(word)) = self.peek() else {
             return Err(self.syntax("an exception condition"));
@@ -2066,21 +2093,20 @@ impl Reader {
         }
         let name = identifier(word);
         self.index += 1;
-        Ok(if name == "sqlstate" {
-            Condition::Sqlstate(self.sqlstate_code()?)
-        } else {
-            Condition::Name(name)
+        Ok(match name.as_str() {
+            "sqlstate" => Condition::Sqlstate(self.sqlstate_code()?),
+            "others" => Condition::Others,
+            _ => Condition::Name(name.parse()?),
         })
     }
 
     /// Reads the string constant after `SQLSTATE`, which PostgreSQL accepts
     /// only as five digits or upper-case ASCII letters.
-    fn sqlstate_code(&mut self) -> Result<String, Error> {
+    fn sqlstate_code(&mut self) -> Result<SqlState, Error> {
         let Some(code) = self
             .peek()
             .and_then(string_literal)
-            .filter(|code| is_sqlstate(code))
-            .map(String::from)
+            .and_then(|code| code.parse().ok())
         else {
             return Err(self.syntax("an SQLSTATE code"));
         };
@@ -2125,7 +2151,7 @@ impl Reader {
         } else if !self.at("USING")
             && let Some(Token::Word(word)) = self.peek()
         {
-            raise.condition = Some(Condition::Name(identifier(word)));
+            raise.condition = Some(Condition::Name(identifier(word).parse()?));
             self.index += 1;
         }
         if self.eat("USING") {
@@ -2615,15 +2641,6 @@ fn string_literal(token: &Token) -> Option<&str> {
         Token::DollarQuotedString(quoted) => Some(&quoted.value),
         _ => None,
     }
-}
-
-/// Whether `code` is an SQLSTATE code as PostgreSQL accepts one, five digits
-/// or upper-case ASCII letters.
-fn is_sqlstate(code: &str) -> bool {
-    code.len() == 5
-        && code
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || byte.is_ascii_uppercase())
 }
 
 /// The name an identifier denotes, as PostgreSQL folds it.

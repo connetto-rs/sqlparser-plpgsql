@@ -12,6 +12,7 @@ use sqlparser_plpgsql::{
     },
     embedded_sql,
 };
+use sqlstate::{SqlState, pg};
 
 /// One line per node, indented by depth, so a test states the whole tree.
 fn outline(body: &str) -> String {
@@ -54,6 +55,7 @@ fn condition_text(condition: &Condition) -> String {
     match condition {
         Condition::Name(name) => format!("condition {name}"),
         Condition::Sqlstate(code) => format!("sqlstate {code}"),
+        Condition::Others => "others".into(),
     }
 }
 
@@ -471,7 +473,7 @@ fn every_statement_postgresql_ran_is_read_in_place() {
               close c
               block
                 UPDATE pp_docs SET id = id
-                handler condition others
+                handler others
                   DELETE FROM pp_log
               return query SELECT id FROM pp_docs
             "
@@ -992,12 +994,12 @@ fn each_handler_belongs_to_the_block_that_owns_it() {
                 SET search_path = a
                 handler condition unique_violation or sqlstate 22012
                   INSERT INTO errors VALUES (1)
-                handler condition others
+                handler others
                   block
                     raise Exception
-                    handler condition others
+                    handler others
               UPDATE docs SET v = 1
-              handler condition others
+              handler others
                 diagnostics stacked
                   msg = MessageText
                 DELETE FROM docs
@@ -1012,7 +1014,7 @@ fn each_handler_keeps_the_conditions_it_catches() {
         NULL;
       EXCEPTION
         WHEN Insufficient_Privilege THEN RETURN 1;
-        WHEN SQLSTATE '42501' OR "Quoted" THEN RETURN 2;
+        WHEN SQLSTATE '42501' OR "no_data_found" THEN RETURN 2;
         WHEN unique_violation OR division_by_zero OR sqlstate $$P0001$$ THEN RETURN 3;
         WHEN "sqlstate" '22012' THEN RETURN 4;
         WHEN OTHERS THEN RETURN 5;
@@ -1024,17 +1026,92 @@ fn each_handler_keeps_the_conditions_it_catches() {
             block
               handler condition insufficient_privilege
                 return SELECT 1
-              handler sqlstate 42501 or condition Quoted
+              handler sqlstate 42501 or condition no_data_found
                 return SELECT 2
               handler condition unique_violation or condition division_by_zero or sqlstate P0001
                 return SELECT 3
               handler sqlstate 22012
                 return SELECT 4
-              handler condition others
+              handler others
                 return SELECT 5
             "
         )
     );
+}
+
+#[test]
+fn a_condition_resolves_to_the_sqlstate_postgresql_gives_it() {
+    let block = embedded_sql(
+        "BEGIN
+          RAISE check_violation;
+          RAISE null_value_not_allowed;
+          RAISE SQLSTATE 'P1234';
+          RAISE SQLSTATE '00000';
+        EXCEPTION WHEN null_value_not_allowed OR others OR SQLSTATE '22012' THEN NULL;
+        END",
+    )
+    .expect("a body PostgreSQL accepts");
+    let raised: Vec<Option<SqlState>> = block
+        .statements
+        .iter()
+        .map(|node| {
+            let Node::Raise(raise) = node else {
+                panic!("{node:?} is no RAISE")
+            };
+            raise.condition.and_then(Condition::sqlstate)
+        })
+        .collect();
+    assert_eq!(
+        raised,
+        [
+            Some(pg::CHECK_VIOLATION),
+            Some(pg::NULL_VALUE_NOT_ALLOWED),
+            Some("P1234".parse().expect("an SQLSTATE")),
+            None,
+        ]
+    );
+    let [
+        Condition::Name(name),
+        Condition::Others,
+        Condition::Sqlstate(code),
+    ] = block.handlers[0].conditions[..]
+    else {
+        panic!("{:?}", block.handlers[0].conditions)
+    };
+    assert_eq!(
+        name.sqlstates().collect::<Vec<_>>(),
+        [
+            pg::NULL_VALUE_NOT_ALLOWED,
+            pg::E_R_I_E_NULL_VALUE_NOT_ALLOWED
+        ]
+    );
+    assert_eq!(code, pg::DIVISION_BY_ZERO);
+    assert_eq!(Condition::Others.sqlstate(), None);
+}
+
+#[test]
+fn a_condition_postgresql_does_not_know_is_refused() {
+    for (body, name) in [
+        ("BEGIN RAISE no_such_condition; END", "no_such_condition"),
+        ("BEGIN RAISE others; END", "others"),
+        ("BEGIN RAISE \"Check_Violation\"; END", "Check_Violation"),
+        (
+            "BEGIN NULL; EXCEPTION WHEN no_such_condition THEN NULL; END",
+            "no_such_condition",
+        ),
+        (
+            "BEGIN NULL; EXCEPTION WHEN check_violation OR \"OTHERS\" THEN NULL; END",
+            "OTHERS",
+        ),
+    ] {
+        let error = embedded_sql(body).expect_err(body);
+        assert_eq!(
+            error.to_string(),
+            format!("unrecognized exception condition \"{name}\""),
+            "{body}"
+        );
+        assert!(matches!(error, Error::UnknownCondition(_)), "{body}");
+    }
 }
 
 #[test]
@@ -1369,8 +1446,8 @@ fn a_malformed_body_is_a_syntax_error() {
         "BEGIN RAISE SQLSTATE '22o12'; END",
         "BEGIN NULL; EXCEPTION WHEN THEN NULL; END",
         "BEGIN NULL; EXCEPTION WHEN others OR THEN NULL; END",
-        "BEGIN NULL; EXCEPTION WHEN a b THEN NULL; END",
-        "BEGIN NULL; EXCEPTION WHEN a.b THEN NULL; END",
+        "BEGIN NULL; EXCEPTION WHEN unique_violation b THEN NULL; END",
+        "BEGIN NULL; EXCEPTION WHEN unique_violation.b THEN NULL; END",
         "BEGIN NULL; EXCEPTION WHEN SQLSTATE 22012 THEN NULL; END",
         "BEGIN NULL; EXCEPTION WHEN SQLSTATE '2201' THEN NULL; END",
         "BEGIN NULL; EXCEPTION WHEN 'P0001' THEN NULL; END",
@@ -1565,7 +1642,7 @@ fn every_diagnostics_item_is_kept_with_its_target() {
                 outer_block.c = Context
               diagnostics
                 d = RowCount
-              handler condition others
+              handler others
                 diagnostics stacked
                   e = ReturnedSqlstate
                   f = ColumnName

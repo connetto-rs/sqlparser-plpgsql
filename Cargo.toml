@@ -11,6 +11,7 @@ documentation = "https://docs.rs/sqlparser-plpgsql"
 
 [dependencies]
 sqlparser = { git = "https://github.com/apache/datafusion-sqlparser-rs", branch = "main", default-features = false }
+sqlstate = "0.2"
 thiserror = { version = "2.0", default-features = false }
 
 [features]
