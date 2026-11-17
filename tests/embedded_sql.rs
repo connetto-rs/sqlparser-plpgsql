@@ -190,12 +190,12 @@ fn write_into(out: &mut String, into: Option<&IntoTargets>, depth: usize) {
     }
 }
 
-fn write_branches(out: &mut String, branches: &[Branch], otherwise: &[Node], depth: usize) {
+fn write_branches(out: &mut String, branches: &[Branch], otherwise: Option<&[Node]>, depth: usize) {
     for branch in branches {
         line(out, depth, &format!("when {}", branch.condition));
         write_nodes(out, &branch.statements, depth + 1);
     }
-    if !otherwise.is_empty() {
+    if let Some(otherwise) = otherwise {
         line(out, depth, "else");
         write_nodes(out, otherwise, depth + 1);
     }
@@ -242,7 +242,7 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                 write_branches(
                     out,
                     &conditional.branches,
-                    &conditional.otherwise,
+                    (!conditional.otherwise.is_empty()).then_some(&conditional.otherwise),
                     depth + 1,
                 );
             }
@@ -251,7 +251,7 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                     Some(subject) => line(out, depth, &format!("case {subject}")),
                     None => line(out, depth, "case"),
                 }
-                write_branches(out, &case.branches, &case.otherwise, depth + 1);
+                write_branches(out, &case.branches, case.otherwise.as_deref(), depth + 1);
             }
             NodeKind::Loop(looped) => {
                 write_loop_control(out, looped, depth);
@@ -663,6 +663,7 @@ fn branches_keep_their_conditions_and_statements_apart() {
           ELSE DELETE FROM c;
         END CASE;
         CASE WHEN (SELECT true FROM d) THEN NULL; END CASE;
+        CASE WHEN (SELECT false FROM d) THEN NULL; ELSE END CASE;
     END";
     assert_eq!(
         outline(body),
@@ -686,6 +687,9 @@ fn branches_keep_their_conditions_and_statements_apart() {
                   DELETE FROM c
               case
                 when SELECT (SELECT true FROM d)
+              case
+                when SELECT (SELECT false FROM d)
+                else
             "
         )
     );

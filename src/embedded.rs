@@ -701,7 +701,8 @@ pub struct Branch {
 pub struct If {
     /// The `IF` branch and every `ELSIF`, tried in order until one holds.
     pub branches: Vec<Branch>,
-    /// The `ELSE` statements.
+    /// The `ELSE` statements, empty when `ELSE` is missing, which PostgreSQL
+    /// runs the same as an empty `ELSE`.
     pub otherwise: Vec<Node>,
 }
 
@@ -712,8 +713,11 @@ pub struct Case {
     pub subject: Option<Box<Query>>,
     /// Every `WHEN`, tried in order until one holds.
     pub branches: Vec<Branch>,
-    /// The `ELSE` statements.
-    pub otherwise: Vec<Node>,
+    /// The `ELSE` statements, when `ELSE` is written.
+    ///
+    /// `None` when `ELSE` is missing, which PostgreSQL ends with
+    /// `case_not_found` when no `WHEN` holds.
+    pub otherwise: Option<Vec<Node>>,
 }
 
 /// A loop and the statements it repeats.
@@ -1863,7 +1867,7 @@ impl Reader {
                 break;
             }
         }
-        let otherwise = self.otherwise()?;
+        let otherwise = self.otherwise()?.unwrap_or_default();
         self.expect("IF")?;
         Ok(If {
             branches,
@@ -1902,11 +1906,11 @@ impl Reader {
     }
 
     /// Reads an optional `ELSE` and the `END` after it.
-    fn otherwise(&mut self) -> Result<Vec<Node>, Error> {
+    fn otherwise(&mut self) -> Result<Option<Vec<Node>>, Error> {
         let otherwise = if self.eat("ELSE") {
-            self.statements(&["END"])?
+            Some(self.statements(&["END"])?)
         } else {
-            Vec::new()
+            None
         };
         self.expect("END")?;
         Ok(otherwise)

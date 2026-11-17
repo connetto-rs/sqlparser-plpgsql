@@ -738,7 +738,9 @@ impl<'body, 'predicate> Collector<'body, 'predicate> {
                         self.site(Sql::Expression(subject), level);
                     }
                     self.branches(&case.branches, level)?;
-                    self.nodes(&case.otherwise, level)?;
+                    if let Some(otherwise) = &case.otherwise {
+                        self.nodes(otherwise, level)?;
+                    }
                 }
                 NodeKind::Loop(repeated) => self.looped(node, repeated, level)?,
                 NodeKind::Exit(exit) => {
