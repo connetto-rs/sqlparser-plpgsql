@@ -1,14 +1,18 @@
 //! The SQL a PL/pgSQL body embeds, read through the public API.
 #![cfg(feature = "body-parse")]
 
+mod common;
+
 use core::fmt::Write as _;
 
-use sqlparser::ast::{FunctionArguments, ObjectName, Statement};
+use common::quoted;
+use sqlparser::ast::{FunctionArguments, ObjectName, Spanned, Statement};
 use sqlparser_plpgsql::{
     embedded::{
         AliasTarget, Block, BoundCursor, Branch, Condition, DeclarationKind, DeclaredType, Dynamic,
         Error, ExitKind, Fetch, FetchCount, FetchDirection, FetchPosition, Indirection,
-        IntoTargets, Loop, LoopControl, Node, Open, Raise, ReturnQuery, Scrolling, Target,
+        IntoTargets, Loop, LoopControl, Node, NodeKind, Open, Raise, ReturnQuery, Scrolling,
+        Target,
     },
     embedded_sql,
 };
@@ -199,13 +203,13 @@ fn write_branches(out: &mut String, branches: &[Branch], otherwise: &[Node], dep
 
 fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
     for node in nodes {
-        match node {
-            Node::Statement { statement, into } => {
+        match &node.kind {
+            NodeKind::Statement { statement, into } => {
                 line(out, depth, &statement.to_string());
                 write_into(out, into.as_ref(), depth + 1);
             }
-            Node::Perform { query } => line(out, depth, &format!("perform {query}")),
-            Node::Assignment(assignment) => line(
+            NodeKind::Perform { query } => line(out, depth, &format!("perform {query}")),
+            NodeKind::Assignment(assignment) => line(
                 out,
                 depth,
                 &format!(
@@ -214,13 +218,13 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                     assignment.value
                 ),
             ),
-            Node::Dynamic { dynamic, into } => {
+            NodeKind::Dynamic { dynamic, into } => {
                 write_dynamic(out, dynamic, depth);
                 write_into(out, into.as_ref(), depth + 1);
             }
-            Node::Fetch(fetch) => write_fetch(out, fetch, depth),
-            Node::Move { cursor, direction } => write_move(out, cursor, direction, depth),
-            Node::Diagnostics(diagnostics) => {
+            NodeKind::Fetch(fetch) => write_fetch(out, fetch, depth),
+            NodeKind::Move { cursor, direction } => write_move(out, cursor, direction, depth),
+            NodeKind::Diagnostics(diagnostics) => {
                 let stacked = if diagnostics.stacked { " stacked" } else { "" };
                 line(out, depth, &format!("diagnostics{stacked}"));
                 for item in &diagnostics.items {
@@ -228,12 +232,12 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                     line(out, depth + 1, &text);
                 }
             }
-            Node::Open(open) => write_open(out, open, depth),
-            Node::Close { cursor } => line(out, depth, &format!("close {cursor}")),
-            Node::Commit { chain } => write_transaction(out, "commit", *chain, depth),
-            Node::Rollback { chain } => write_transaction(out, "rollback", *chain, depth),
-            Node::Block(block) => write_block(out, block, depth),
-            Node::If(conditional) => {
+            NodeKind::Open(open) => write_open(out, open, depth),
+            NodeKind::Close { cursor } => line(out, depth, &format!("close {cursor}")),
+            NodeKind::Commit { chain } => write_transaction(out, "commit", *chain, depth),
+            NodeKind::Rollback { chain } => write_transaction(out, "rollback", *chain, depth),
+            NodeKind::Block(block) => write_block(out, block, depth),
+            NodeKind::If(conditional) => {
                 line(out, depth, "if");
                 write_branches(
                     out,
@@ -242,18 +246,18 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                     depth + 1,
                 );
             }
-            Node::Case(case) => {
+            NodeKind::Case(case) => {
                 match &case.subject {
                     Some(subject) => line(out, depth, &format!("case {subject}")),
                     None => line(out, depth, "case"),
                 }
                 write_branches(out, &case.branches, &case.otherwise, depth + 1);
             }
-            Node::Loop(looped) => {
+            NodeKind::Loop(looped) => {
                 write_loop_control(out, looped, depth);
                 write_nodes(out, &looped.statements, depth + 1);
             }
-            Node::Exit(exit) => {
+            NodeKind::Exit(exit) => {
                 let mut text = String::from(match exit.kind {
                     ExitKind::Exit => "exit",
                     ExitKind::Continue => "continue",
@@ -266,21 +270,21 @@ fn write_nodes(out: &mut String, nodes: &[Node], depth: usize) {
                 }
                 line(out, depth, &text);
             }
-            Node::Return { value: None } => line(out, depth, "return"),
-            Node::Return { value: Some(value) } => line(out, depth, &format!("return {value}")),
-            Node::ReturnNext { value: None } => line(out, depth, "return next"),
-            Node::ReturnNext { value: Some(value) } => {
+            NodeKind::Return { value: None } => line(out, depth, "return"),
+            NodeKind::Return { value: Some(value) } => line(out, depth, &format!("return {value}")),
+            NodeKind::ReturnNext { value: None } => line(out, depth, "return next"),
+            NodeKind::ReturnNext { value: Some(value) } => {
                 line(out, depth, &format!("return next {value}"));
             }
-            Node::ReturnQuery(ReturnQuery::Query(query)) => {
+            NodeKind::ReturnQuery(ReturnQuery::Query(query)) => {
                 line(out, depth, &format!("return query {query}"));
             }
-            Node::ReturnQuery(ReturnQuery::Dynamic(dynamic)) => {
+            NodeKind::ReturnQuery(ReturnQuery::Dynamic(dynamic)) => {
                 line(out, depth, "return query");
                 write_dynamic(out, dynamic, depth + 1);
             }
-            Node::Raise(raise) => write_raise(out, raise, depth),
-            Node::Assert(assert) => {
+            NodeKind::Raise(raise) => write_raise(out, raise, depth),
+            NodeKind::Assert(assert) => {
                 line(out, depth, &format!("assert {}", assert.condition));
                 if let Some(message) = &assert.message {
                     line(out, depth + 1, &format!("message {message}"));
@@ -1055,7 +1059,7 @@ fn a_condition_resolves_to_the_sqlstate_postgresql_gives_it() {
         .statements
         .iter()
         .map(|node| {
-            let Node::Raise(raise) = node else {
+            let NodeKind::Raise(raise) = &node.kind else {
                 panic!("{node:?} is no RAISE")
             };
             raise.condition.and_then(Condition::sqlstate)
@@ -1663,7 +1667,13 @@ fn every_diagnostics_item_is_kept_with_its_target() {
 #[test]
 fn a_call_keeps_its_arguments_in_its_sql() {
     let block = embedded_sql("DECLARE s text; BEGIN CALL p(s); END").expect("a CALL reads");
-    let [Node::Statement { statement, into }] = block.statements.as_slice() else {
+    let [
+        Node {
+            kind: NodeKind::Statement { statement, into },
+            ..
+        },
+    ] = block.statements.as_slice()
+    else {
         panic!("expected one statement, got {:?}", block.statements);
     };
     assert!(into.is_none());
@@ -1737,4 +1747,42 @@ fn nesting_past_the_limit_is_an_error_instead_of_a_stack_overflow() {
         embedded_sql(&body),
         Err(Error::NestingTooDeep { .. })
     ));
+}
+
+#[test]
+fn nodes_and_the_sql_they_embed_carry_where_the_body_writes_them() {
+    use sqlparser_plpgsql::embedded::expression;
+
+    let body = "<<outer>> BEGIN
+  FOR i IN 1..10 LOOP
+    x.f := i + 1;  -- a..b stays as written
+  END LOOP;
+END";
+    let block = embedded_sql(body).expect("the body reads");
+    let [looped] = block.statements.as_slice() else {
+        panic!("expected one loop, got {:?}", block.statements);
+    };
+    assert_eq!(
+        quoted(body, looped.span),
+        "FOR i IN 1..10 LOOP\n    x.f := i + 1;  -- a..b stays as written\n  END LOOP;"
+    );
+    let NodeKind::Loop(Loop {
+        control: LoopControl::Range { lower, upper, .. },
+        statements,
+        ..
+    }) = &looped.kind
+    else {
+        panic!("expected a range loop, got {looped:?}");
+    };
+    assert_eq!(quoted(body, expression(lower).span()), "1");
+    assert_eq!(quoted(body, expression(upper).span()), "10");
+    let [assigned] = statements.as_slice() else {
+        panic!("expected one assignment, got {statements:?}");
+    };
+    assert_eq!(quoted(body, assigned.span), "x.f := i + 1;");
+    let NodeKind::Assignment(assignment) = &assigned.kind else {
+        panic!("expected an assignment, got {assigned:?}");
+    };
+    assert_eq!(quoted(body, assignment.target.name.span()), "x.f");
+    assert_eq!(quoted(body, expression(&assignment.value).span()), "i + 1");
 }

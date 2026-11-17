@@ -6,7 +6,7 @@ use std::{collections::HashSet, thread};
 
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use sqlparser_plpgsql::{
-    embedded::{self, Block, Dynamic, Error as ReadError, LoopControl, Node},
+    embedded::{self, Block, Dynamic, Error as ReadError, LoopControl, Node, NodeKind},
     embedded_sql,
     namespace::{
         Error, FunctionKind, Name, NameKind, Namespace, Signature, Site, Sql, TriggerVariable,
@@ -928,24 +928,26 @@ fn every_write_comes_in_body_order_borrowing_its_node() {
         .iter()
         .map(|site| match site.write {
             Write::Declaration(declaration) => declaration.name.as_str(),
-            Write::Node(Node::Assignment(_)) => "assignment",
-            Write::Node(Node::Statement { statement, .. }) => match **statement {
-                Statement::Call(_) => "call",
-                _ => "statement",
+            Write::Node(node) => match &node.kind {
+                NodeKind::Assignment(_) => "assignment",
+                NodeKind::Statement { statement, .. } => match **statement {
+                    Statement::Call(_) => "call",
+                    _ => "statement",
+                },
+                NodeKind::Dynamic { .. } => "execute",
+                NodeKind::Open(_) => "open",
+                NodeKind::Fetch(_) => "fetch",
+                NodeKind::Diagnostics(_) => "diagnostics",
+                NodeKind::Loop(looped) => match looped.control {
+                    LoopControl::Query { .. } => "query loop",
+                    LoopControl::Dynamic { .. } => "dynamic loop",
+                    LoopControl::Range { .. } => "range loop",
+                    LoopControl::Cursor { .. } => "cursor loop",
+                    LoopControl::Array { .. } => "array loop",
+                    LoopControl::Unconditional | LoopControl::While(_) => "plain loop",
+                },
+                other => panic!("{other:?} writes nothing"),
             },
-            Write::Node(Node::Dynamic { .. }) => "execute",
-            Write::Node(Node::Open(_)) => "open",
-            Write::Node(Node::Fetch(_)) => "fetch",
-            Write::Node(Node::Diagnostics(_)) => "diagnostics",
-            Write::Node(Node::Loop(looped)) => match looped.control {
-                LoopControl::Query { .. } => "query loop",
-                LoopControl::Dynamic { .. } => "dynamic loop",
-                LoopControl::Range { .. } => "range loop",
-                LoopControl::Cursor { .. } => "cursor loop",
-                LoopControl::Array { .. } => "array loop",
-                LoopControl::Unconditional | LoopControl::While(_) => "plain loop",
-            },
-            Write::Node(other) => panic!("{other:?} writes nothing"),
         })
         .collect();
     assert_eq!(
@@ -997,7 +999,7 @@ fn a_write_in_an_inner_block_reaches_the_variable_it_shadows_or_not() {
     let writes = writes(&block, &plain("f", &[]));
     let assigned: Vec<&Name> = writes
         .iter()
-        .filter(|site| matches!(site.write, Write::Node(Node::Assignment(assignment)) if assignment.target.name.to_string() == "s"))
+        .filter(|site| matches!(site.write, Write::Node(Node { kind: NodeKind::Assignment(assignment), .. }) if assignment.target.name.to_string() == "s"))
         .map(|site| whole_in(&site.namespace, &["s"]))
         .collect();
     let [outer, inner, again] = assigned.as_slice() else {
@@ -1025,7 +1027,7 @@ fn a_query_loop_assigns_the_variables_in_reach_and_declares_none() {
     let writes = writes(&block, &signature);
     let declared_r = writes[0].declared.as_ref().expect("r is declared");
     let query_loop = &writes[3];
-    let Node::Loop(looped) = node(query_loop) else {
+    let NodeKind::Loop(looped) = &node(query_loop).kind else {
         panic!("expected a loop");
     };
     let LoopControl::Query { targets, query } = &looped.control else {
@@ -1045,7 +1047,7 @@ fn a_query_loop_assigns_the_variables_in_reach_and_declares_none() {
     assert_eq!(whole(execute, &["r"]), declared_r);
 
     let dynamic_loop = &writes[4];
-    let Node::Loop(looped) = node(dynamic_loop) else {
+    let NodeKind::Loop(looped) = &node(dynamic_loop).kind else {
         panic!("expected a loop");
     };
     let LoopControl::Dynamic { targets, .. } = &looped.control else {
@@ -1091,7 +1093,7 @@ fn a_cursor_loop_and_an_open_write_where_their_arguments_are_read() {
     let [execute] = dynamic_sites(&block, &signature).try_into().unwrap();
     assert_eq!(whole(&execute, &["r"]), record);
     let open = &writes[4];
-    let Node::Open(opened) = node(open) else {
+    let NodeKind::Open(opened) = &node(open).kind else {
         panic!("expected an OPEN");
     };
     assert_eq!(opened.cursor().to_string(), "c");
@@ -1125,7 +1127,7 @@ fn an_open_reads_its_query_in_its_block_and_writes_its_cursor() {
     );
     assert_eq!(whole(&sites[1], &["s"]), inner_s);
     for open in &writes[3..] {
-        let Node::Open(opened) = node(open) else {
+        let NodeKind::Open(opened) = &node(open).kind else {
             panic!("expected an OPEN");
         };
         assert_eq!(opened.cursor().to_string(), "cur");
