@@ -18,6 +18,8 @@ pub mod body;
 pub mod embedded;
 #[cfg(feature = "body-parse")]
 pub mod namespace;
+#[cfg(feature = "body-parse")]
+pub mod new_row;
 pub use context::{PlPgSqlContext, UuidFirstUse, VariableBinding, VariableDeclaration};
 pub use error::Error;
 pub use preprocessor::PlPgSqlPreprocessor;
