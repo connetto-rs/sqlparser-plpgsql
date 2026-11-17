@@ -1786,3 +1786,13 @@ END";
     assert_eq!(quoted(body, assignment.target.name.span()), "x.f");
     assert_eq!(quoted(body, expression(&assignment.value).span()), "i + 1");
 }
+
+#[test]
+fn the_same_steps_written_elsewhere_compare_equal() {
+    let read = |body: &str| embedded_sql(body).unwrap_or_else(|error| panic!("{body}: {error}"));
+    let compact = read("BEGIN x := 1; END");
+    let spread = read("BEGIN\n  x   :=   1;\nEND");
+    assert_ne!(compact.statements[0].span, spread.statements[0].span);
+    assert_eq!(compact, spread);
+    assert_ne!(compact, read("BEGIN x := 2; END"));
+}
