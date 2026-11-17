@@ -166,6 +166,7 @@ source = "git+https://github.com/apache/datafusion-sqlparser-rs?branch=main#ce12
 dependencies = [
  "log",
  "recursive",
+ "sqlparser_derive",
 ]
 
 [[package]]
@@ -173,6 +174,7 @@ name = "sqlparser-plpgsql"
 version = "0.1.0"
 dependencies = [
  "sqlparser",
+ "sqlstate",
  "thiserror",
 ]
 
@@ -183,6 +185,22 @@ dependencies = [
  "libfuzzer-sys",
  "sqlparser-plpgsql",
 ]
+
+[[package]]
+name = "sqlparser_derive"
+version = "0.6.0"
+source = "git+https://github.com/apache/datafusion-sqlparser-rs?branch=main#ce12f1f63e0a50259d646cd587d0643e415646b3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.4",
+]
+
+[[package]]
+name = "sqlstate"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "858cea190fe7555971c35a5eb336858f1bf962a2bd7ceb8704fb1759b36af2cd"
 
 [[package]]
 name = "stacker"

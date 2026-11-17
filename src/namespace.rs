@@ -318,6 +318,17 @@ impl Namespace {
     ) -> Option<(&Name, usize)> {
         self.level.lookup(parts, &|name| row(name, &holds_row))
     }
+
+    /// The names in reach in the statements of `block`, the body of the
+    /// function `signature` describes, when the block declares nothing and
+    /// handles no error.
+    pub(crate) fn body(block: &Block, signature: &Signature) -> Self {
+        debug_assert!(block.declarations.is_empty() && block.handlers.is_empty());
+        let function = Collector::new(&|_| false).function_level(signature);
+        Self {
+            level: Level::new(block.label.clone().map(Cow::Owned), Some(&function)),
+        }
+    }
 }
 
 /// Whether `name` holds a row, asking `holds_row` when its kind does not
@@ -498,13 +509,7 @@ impl Block {
         signature: &Signature,
         holds_row: &'predicate dyn Fn(&Name) -> bool,
     ) -> Result<Collector<'body, 'predicate>, Error> {
-        let mut collector = Collector {
-            holds_row,
-            next_id: 0,
-            cursors: BTreeMap::new(),
-            sites: Vec::new(),
-            write_sites: Vec::new(),
-        };
+        let mut collector = Collector::new(holds_row);
         let function = collector.function_level(signature);
         collector.block(self, &function)?;
         Ok(collector)
@@ -524,7 +529,18 @@ struct Collector<'body, 'predicate> {
     write_sites: Vec<WriteSite<'body>>,
 }
 
-impl<'body> Collector<'body, '_> {
+impl<'body, 'predicate> Collector<'body, 'predicate> {
+    /// A walk that has met nothing yet.
+    fn new(holds_row: &'predicate dyn Fn(&Name) -> bool) -> Self {
+        Self {
+            holds_row,
+            next_id: 0,
+            cursors: BTreeMap::new(),
+            sites: Vec::new(),
+            write_sites: Vec::new(),
+        }
+    }
+
     /// A variable of the next id.
     fn name(&mut self, kind: NameKind) -> Name {
         let id = self.next_id;
