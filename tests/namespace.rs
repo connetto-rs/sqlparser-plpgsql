@@ -344,6 +344,39 @@ fn found_is_everywhere_and_the_function_label_reaches_it() {
 }
 
 #[test]
+fn found_is_the_function_level_variable_whatever_a_block_declares() {
+    let block = read(
+        "BEGIN
+            EXECUTE 'x';
+            <<f>> DECLARE found boolean := false; BEGIN
+                EXECUTE 'y';
+                FOR found IN 1 .. 2 LOOP EXECUTE 'z'; END LOOP;
+            EXCEPTION WHEN others THEN EXECUTE 'w';
+            END;
+        END",
+    );
+    let signature = plain("f", &[]);
+    let sites = dynamic_sites(&block, &signature);
+    assert_eq!(sites.len(), 4);
+    let function = whole(&sites[0], &["found"]);
+    assert_eq!(sites[0].namespace.found(), function);
+    for site in &sites[1..] {
+        let found = site.namespace.found();
+        assert_eq!(found, function);
+        assert_eq!(found.kind(), &NameKind::Found);
+        assert_ne!(whole(site, &["found"]), function);
+        assert_ne!(whole(site, &["f", "found"]), function);
+    }
+    let writes = block
+        .write_sites(&signature, |_| false)
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(writes.len(), 2);
+    for write in &writes {
+        assert_eq!(write.namespace.found(), function);
+    }
+}
+
+#[test]
 fn a_trigger_function_holds_its_trigger_variables() {
     let block = read("BEGIN EXECUTE 'x'; END");
     let sites = dynamic_sites(&block, &signature("t", &[], FunctionKind::Trigger));

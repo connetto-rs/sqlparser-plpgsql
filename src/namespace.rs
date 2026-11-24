@@ -295,6 +295,7 @@ pub enum NameKind {
 #[derive(Clone, Debug)]
 pub struct Namespace {
     level: Names,
+    found: Name,
 }
 
 impl Namespace {
@@ -320,14 +321,52 @@ impl Namespace {
         self.level.lookup(parts, &|name| row(name, &holds_row))
     }
 
+    /// `FOUND` of the function's level, which PostgreSQL sets after
+    /// `SELECT INTO`, `PERFORM`, `INSERT`, `UPDATE`, `DELETE`, `MERGE`,
+    /// `FETCH`, `MOVE`, `RETURN QUERY` and each `FOR` or `FOREACH` loop.
+    ///
+    /// That is the variable PostgreSQL sets whatever the names in reach, so a
+    /// block that declares its own `found` hides it from [`Self::lookup`]
+    /// but not from this.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use sqlparser_plpgsql::{
+    ///     embedded_sql,
+    ///     namespace::{FunctionKind, NameKind, Signature},
+    /// };
+    ///
+    /// let block = embedded_sql("DECLARE found boolean := false; BEGIN PERFORM 1; END")?;
+    /// let signature = Signature {
+    ///     name: "f".into(),
+    ///     parameters: vec![],
+    ///     kind: FunctionKind::Plain,
+    /// };
+    /// let sites = block
+    ///     .sites(&signature, |_| false)
+    ///     .expect("the body declares no alias and opens no cursor");
+    /// let perform = &sites[1].namespace;
+    /// let (declared, _) = perform.lookup(&["found"], |_| false).expect("found is declared");
+    /// assert!(matches!(declared.kind(), NameKind::Declared { .. }));
+    /// assert_eq!(perform.found().kind(), &NameKind::Found);
+    /// assert_ne!(perform.found(), declared);
+    /// # Ok::<(), sqlparser_plpgsql::embedded::Error>(())
+    /// ```
+    #[must_use]
+    pub const fn found(&self) -> &Name {
+        &self.found
+    }
+
     /// The names in reach in the statements of `block`, the body of the
     /// function `signature` describes, when the block declares nothing. The
     /// names an `EXCEPTION` section declares reach only its handlers.
     pub(crate) fn body(block: &Block, signature: &Signature) -> Self {
         debug_assert_eq!(block.declarations, []);
-        let function = Collector::new(&|_| false).function_level(signature);
+        let (function, found) = function_level(signature, &mut 0);
         Self {
             level: Level::new(block.label.clone().map(Cow::Owned), Some(&function)),
+            found,
         }
     }
 }
@@ -510,8 +549,7 @@ impl Block {
         signature: &Signature,
         holds_row: &'predicate dyn Fn(&Name) -> bool,
     ) -> Result<Collector<'body, 'predicate>, Error> {
-        let mut collector = Collector::new(holds_row);
-        let function = collector.function_level(signature);
+        let (mut collector, function) = Collector::new(holds_row, signature);
         collector.block(self, &function)?;
         Ok(collector)
     }
@@ -523,6 +561,8 @@ impl Block {
 struct Collector<'body, 'predicate> {
     holds_row: &'predicate dyn Fn(&Name) -> bool,
     next_id: usize,
+    /// `FOUND` of the function's level.
+    found: Name,
     /// The names the query of each cursor declared with one reads, by the id
     /// of the cursor.
     cursors: BTreeMap<usize, Names>,
@@ -531,52 +571,25 @@ struct Collector<'body, 'predicate> {
 }
 
 impl<'body, 'predicate> Collector<'body, 'predicate> {
-    /// A walk that has met nothing yet.
-    fn new(holds_row: &'predicate dyn Fn(&Name) -> bool) -> Self {
-        Self {
+    /// A walk of a body of the function `signature` describes that has met
+    /// nothing yet, with the level the body starts in.
+    fn new(holds_row: &'predicate dyn Fn(&Name) -> bool, signature: &Signature) -> (Self, Names) {
+        let mut next_id = 0;
+        let (function, found) = function_level(signature, &mut next_id);
+        let collector = Self {
             holds_row,
-            next_id: 0,
+            next_id,
+            found,
             cursors: BTreeMap::new(),
             sites: Vec::new(),
             write_sites: Vec::new(),
-        }
+        };
+        (collector, function)
     }
 
     /// A variable of the next id.
     fn name(&mut self, kind: NameKind) -> Name {
-        let id = self.next_id;
-        self.next_id += 1;
-        Name { id, kind }
-    }
-
-    /// The level every body starts in, in the order PostgreSQL declares it.
-    fn function_level(&mut self, signature: &Signature) -> Names {
-        let mut level = Level::new(Some(Cow::Owned(signature.name.clone())), None);
-        for (index, name) in signature.parameters.iter().enumerate() {
-            let position = index + 1;
-            let parameter = self.name(NameKind::Parameter { position });
-            if let Some(name) = name {
-                level.declare(name.clone(), parameter.clone());
-            }
-            level.declare(format!("${position}"), parameter);
-        }
-        let implicit: &[TriggerVariable] = match signature.kind {
-            FunctionKind::Plain => &[],
-            FunctionKind::PolymorphicResult => {
-                let result = self.name(NameKind::ReturnValue);
-                level.declare("$0", result);
-                &[]
-            }
-            FunctionKind::Trigger => &TriggerVariable::TRIGGER,
-            FunctionKind::EventTrigger => &TriggerVariable::EVENT_TRIGGER,
-        };
-        for &variable in implicit {
-            let name = self.name(NameKind::Trigger(variable));
-            level.declare(variable.name(), name);
-        }
-        let found = self.name(NameKind::Found);
-        level.declare("found", found);
-        level
+        numbered(&mut self.next_id, kind)
     }
 
     fn block(&mut self, block: &'body Block, outer: &Names) -> Result<(), Error> {
@@ -877,23 +890,65 @@ impl<'body, 'predicate> Collector<'body, 'predicate> {
     }
 
     fn site(&mut self, sql: Sql<'body>, level: &Names) {
-        self.sites.push(Site {
-            sql,
-            namespace: Namespace {
-                level: level.clone(),
-            },
-        });
+        let namespace = self.namespace(level);
+        self.sites.push(Site { sql, namespace });
     }
 
     fn write(&mut self, write: Write<'body>, level: &Names, declared: Option<Name>) {
+        let namespace = self.namespace(level);
         self.write_sites.push(WriteSite {
             write,
-            namespace: Namespace {
-                level: level.clone(),
-            },
+            namespace,
             declared,
         });
     }
+
+    /// The names in reach where `level` stands.
+    fn namespace(&self, level: &Names) -> Namespace {
+        Namespace {
+            level: level.clone(),
+            found: self.found.clone(),
+        }
+    }
+}
+
+/// A variable of id `next_id`, which then counts it.
+fn numbered(next_id: &mut usize, kind: NameKind) -> Name {
+    let id = *next_id;
+    *next_id += 1;
+    Name { id, kind }
+}
+
+/// The level every body of the function `signature` describes starts in, in
+/// the order PostgreSQL declares it, with its variables numbered from
+/// `next_id`, and its `FOUND`.
+fn function_level(signature: &Signature, next_id: &mut usize) -> (Names, Name) {
+    let mut level = Level::new(Some(Cow::Owned(signature.name.clone())), None);
+    for (index, name) in signature.parameters.iter().enumerate() {
+        let position = index + 1;
+        let parameter = numbered(next_id, NameKind::Parameter { position });
+        if let Some(name) = name {
+            level.declare(name.clone(), parameter.clone());
+        }
+        level.declare(format!("${position}"), parameter);
+    }
+    let implicit: &[TriggerVariable] = match signature.kind {
+        FunctionKind::Plain => &[],
+        FunctionKind::PolymorphicResult => {
+            let result = numbered(next_id, NameKind::ReturnValue);
+            level.declare("$0", result);
+            &[]
+        }
+        FunctionKind::Trigger => &TriggerVariable::TRIGGER,
+        FunctionKind::EventTrigger => &TriggerVariable::EVENT_TRIGGER,
+    };
+    for &variable in implicit {
+        let name = numbered(next_id, NameKind::Trigger(variable));
+        level.declare(variable.name(), name);
+    }
+    let found = numbered(next_id, NameKind::Found);
+    level.declare("found", found.clone());
+    (level, found)
 }
 
 /// The parts of `name` as PostgreSQL stores them. A part that is no
